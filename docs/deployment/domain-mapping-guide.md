@@ -1,5 +1,3 @@
-<!-- TODO: 手順を再度確認する。 -->
-
 # Cloud Run ドメインマッピング設定ガイド
 
 このガイドでは、Cloud Runサービスにカスタムドメインを設定する手順を説明します。
@@ -72,8 +70,6 @@ gcloud auth login
 gcloud config set project portfolio-472821
 gcloud config set run/region asia-northeast1
 ```
-
-**注意**: このガイドでは`gcloud beta run domain-mappings create`コマンドを使用します。公式の形式に従い、`--service`と`--domain`オプションのみを使用します。
 
 ### 2. ドメインマッピング作成
 
@@ -176,22 +172,6 @@ make deploy-gcp-dev-full  # 開発環境の場合
 make deploy-gcp-prod-full # 本番環境の場合
 ```
 
-### コマンド形式について
-
-このガイドではGoogle Cloud公式の推奨形式に従い、以下のコマンド形式を使用しています：
-
-```bash
-gcloud beta run domain-mappings create --service SERVICE --domain DOMAIN
-```
-
-- `SERVICE`: Cloud Runサービス名
-- `DOMAIN`: カスタムドメイン名
-
-この形式の利点：
-- Google Cloud公式ドキュメントと一致
-- シンプルで分かりやすい
-- エラーハンドリングが改善されている
-
 ### 証明書がACTIVEにならない場合
 
 1. **DNS設定の確認**: Cloudflareで正しいレコードが設定されているか
@@ -202,17 +182,9 @@ gcloud beta run domain-mappings create --service SERVICE --domain DOMAIN
 
 1. **Cloudflare設定の確認**: SSL/TLSモードがFull (strict)になっているか
 2. **ドメインマッピング状態**: `make domain-mapping-status`で状態を確認
-3. **DNS伝播の確認**: `dig`コマンドでDNS設定を確認
-
-```bash
-# DNS設定の確認例
-dig dev-app.trip.beita.dev
-dig app.trip.beita.dev
-```
+3. **DNS伝播の確認**: DNS設定が正しく反映されているか確認（数分〜数時間かかる場合があります）
 
 ## 参考情報
 
 - [Cloud Run ドメインマッピング（公式）](https://cloud.google.com/run/docs/mapping-custom-domains)
-- [gcloud run domain-mappings コマンド（公式）](https://cloud.google.com/sdk/gcloud/reference/beta/run/domain-mappings/create)
 - [Cloudflare SSL/TLS設定](https://developers.cloudflare.com/ssl/ssl-tls/)
-- [GCP Cloud Run ログ](https://cloud.google.com/run/docs/logging)

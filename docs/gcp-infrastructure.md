@@ -134,27 +134,6 @@ flowchart TD
 - **GitHub Actions → Artifact Registry / Terraform**: CI/CDがコンテナをビルドしてgcr.ioへプッシュし、Terraform Applyで全リソースを更新。
 - **Private DNS Zone**: Direct VPC Egress時の名前解決をサポート（run.app.ドメイン）。
 
-## AWSとの違い（比較メモ）
-- **リソースの配置感**: AWSではVPC→サブネット→EC2/ECSなど、各リソースがサブネットのプライベートIPを持つ前提で配置する。一方GCPのCloud RunやCloud StorageはGoogle管理サービス側に常駐し、VPCには必要なときだけDirect VPC Egress/Private Service Connectで接続する。
-- **サーバーレスのネットワーク参加**: AWSのLambda(Fargate)はENIアタッチでサブネットに直接参加できるが、Cloud RunはDirect VPC Egress経由でプライベート通信を確保する。サービス自体がサブネット内には常駐しない。
-- **構成図の描き方**: AWSはサブネット単位でリソースを箱に入れる絵が一般的。GCPはVPCを"専用線"として描き、Cloud Run/Cloud StorageなどGoogle管理サービスとは線で結ぶ表現が多い。
-- **ストレージ/レジストリの扱い**: S3やECRはVPCエンドポイントでVPCに"持ち込める"が、GCSやgcr.ioは基本的にGoogle管理サービスとして公開APIにアクセスする（VPC Service Controlsで境界制御は可能だがVPC内部に常駐はしない）。
-- **Private Service Connect vs PrivateLink**: GCPはService Networking/PSCでマネージドサービスにプライベート経路を提供し、AWSはPrivateLinkやVPCエンドポイントで同様の機能を提供。いずれも「共有サービスをプライベートに見せる」仕組みだが、実装コンポーネントが異なる。
-- **外部APIアクセス**: AWSではNAT Gateway/Instanceで外部アクセスを制御するが、GCPではCloud Router → Cloud NAT + ファイアウォールルールで同様の機能を提供。Direct VPC Egressにより、よりシンプルな構成で外部APIアクセスが可能。
-
-## AWSサービスとの対応表
-
-| GCPサービス | AWSで近いサービス | 補足 |
-|-------------|-----------------|------|
-| Cloud Run | ECS Fargate + Application Load Balancer + AWS Certificate Manager | コンテナ実行に加え、HTTPS公開・ロードバランシング・証明書管理まで一括で提供する点が Fargate 単体より抽象度が高い |
-| Cloud SQL (PostgreSQL) | Amazon RDS for PostgreSQL | マネージド RDB。Cloud SQL は Private Service Connect で VPC に露出する、RDS はサブネットに配置される点が異なる |
-| Direct VPC Egress | AWS PrivateLink / VPC エンドポイント (Interface) | サーバーレス環境からVPCのプライベートリソースへ直接接続する仕組み |
-| Cloud Router + Cloud NAT | AWS NAT Gateway | プライベートIPから外部へのアクセスを可能にするNATサービス。GCPではCloud RouterがCloud NATを管理 |
-| Service Networking (Private Service Connect) | AWS PrivateLink (Service) | マネージドサービスにプライベート IP を割り当てる仕組み。Cloud SQL の Private IP 提供に利用 |
-| Cloud Storage | Amazon S3 | オブジェクトストレージ。どちらもVPC内には常駐せず、API/IAMで制御 |
-| Artifact Registry (gcr.io) | Amazon ECR | コンテナイメージレジストリ。Terraform からは参照のみで、CI/CD が Push を担当 |
-| Cloud Logging / Ops (本構成では省略) | Amazon CloudWatch | Cloud Run や Cloud SQL のログ・メトリクスを収集するマネージド監視基盤 |
-| Terraform (HashiCorp) | AWS CloudFormation / CDK | IaC ツール。Terraform はクラウド横断、CloudFormation/CDK は AWS ネイティブ |
 
 ## 想定Q&A
 - **Q: なぜ Cloud Run を選んだのですか？**  
@@ -185,7 +164,32 @@ flowchart TD
   A: 外部から到達できるのは Cloud Run frontend/backend の HTTPS のみ。AIサービスは内部専用、Cloud SQL は Private IP のみ（Backendからのみアクセス可能、AIサービスはDBアクセス権限なし）、バケットやレジストリは IAM で制御しつつ公開 API 経由で利用する。
 
 ## 関連ドキュメント
-- `terraform/README.md` – Terraform全体の操作ガイド
-- `docs/deployment/gcp-deployment-guide.md` – Cloud Run/Cloud SQLデプロイ手順
-- `docs/github-actions-deployment.md` – GitHub Actionsによる自動デプロイの詳細
-- `docs/gcp-current-permissions.md` – GCP IAMロールと権限整理
+- [Terraform README](../../terraform/README.md) – Terraform全体の操作ガイド
+- [GitHub Actions設定](./deployment/github-actions-setup.md) – GitHub Actionsによる自動デプロイの設定
+- [ドメインマッピング設定](./deployment/domain-mapping-guide.md) – Cloud Runカスタムドメイン設定
+
+---
+
+## 参考: AWSとの違い
+
+GCPとAWSの主な違いを簡潔にまとめます。
+
+### リソース配置の考え方
+- **AWS**: VPC→サブネット→EC2/ECSなど、各リソースがサブネットのプライベートIPを持つ前提
+- **GCP**: Cloud RunやCloud StorageはGoogle管理サービス側に常駐し、VPCには必要なときだけDirect VPC Egress/Private Service Connectで接続
+
+### サーバーレスのネットワーク参加
+- **AWS**: Lambda/FargateはENIアタッチでサブネットに直接参加
+- **GCP**: Cloud RunはDirect VPC Egress経由でプライベート通信を確保（サービス自体はサブネット内に常駐しない）
+
+### 主要サービスの対応表
+
+| GCPサービス | AWSで近いサービス | 主な違い |
+|-------------|-----------------|----------|
+| Cloud Run | ECS Fargate + ALB + ACM | HTTPS公開・LB・証明書管理まで一括提供 |
+| Cloud SQL | Amazon RDS | Private Service ConnectでVPCに露出（RDSはサブネット配置） |
+| Direct VPC Egress | AWS PrivateLink / VPC エンドポイント | サーバーレスからVPCプライベートリソースへ直接接続 |
+| Cloud Router + Cloud NAT | AWS NAT Gateway | Cloud RouterがCloud NATを管理 |
+| Service Networking (PSC) | AWS PrivateLink (Service) | マネージドサービスにプライベートIPを割り当て |
+| Cloud Storage | Amazon S3 | どちらもVPC内には常駐せず、API/IAMで制御 |
+| Artifact Registry | Amazon ECR | コンテナイメージレジストリ |
