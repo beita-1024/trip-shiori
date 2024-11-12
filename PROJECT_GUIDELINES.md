@@ -192,6 +192,11 @@
   - **jobs**: cron/queue（shareCleanupJob実装済み）
   - **modules**: use-case/repo/entityは未実装（現在はcontrollers/servicesで対応）
 - **コメント規約**：軽量運用。`NOTE: 本文` を基本。必要に応じ本文でタグ補足
+- **絵文字使用方針**：
+  - 使用可能な絵文字：**❌**（エラー・失敗）、**✅**（成功・完了）、**⚠️**（警告・注意）のみ
+  - 原則：重要な状態を示す場合のみ使用、装飾目的での使用は推奨しない、1つのメッセージに複数の絵文字を使用しない
+  - 対象：`Makefile`、シェルスクリプト、ログ出力を含むスクリプト
+  - 注記：既存コードの一部では未適用の箇所がありますが、新規コードではこの方針に従います
 - **対応ファイル**:
   - `backend/tsconfig.json` - TypeScript strict設定
   - `frontend/tsconfig.json` - TypeScript strict設定・@/ path alias
