@@ -1,0 +1,53 @@
+---
+description: "Business Logic / Util の TSDoc ルール（関数・クラス・ヘルパー）"
+globs:
+  - "src/**/*.ts"
+  - "backend/src/**/*.ts"
+  - "frontend/src/**/*.ts"
+alwaysApply: true
+---
+
+# Business Logic / Util: TSDoc ルール
+
+ドメインの**単純なビジネスロジック**、および **Util/Helper（純粋/副作用小）** に対する最小限の記述ルール。  
+**目的は「意図・前提・注意点」を一瞬で掴めること**。型の反復ではなく、**振る舞い**と**制約**を短く書く。
+
+## 方針（要点）
+- 宣言直前に `/** ... */` を付与（公開・再利用前提の関数/クラスに必須）
+- **型は繰り返さない**（TSが担保）。**前提条件/副作用/エラー/計算量**など振る舞い情報を優先
+- 1〜4行の説明 + 必要なタグ（`@param/@returns/@throws/@example` など）にとどめる
+- **純粋関数**は「純粋」「不変」を明記。**副作用**がある場合は具体的に書く（I/O, 時刻, 乱数, 外部状態）
+- trivial（一行/私用スコープ）なら 1 行コメント可、もしくは省略可（※後述の省略条件）
+
+## 必須/推奨タグ
+- `@summary`（任意）：一行要約（無い場合は先頭行を要約として扱う）
+- `@param`：各引数の**意味/制約**を簡潔に（型は繰り返さない）
+- `@returns`：返り値の意味/特記事項（null/undefined の可能性等）
+- `@throws`：想定されるエラーの**条件**（例：`RangeError: 負数の場合`）
+- `@example`：最小 1 行 or 数行（**典型ケース**を優先）
+- `@remarks`（任意）：前提/後述/性能上の注意（p95>O(n log n) 等）
+- `@deprecated`（任意）：置き換え先
+
+## 省略できる条件
+- **ファイル/関数が private（モジュール内限定）** かつ **自明（一行/明らかな処理）**
+- ただし「境界（I/O/DB/外部API）」に触れる場合は**常に記述**（副作用と失敗条件が重要）
+
+---
+
+## 例：純粋なビジネスロジック（関数）
+```ts
+/**
+ * 税込価格を計算（四捨五入、小数2桁）
+ * @param price 税抜価格（負数不可）
+ * @param taxRate 税率（0〜1）
+ * @returns 税込価格（小数2桁に丸め）
+ * @throws RangeError price<0 or taxRate<0
+ * @example
+ *  calcPriceWithTax(100, 0.1) //=> 110.00
+ */
+export function calcPriceWithTax(price: number, taxRate: number): number {
+  if (price < 0 || taxRate < 0) throw new RangeError("invalid args");
+  const taxed = price * (1 + taxRate);
+  return Math.round(taxed * 100) / 100;
+}
+``

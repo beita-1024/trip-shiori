@@ -1,0 +1,31 @@
+name: Feature
+description: 機能追加の提案
+labels: [feature]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 概要（1行）
+      placeholder: XXXXにXXXXを追加
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 詳細
+      placeholder: 背景 / 目的 / ユースケース
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ基準（Doneの定義）
+      placeholder: ユーザーは〜ができる / クリックで〜が表示される など
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 影響範囲
+      options:
+        - 小（UIのみ）
+        - 中（API追加 or 既存改修）
+        - 大（破壊的変更の可能性）
+    validations:
+      required: true

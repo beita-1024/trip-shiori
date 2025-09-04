@@ -1,0 +1,38 @@
+---
+description: React TypeScript プロジェクトのコーディング規約
+globs:
+  - "src/**/*.tsx"
+  - "src/**/*.ts"
+alwaysApply: true
+---
+
+# コーディング規約
+
+## 基本原則
+- TypeScriptの厳密な型付けを使用（anyは禁止）
+- 関数コンポーネントとHooksを優先
+- エラーハンドリングは必須
+
+## 命名規則
+- コンポーネント: PascalCase（例: UserProfile）
+- 関数: camelCase（例: calculateTotal）
+- 定数: UPPER_SNAKE_CASE（例: MAX_RETRY_COUNT）
+
+## テスト
+- すべての新規関数にユニットテストを作成
+- テストファイルは同一ディレクトリに配置（*.test.ts）
+
+
+## 例
+> 代表的な OK/NG 例は随時追加（Issue: `docs/examples`）。
+
+## 既存コードの扱い
+- 差分箇所で**ボーイスカウト・ルール**（触った部分は綺麗にして返す）。
+- 大規模改修は**別PR**で行い、レビューを小さく保つ。
+
+## 参考
+- プロジェクト README / ADR
+- チーム共通 ESLint/Prettier 設定
+- 変更履歴: 週次リリースノート Issue を参照（CHANGELOGは生成しない方針）。
+
+_Last updated: 2025-09-03_

@@ -1,0 +1,26 @@
+# TODO: このファイルは後から編集予定です。現在はスタブです。
+
+openapi: 3.0.0
+info:
+  title: Trip Shiori API
+  version: 1.0.0
+  description: TODO: APIの詳細説明を後から追加
+
+paths:
+  /health:
+    get:
+      summary: ヘルスチェック
+      description: TODO: 詳細な説明を後から追加
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+# TODO: 他のエンドポイントも後から追加予定

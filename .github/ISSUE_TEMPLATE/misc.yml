@@ -1,0 +1,21 @@
+name: Misc
+description: その他・雑多なタスク（リファクタリング、メモ、軽微な修正など）
+labels: [chore]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 概要（1行）
+      placeholder: 例）README の typo 修正
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 詳細
+      placeholder: 必要に応じて背景や変更内容を記載
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      placeholder: 例）修正が main にマージされている

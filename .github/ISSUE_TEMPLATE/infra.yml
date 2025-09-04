@@ -1,0 +1,31 @@
+name: Infra
+description: インフラ / CI/CD / IaC 関連の変更や課題
+labels: [infra]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 概要（1行）
+      placeholder: 例）GitHub Actions で lint job を追加
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: 詳細
+      placeholder: 目的 / 背景 / 想定する解決策
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      placeholder: 例）CI で lint が必ず実行される / Docker build が成功する
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 影響範囲
+      options:
+        - 小（開発環境のみ）
+        - 中（CI/CD 影響あり）
+        - 大（本番環境に影響）

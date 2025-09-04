@@ -1,0 +1,45 @@
+---
+description: "React コンポーネントにTSDoc を付与するルール（tsx/ts）"
+globs:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+alwaysApply: true
+---
+
+# TSDoc を必ず付けるルール
+
+エクスポートされた関数、React コンポーネント（名前付きエクスポート）、フックを生成または編集する際は必ず以下を守る：
+- 宣言の直前に `/**` から始まる TSDoc/JSDoc ブロックを付与すること
+- 各パラメータに対して `@param` を記載（簡潔な説明）
+- 戻り値に `@returns` を記載
+- 短い `@example` を添えること
+- TypeScript の型をそのまま繰り返さず、**振る舞い／副作用／利用方法／アクセシビリティ上の注意**を優先
+- React コンポーネントの場合は重要な props（バリエーション、className のマージ挙動、アクセシビリティに関する注意）を記載
+- コメントの長さは簡潔に（説明 1〜6 行 + タグ）
+- 内部用で trivial（一行ユーティリティなど）の場合は 1 行コメント、または省略可
+
+
+@example
+/**
+ * Button with variant support.
+ *
+ * @param props.variant - 'primary' | 'ghost' — 見た目のバリエーション
+ * @param props.className - 追加の Tailwind クラス（末尾でマージされます）
+ * @example
+ * <Button variant="primary">保存</Button>
+ */
+
+
+## 例
+> 代表的な OK/NG 例は随時追加（Issue: `docs/examples`）。
+
+## 既存コードの扱い
+- 差分箇所で**ボーイスカウト・ルール**（触った部分は綺麗にして返す）。
+- 大規模改修は**別PR**で行い、レビューを小さく保つ。
+
+## 参考
+- プロジェクト README / ADR
+- チーム共通 ESLint/Prettier 設定
+- 変更履歴: 週次リリースノート Issue を参照（CHANGELOGは生成しない方針）。
+
+_Last updated: 2025-09-03_

@@ -1,0 +1,57 @@
+---
+description: "Backend API エンドポイントに TSDoc を付与するルール（Express / ts）"
+globs:
+  - "backend/src/**/*.ts"
+alwaysApply: true
+---
+
+# Backend API: エンドポイント TSDoc ルール
+
+`Express` のルートハンドラ、ミドルウェア、サービス層の公開関数に対して、以下を付与する。
+
+- 宣言直前に `/** ... */` の TSDoc/JSDoc ブロックを必須化
+- **型の繰り返しは避け**、振る舞い・副作用・制約を優先して記述
+- 次の観点を可能な限り短く明示する（1〜8行 + タグ）
+  - 認証/認可（誰が使えるか）
+  - 入力（必須/任意）・バリデーション方針（zod 等）
+  - 出力（成功時の主要フィールド）
+  - エラー（RFC7807 風の `type/title/status` の粒度で代表例）
+  - レート制限/Idempotency（該当時）
+  - ページング/ソート規約（該当時）
+
+> 目的：OpenAPIや実装を読まずとも、**APIの使い方と注意点**が掴める最小ドキュメントを提供する。
+
+## 推奨タグ
+- `@summary` エンドポイントの一行要約
+- `@auth` 認証/認可要件（例: Bearer JWT / role=user）
+- `@rateLimit` 制限例（例: 60 req/min by IP）
+- `@idempotency` 例: `Idempotency-Key` ヘッダ必須（POSTのみ）
+- `@params` パス/クエリ/ボディの要点（型は繰り返さない）
+- `@returns` 成功時の要点（主要フィールドのみ）
+- `@errors` エラー代表例（`400/401/403/404/409/429/500` など）
+- `@example` 最小のリクエスト/レスポンス例（1ブロックまで）
+
+## 例:
+```ts
+/**
+ * @summary Create a new user
+ * @auth Bearer JWT (role=admin)
+ * @params
+ *   - Body: { name: string, email: string }
+ *   - Validation: zod(schema.userCreate)
+ * @returns
+ *   - 201: { id: string, name: string, email: string }
+ * @errors
+ *   - 400: invalid_body
+ *   - 401: unauthorized
+ *   - 403: forbidden
+ * @example
+ *   POST /api/v1/users
+ *   Body: { "name": "Taro", "email": "taro@example.com" }
+ *   201:  { "id": "usr_123", "name": "Taro", "email": "taro@example.com" }
+ */
+export const createUser: RequestHandler = async (req, res) => {
+  // 実装は省略
+};
+
+```

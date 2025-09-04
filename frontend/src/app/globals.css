@@ -1,0 +1,403 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────
+   Design Tokens (light)
+   - 役割ベースのパターン変数
+   - Material風 elevation 変数
+─────────────────────────────────────────────── */
+
+/******************************************************************************
+# 使い方の目安
+カード（ワイヤー）: class="bg-surface border border-ui rounded-lg bg-surface-pattern surface-pattern-primary elevation-1 p-4"
+重要カード（浮かせる）: ... elevation-3
+無効エリアやサブ面: bg-surface-pattern surface-pattern-subtle elevation-0
+ダイアログ/ポップ: elevation-4～5（印刷時は @media print { box-shadow: none } を別途加えてOK）
+#実運用のコツ
+**“数字→意味”**にリネームしたので、将来「斜線→ドット→グラデ」に替えても .surface-pattern-＊ は不変。
+影は変数で一括調整できるため、Vuetify/Material寄せは --elevation-* の値差し替えのみで対応。
+必要なら elevation にテーマ別の“方向”（例：上方向に浅い影）を追加できます：
+  --elevation-1-up: 0 -2px 6px ... → .elevation-1-up { box-shadow: var(--elevation-1-up) }
+******************************************************************************/
+@theme {
+  /* Layers */
+  --color-layer-1: oklch(0.98 0.0897 70.00);  /* 背景 */
+  --color-layer-2: oklch(0.95 0.0897 70.00);  /* 面 */
+  --color-layer-3: oklch(0.98 0.0897 70.00);  /* 境界/薄UI */
+  --color-layer-4: oklch(0.23 0.0897 70.00);  /* サブテキスト */
+  --color-layer-5: oklch(0 0 70.00);  /* 本文/濃UI */
+
+  /* Mapping */
+  --color-bg:      var(--color-layer-1);
+  --color-surface: var(--color-layer-2);
+  --color-border:  var(--color-layer-3);
+  --color-fg:      var(--color-layer-5);
+  --color-accent:  oklch(0.19 0.0797 29.23);
+
+  /* Input field tokens */
+  --color-input-bg:       oklch(1 0 none);
+  --color-input-border:  var(--color-layer-3);
+  --color-input-focus:   var(--color-accent);
+  --color-input-placeholder: var(--color-layer-4);
+
+  /* Button tokens */
+  --color-button-primary-bg:      oklch(0.19 0.0797 29.23);
+  --color-button-primary-text:    oklch(1 0 none);
+  --color-button-primary-hover:   color-mix(in oklch, var(--color-button-primary-bg), black 5%);
+  --color-button-ghost-bg:        oklch(0.98 0.0897 70.00);
+  --color-button-ghost-text:      oklch(0 0 70.00);
+  --color-button-ghost-border:    oklch(0.95 0.166 70.00);
+  --color-button-ghost-hover:     color-mix(in oklch, var(--color-button-ghost-bg), oklch(0.19 0.0797 29.23) 10%);
+  --color-button-destructive-bg:  oklch(0.7 0.2 25);
+  --color-button-destructive-text: oklch(1 0 none);
+  --color-button-destructive-hover: oklch(0.55 0.2 25);
+
+  /* ─ Pattern (役割ベース) ─ */
+  --pattern-angle: 0deg;
+  --pattern-thickness: 0px;
+  --pattern-gap: 0px;
+  --pattern-color: var(--color-border);
+
+  /* ─ Elevation (Material寄りの段階) ─ */
+  /* INFO: elevation-2以降は使ってる実績がないので、使う際に調整する。 */
+  --elevation-0: none;
+  --elevation-1: 0 3px 6px rgb(0 0 0 / 0.12), 0 1.5px 1.5px rgb(0 0 0 / 0.06);
+  --elevation-2: 0 4.5px 12px rgb(0 0 0 / 0.14), 0 3px 4.5px rgb(0 0 0 / 0.08);
+  --elevation-3: 0 9px 15px rgb(0 0 0 / 0.18), 0 4.5px 9px rgb(0 0 0 / 0.10);
+  --elevation-4: 0 15px 24px rgb(0 0 0 / 0.22), 0 9px 12px rgb(0 0 0 / 0.12);
+  --elevation-5: 0 24px 36px rgb(0 0 0 / 0.26), 0 12px 18px rgb(0 0 0 / 0.14);
+
+}
+:root {
+  --app-font-sans: var(--font-geist-sans, system-ui, -apple-system, "Segoe UI", "Noto Sans JP");
+  --app-font-mono: var(--font-geist-mono, ui-monospace, "SFMono-Regular", Menlo, Monaco);
+}
+
+body {
+  font-family: var(--app-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+code, pre, kbd, samp {
+  font-family: var(--app-font-mono);
+}
+
+/* Dark override */
+.dark {
+  --color-layer-1: oklch(12% 0 0);
+  --color-layer-2: oklch(18% 0 0);
+  --color-layer-3: oklch(28% 0 0);
+  --color-layer-4: oklch(78% 0 0);
+  --color-layer-5: oklch(92% 0 0);
+
+  --color-bg:      var(--color-layer-1);
+  --color-surface: var(--color-layer-2);
+  --color-border:  var(--color-layer-3);
+  --color-fg:      var(--color-layer-5);
+  --color-accent:  oklch(85% 0 0);
+
+  /* Input field tokens */
+  --color-input-bg:      var(--color-layer-1);
+  --color-input-border:  var(--color-layer-3);
+  --color-input-focus:   var(--color-accent);
+  --color-input-placeholder: var(--color-layer-4);
+
+  /* Button tokens */
+  --color-button-primary-bg:      var(--color-accent);
+  --color-button-primary-text:    oklch(0.1 0 0);
+  --color-button-primary-hover:   color-mix(in oklch, var(--color-accent), white 5%);
+  --color-button-ghost-bg:        var(--color-surface);
+  --color-button-ghost-text:      var(--color-fg);
+  --color-button-ghost-border:    var(--color-border);
+  --color-button-ghost-hover:     color-mix(in oklch, var(--color-surface), var(--color-accent) 10%);
+  --color-button-destructive-bg:  oklch(0.20 0.0667 23.31);
+  --color-button-destructive-text: oklch(1 0 none);
+  --color-button-destructive-hover: oklch(0.55 0.2 25);
+
+  /* 暗背景で見やすいよう少し明るめに */
+  --pattern-color: color-mix(in oklch, var(--color-border), white 15%);
+}
+
+/* TODO: ここらへんのテーマは、そのうち削除する。 */
+/* -----------------------------
+Business theme (事務向け)
+- 落ち着いたグレー基調、くすみブルーのアクセント
+- フォームや表、管理画面向けに可読性優先
+----------------------------- */
+.business {
+  --color-layer-1: oklch(98% 0 0);     /* 背景：ほぼ白 */
+  --color-layer-2: oklch(95% 0 0);     /* 面：薄グレー */
+  --color-layer-3: oklch(90% 0 0);     /* 境界/薄UI：控えめボーダー */
+  --color-layer-4: oklch(60% 0 0);     /* サブテキスト：中間のグレー */
+  --color-layer-5: oklch(18% 0 0);     /* 本文/濃UI：読みやすい濃度 */
+
+  --color-bg:      var(--color-layer-1);
+  --color-surface: var(--color-layer-2);
+  --color-border:  var(--color-layer-3);
+  --color-fg:      var(--color-layer-5);
+  /* アクセント：ややくすんだブルー（控えめで業務向け） */
+  --color-accent:  oklch(55% 0.06 215);
+
+  /* Input field tokens */
+  --color-input-bg:      var(--color-layer-1);
+  --color-input-border:  var(--color-layer-3);
+  --color-input-focus:   var(--color-accent);
+  --color-input-placeholder: var(--color-layer-4);
+
+  /* Button tokens */
+  --color-button-primary-bg:      var(--color-accent);
+  --color-button-primary-text:    oklch(1 0 none);
+  --color-button-primary-hover:   color-mix(in oklch, var(--color-accent), black 5%);
+  --color-button-ghost-bg:        var(--color-surface);
+  --color-button-ghost-text:      var(--color-fg);
+  --color-button-ghost-border:    var(--color-border);
+  --color-button-ghost-hover:     color-mix(in oklch, var(--color-surface), var(--color-accent) 10%);
+  --color-button-destructive-bg:  oklch(0.6 0.2 25);
+  --color-button-destructive-text: oklch(1 0 none);
+  --color-button-destructive-hover: oklch(0.55 0.2 25);
+
+  /* Business テーマでは Inter（--font-business-sans）を使う */
+  --app-font-sans: var(--font-business-sans, system-ui, -apple-system, "Segoe UI", "Noto Sans JP");
+  --app-font-mono: var(--font-business-mono, ui-monospace, SFMono-Regular, Menlo);
+
+}
+
+/* -----------------------------
+Yumekawa theme (ユメカワ／サンリオ風)
+- パステル系ピンク基調、やわらかい雰囲気
+- 画像やアイコンの色と合わせると親和性が高い
+----------------------------- */
+.yumekawa {
+  --color-layer-1: oklch(99% 0.02 340); /* 背景：極薄ピンク */
+  --color-layer-2: oklch(97% 0.03 330); /* 面：薄めのパステル面 */
+  --color-layer-3: oklch(94% 0.04 320); /* 境界/薄UI：柔らかい区切り */
+  --color-layer-4: oklch(88% 0.05 320); /* サブテキスト：淡いが判別可能 */
+  --color-layer-5: oklch(28% 0.06 330); /* 本文/濃UI：パステル寄りに濃く */
+
+  --color-bg:      var(--color-layer-1);
+  --color-surface: var(--color-layer-2);
+  --color-border:  var(--color-layer-3);
+  --color-fg:      var(--color-layer-5);
+  /* アクセント：明るいパステルピンク（可愛らしさの要） */
+  --color-accent:  oklch(75% 0.14 330);
+
+  /* Input field tokens */
+  --color-input-bg:      var(--color-layer-1);
+  --color-input-border:  var(--color-layer-3);
+  --color-input-focus:   var(--color-accent);
+  --color-input-placeholder: var(--color-layer-4);
+
+  /* Button tokens */
+  --color-button-primary-bg:      var(--color-accent);
+  --color-button-primary-text:    oklch(1 0 none);
+  --color-button-primary-hover:   color-mix(in oklch, var(--color-accent), black 5%);
+  --color-button-ghost-bg:        var(--color-surface);
+  --color-button-ghost-text:      var(--color-fg);
+  --color-button-ghost-border:    var(--color-border);
+  --color-button-ghost-hover:     color-mix(in oklch, var(--color-surface), var(--color-accent) 10%);
+  --color-button-destructive-bg:  oklch(0.6 0.2 25);
+  --color-button-destructive-text: oklch(1 0 none);
+  --color-button-destructive-hover: oklch(0.55 0.2 25);
+  
+  /* Yumekawa テーマでは Poppins（--font-yumekawa-sans）を使う */
+  --app-font-sans: var(--font-yumekawa-sans, "M PLUS Rounded 1c", "Yu Gothic", "Hiragino Maru Gothic ProN", system-ui);
+  --app-font-mono: var(--font-yumekawa-mono, ui-monospace);
+}
+
+
+/* ──────────────────────────────────────────────
+   Utilities
+─────────────────────────────────────────────── */
+@layer utilities {
+  /* 色（意味ベース） */
+  .bg-app       { background-color: var(--color-bg); }
+  .bg-surface   { background-color: var(--color-surface); }
+  .text-body    { color: var(--color-fg); }
+  .text-muted   { color: var(--color-layer-4); }
+  .border-ui    { border-color: var(--color-border); }
+  .bg-accent    { background-color: var(--color-accent); }
+  .accent       { color: var(--color-accent); }
+
+  /* Input field utilities */
+  .bg-input     { background-color: var(--color-input-bg); }
+  .border-input { border-color: var(--color-input-border); }
+  .border-input-focus { border-color: var(--color-input-focus); }
+  .text-input-placeholder { color: var(--color-input-placeholder); }
+
+  /* Button utilities */
+  .bg-button-primary { background-color: var(--color-button-primary-bg); }
+  .text-button-primary { color: var(--color-button-primary-text); }
+  .hover\:bg-button-primary:hover { background-color: var(--color-button-primary-hover); }
+  .bg-button-ghost { background-color: var(--color-button-ghost-bg); }
+  .text-button-ghost { color: var(--color-button-ghost-text); }
+  .border-button-ghost { border-color: var(--color-button-ghost-border); }
+  .hover\:bg-button-ghost:hover { background-color: var(--color-button-ghost-hover); }
+  .bg-button-destructive { background-color: var(--color-button-destructive-bg); }
+  .text-button-destructive { color: var(--color-button-destructive-text); }
+  .hover\:bg-button-destructive:hover { background-color: var(--color-button-destructive-hover); }
+
+  /* Pattern（見た目ではなく役割名） */
+  .bg-surface-pattern {
+    background-image: repeating-linear-gradient(
+      var(--pattern-angle),
+      var(--_pattern-color, var(--pattern-color)) 0,
+      var(--_pattern-color, var(--pattern-color)) var(--pattern-thickness),
+      transparent var(--pattern-thickness),
+      transparent calc(var(--pattern-thickness) + var(--pattern-gap))
+    );
+  }
+
+  /* 濃淡バリエーション（数字→意味名） */
+  .surface-pattern-subtle   { --_pattern-color: var(--color-layer-2); } /* 薄め */
+  .surface-pattern-primary  { --_pattern-color: var(--color-layer-3); } /* 既定 */
+  .surface-pattern-contrast { --_pattern-color: var(--color-layer-4); } /* 強め */
+  .surface-pattern-strong   { --_pattern-color: var(--color-layer-5); } /* 最濃 */
+
+  /* Elevation（トークンをそのままbox-shadowへ） */
+  .elevation-0 { box-shadow: var(--elevation-0); }
+  .elevation-1 { box-shadow: var(--elevation-1); }
+  .elevation-2 { box-shadow: var(--elevation-2); }
+  .elevation-3 { box-shadow: var(--elevation-3); }
+  .elevation-4 { box-shadow: var(--elevation-4); }
+  .elevation-5 { box-shadow: var(--elevation-5); }
+
+}
+@layer components {
+  .font-app { font-family: var(--app-font-sans) !important; }
+  .font-app-mono { font-family: var(--app-font-mono) !important; }
+}
+
+/* Icon radio styling */
+.icon-radio {
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem; /* rounded-md */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+}
+.icon-radio i.mdi {
+  font-size: 1rem;
+}
+.icon-radio--checked {
+  border-color: var(--color-accent);
+  background-color: color-mix(in oklch, var(--color-surface), var(--color-accent) 8%);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04) inset;
+}
+
+/* Spinner (アクセント色で回転) */
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+.ui-spinner {
+  display: inline-block;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in oklch, var(--color-accent), transparent 85%);
+  border-top-color: var(--color-accent);
+  animation: ui-spin 0.8s linear infinite;
+}
+.ui-spinner--sm { width: 16px; height: 16px; border-width: 2px; }
+.ui-spinner--md { width: 20px; height: 20px; border-width: 2px; }
+.ui-spinner--lg { width: 24px; height: 24px; border-width: 3px; }
+
+/* FCAB: Floating Center Actions Bar */
+.fcab {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px; /* pill */
+  box-shadow: var(--elevation-4);
+  z-index: 40;
+}
+
+/* FCAB 内の丸型アイコンボタン */
+.action-icon-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .05s ease;
+}
+.action-icon-btn i.mdi { font-size: 18px; }
+.action-icon-btn:hover {
+  background-color: color-mix(in oklch, var(--color-surface), var(--color-accent) 10%);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.action-icon-btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+}
+.action-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-accent), transparent 70%);
+}
+.action-icon-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(20%);
+}
+
+/* Tooltip (data-tip) */
+.action-icon-btn[data-tip]:hover::after,
+.action-icon-btn[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--color-fg);
+  color: var(--color-layer-1);
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: var(--elevation-2);
+  pointer-events: none;
+  z-index: 41;
+}
+.action-icon-btn[data-tip]:hover::before,
+.action-icon-btn[data-tip]:focus-visible::before {
+  content: "";
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--color-fg);
+}
+
+/* 印刷用: 非表示エリアと印刷対象エリアの切替 */
+@media print {
+  .no-print { display: none !important; }
+  .fcab { display: none !important; }
+  header { display: none !important; }
+  .print-area { display: block !important; }
+  body { background: white !important; }
+}
+
+/* 印刷プレビュー（ダイアログ内）用の簡易スタイル */
+.print-doc { background: white; color: black; }
+.print-title { font-size: 1.5rem; font-weight: 600; }
+.print-subtitle { font-size: 1rem; margin-top: 0.25rem; }
+.print-overview { font-size: .9rem; opacity: .8; margin-top: .25rem; white-space: pre-wrap; }
+.print-label { font-size: .75rem; color: #666; margin-bottom: .15rem; }
+.print-value { font-size: .95rem; }
+.print-day { margin-top: 1rem; }
+.print-day-title { font-size: 1rem; margin-bottom: .25rem; }
+.print-events { width: 100%; border-collapse: collapse; }
+.print-th { text-align: left; font-weight: 600; border-bottom: 1px solid #ddd; padding: .35rem .5rem; }
+.print-td { border-bottom: 1px solid #eee; padding: .35rem .5rem; }
