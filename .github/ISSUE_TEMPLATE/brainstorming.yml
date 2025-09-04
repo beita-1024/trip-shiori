@@ -1,0 +1,104 @@
+name: Brainstorming Session
+description: 新機能や改善のアイデアを自由に出し合うブレインストーミング
+labels: [brainstorming]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: ブレストテーマ（1行）
+      placeholder: 例）ユーザー体験向上のための新機能アイデア
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景・きっかけ
+      placeholder: |
+        なぜこのブレストを行うのか、どんな課題や機会があるのかを記載
+        例）ユーザーからの要望、市場の動向、技術的な可能性 など
+    validations:
+      required: true
+  - type: textarea
+    id: target_users
+    attributes:
+      label: 対象ユーザー・ペルソナ
+      placeholder: |
+        誰のためのアイデアなのかを明確にする
+        例）初心者ユーザー、パワーユーザー、管理者 など
+  - type: textarea
+    id: constraints
+    attributes:
+      label: 制約条件
+      placeholder: |
+        考慮すべき制約があれば記載
+        - 技術的制約
+        - 予算・リソース制約
+        - 時間的制約
+        - 既存システムとの整合性
+  - type: textarea
+    id: brainstorm_rules
+    attributes:
+      label: ブレストのルール
+      value: |
+        🧠 **ブレインストーミングのルール**
+        1. **量を重視**：まずはたくさんのアイデアを出そう
+        2. **批判しない**：どんなアイデアもまずは受け入れる
+        3. **自由な発想**：突拍子もないアイデア大歓迎
+        4. **他の人のアイデアに乗っかる**：組み合わせや発展も有効
+        5. **後で整理**：評価や実現性は後から考える
+        
+        💡 **アイデアの書き方**
+        - 1つのコメントに1つのアイデア
+        - 👍👎 リアクションで投票
+        - 💭 返信で補足や発展案を追加
+      render: markdown
+  - type: textarea
+    id: seed_ideas
+    attributes:
+      label: 最初のアイデア（シードアイデア）
+      placeholder: |
+        ブレストのきっかけとなる最初のアイデアがあれば記載
+        - アイデア1：詳細説明
+        - アイデア2：詳細説明
+        - アイデア3：詳細説明
+  - type: dropdown
+    id: brainstorm_phase
+    attributes:
+      label: ブレストの段階
+      options:
+        - 発散フェーズ（アイデア出し）
+        - 収束フェーズ（整理・評価）
+        - 決定フェーズ（優先度付け・選定）
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: evaluation_criteria
+    attributes:
+      label: 評価基準（収束フェーズ用）
+      placeholder: |
+        アイデアを評価する際の基準
+        - 実現可能性
+        - ユーザー価値
+        - 開発コスト
+        - 技術的面白さ
+        - 既存機能との親和性
+  - type: textarea
+    id: timeline
+    attributes:
+      label: ブレストスケジュール
+      placeholder: |
+        例）
+        - 1週間：アイデア出し期間
+        - 2週間目：整理・評価
+        - 3週間目：優先度付け・次のアクション決定
+  - type: textarea
+    id: next_steps
+    attributes:
+      label: 次のアクション（決まったら更新）
+      placeholder: |
+        ブレスト結果を受けて何をするか
+        - [ ] 詳細検討が必要なアイデアの長期議論Issue作成
+        - [ ] プロトタイプ作成
+        - [ ] ユーザーヒアリング実施
+        - [ ] 技術調査
