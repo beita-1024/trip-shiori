@@ -22,12 +22,47 @@
 
 ---
 
-## ブランチ／変更管理
+## ブランチ運用の基本方針（最小セット）
 
-- **ブランチ戦略**：**Trunk-Based**
-  - `main` 固定 + 短命 `feature/*`
-  - 週1で軽量 **`release/vX.Y.Z`** を切ってまとめ検収
-  - 緊急は `hotfix/*` → `main` へ、直後に `release/*` に cherry-pick
+### 基本戦略
+- **デフォルト**: `main`（常にデプロイ可能）
+- **開発**: 短命のトピックブランチのみ
+- **形式**: `<type>/<slug>`（例：`feat/itinerary-share`、`fix/login-500`、`chore/20250904`）
+- **リリース**: タグのみ使用（`release/vX.Y.Z`ブランチは作成しない）
+- **緊急**: `hotfix/<slug>` → `main` に速攻 → タグでリリース
+- **マージ方式**: Squash merge（PRタイトル＝最終コミット）
+- **コミットメッセージ**: Conventional Commits 準拠
+- **履歴方針**: Linear history（rebase pull 推奨／merge commit 禁止）
+
+### ブランチ命名規約
+```
+feat/<summary-kebab>      # 新機能
+fix/<summary-kebab>       # バグ修正
+chore/<yyyymmdd-or-summary>  # 雑務・定期作業
+docs/<summary-kebab>      # ドキュメント
+infra/<summary-kebab>     # インフラ・CI/CD
+hotfix/<summary-kebab>    # 緊急修正
+```
+
+### ライフサイクル
+1. **Issue作成**（タイトルは CC 準拠 or 自然文、ラベルで種別/優先度付与）
+2. **ブランチ切る**（Issue番号を含めてもOK：`feat/itinerary-share-#42`）
+3. **Draft PR**（早期にCodeRabbit回す）
+4. **必須チェック通過** → Ready for review
+5. **Squash merge** → `main`へ
+6. **タグ付け**（手動 or CI、自動化するなら `vX.Y.Z`）→ デプロイ
+
+### タグ運用
+- **main 常に安定**（デプロイ可能状態を維持）
+- **リリース手順**：
+  ```bash
+  git tag v1.0.0 && git push origin v1.0.0 → デプロイ
+  ```
+- **CI連携**：
+  - `push: tags: [ 'v*' ]` → 本番デプロイ
+  - `push: branches: [ main ]` → ステージング or CapRover テスト
+
+### 詳細設定
 - **コミット規約**：**Conventional Commits**
   - 種別：`feat|fix|chore|refactor|docs|test|ci|build`
   - スコープ固定語彙：`frontend` `backend` `infra` `docs`
