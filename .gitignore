@@ -1,0 +1,79 @@
+#--------------------------------------------------
+# Node.js 共通
+#--------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+
+#--------------------------------------------------
+# TypeScript
+#--------------------------------------------------
+*.tsbuildinfo
+
+#--------------------------------------------------
+# dist / build 出力
+#--------------------------------------------------
+dist/
+build/
+.next/
+out/
+coverage/
+.vite/
+
+#--------------------------------------------------
+# 環境変数
+#--------------------------------------------------
+.env
+.env.test
+.env.production
+.env.development
+
+#--------------------------------------------------
+# Docker関連
+#--------------------------------------------------
+# **/docker-compose.override.yml
+**/Dockerfile.*
+**/tmp/
+**/.docker/
+
+# named volumes
+postgres_data/
+
+#--------------------------------------------------
+# Prisma
+#--------------------------------------------------
+prisma/dev.db
+prisma/*.sqlite
+prisma/migrations/
+
+#--------------------------------------------------
+# frontend (Vite/React)
+#--------------------------------------------------
+frontend/.cache/
+frontend/.vite/
+frontend/public/vite.svg
+
+#--------------------------------------------------
+# VSCode / OS依存
+#--------------------------------------------------
+.vscode/
+.DS_Store
+# TypeDoc outputs
+frontend/docs/
+backend/docs/
+Thumbs.db
+.idea/
+*.swp
+
+#--------------------------------------------------
+# ローカルファイル  
+_local.*
+db/*
+.ash_history
+.DS_Store
+*.local/

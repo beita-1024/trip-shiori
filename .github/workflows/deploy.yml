@@ -1,0 +1,19 @@
+# TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
+
+name: Deploy (noop)
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "deploy target (dev/stg/prod)"
+        required: false
+        default: "dev"
+
+jobs:
+  deploy-noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: noop
+        run: |
+          echo "Deploy placeholder: env=${{ inputs.env }}"

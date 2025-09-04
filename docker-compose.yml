@@ -1,0 +1,34 @@
+services:
+  db: 
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # CI/CD 用に app_db_test は 起動スクリプト内で自動作成するため
+      - ./initdb:/docker-entrypoint-initdb.d
+  backend :
+    build: ./backend
+    ports:
+      - "4002:3000"
+    env_file: ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:3000" 
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+volumes:
+  postgres_data: 

@@ -1,0 +1,28 @@
+name: Bug
+description: 不具合の報告
+labels: [bug]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 概要（1行）
+      placeholder: 例）/users POST が 500 を返す
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: 手順1 / 手順2 / 期待結果 / 実際の結果
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 環境
+      placeholder: ブラウザ/OS/ブランチ/タグ
+  - type: textarea
+    id: logs
+    attributes:
+      label: 追加情報
+      placeholder: ログ抜粋・スクショなど

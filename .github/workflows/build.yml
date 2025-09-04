@@ -1,0 +1,23 @@
+# TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
+name: Build (noop)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "what to build (e.g. backend/frontend/all)"
+        required: false
+        default: "all"
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: noop
+        run: |
+          echo "Build placeholder"
+          echo "tag=${{ github.ref_name }}"
+          echo "target=${{ inputs.target || 'all' }}"

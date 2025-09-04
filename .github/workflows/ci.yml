@@ -1,0 +1,17 @@
+# TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
+
+name: CI (noop)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  ci-noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: noop
+        run: |
+          echo "CI placeholder: TODO replace with lint/test"
+
