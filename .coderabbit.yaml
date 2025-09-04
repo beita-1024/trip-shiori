@@ -1,0 +1,76 @@
+# .coderabbit.yaml
+# Complete reference: https://docs.coderabbit.ai/reference/configuration
+
+# --- Global ---
+language: "ja"                    # レビュー言語（例: ja / ja-JP）
+tone_instructions: "丁寧でフレンドリー。必要十分に簡潔。"  # レビューの語調
+
+enable_free_tier: true            # 無料機能の許可（既定trueのまま）
+
+# --- Reviews ---
+reviews:
+  profile: "chill"                # 指摘強度: chill / assertive
+  high_level_summary: true        # 変更概要サマリ
+  review_status: true             # レビューステータス投稿
+  commit_status: true             # 進行/完了のステータス
+  poem: true                      # ポエム抑制しない（=true）
+
+  # 自動レビュー設定
+  auto_review:
+    enabled: true                 # PR作成時に自動レビュー
+    auto_incremental_review: true # push毎に増分レビュー
+    drafts: false                 # 初期はオフ（必要時にオン）
+
+
+  # パス別のガイドライン（ルール相当）
+  # 参考: https://docs.coderabbit.ai/guides/review-instructions
+  path_instructions:
+    - path: "**/*.ts"
+      instructions: |
+        TypeScript Style:
+        - anyの無制限使用は避け、strict前提で型安全性を確保する
+        - public APIの型は明示的に定義し、暗黙のany/unknownを排除する
+        - 例外はErrorサブクラスで投げ、Promiseではreject理由を型で表す
+    - path: "backend/**/*.ts"
+      instructions: |
+        Security & Validation:
+        - 受入/出力の最終バリデーションを zod/valibot 等で行う
+        - 外部入力はサニタイズし、エラーには機微情報を含めない
+        - RateLimit/Idempotency/Paginationの規約に準拠しているか確認
+    - path: "**/*.md"
+      instructions: |
+        Docs Consistency:
+        - 変更内容とREADME/設計ドキュメントの整合性を確認
+        - 手順やコマンドは再現可能か、抜けや過去情報がないかを指摘
+
+  # 仕上げ機能（自動生成系）—必要に応じてON/OFF
+  finishing_touches:
+    docstrings:
+      enabled: true               # Docstring/コメント生成提案
+    unit_tests:
+      enabled: true               # ユニットテスト生成提案（不要なら false）
+
+  # 事前チェック（軽めのガード）
+  pre_merge_checks:
+    title:
+      mode: "warning"             # PRタイトルの妥当性チェック
+      requirements: "50文字以内/命令形/種別タグ[feat|fix|docs|infra|refactor|perf]を含める"
+    description:
+      mode: "warning"             # 説明の妥当性チェック
+    issue_assessment:
+      mode: "warning"             # リンク済Issueへの適合性評価
+
+  # 補助ツール（Markdown校正など）
+  tools:
+    markdownlint:
+      enabled: true
+    languagetool:
+      enabled: true               # 日本語/英語の文法・スタイル補助
+    gitleaks:
+      enabled: true               # シークレット漏えいの検知
+    checkov:
+      enabled: true               # IaCの静的解析（必要な場合）
+
+code_generation:
+  docstrings:
+    language: "ja"
