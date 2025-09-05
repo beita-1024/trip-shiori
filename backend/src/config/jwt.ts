@@ -1,6 +1,12 @@
 /**
  * JWT設定
  */
+
+const secret = process.env.JWT_SECRET;
+if (process.env.NODE_ENV === 'production' && (!secret || secret === 'your_jwt_secret_key_here_change_this_in_production')) {
+  throw new Error('JWT_SECRET must be set in production');
+}
+
 export const jwtConfig = {
   /** JWT署名に使用する秘密鍵 */
   secret: process.env.JWT_SECRET || 'your-secret-key',
