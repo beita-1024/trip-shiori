@@ -2,6 +2,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { corsConfig } from './config/cors';
 import itinerariesRouter from './controllers/itinerariesRouter';
 import eventsRouter from './controllers/eventsRouter';
@@ -14,6 +15,7 @@ const app = express();
 // ミドルウェアの設定
 app.use(cors(corsConfig.options));
 app.use(express.json());
+app.use(cookieParser());
 
 // ルートの設定
 app.get('/health', healthCheck);

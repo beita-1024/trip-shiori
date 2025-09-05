@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
-import { hashPassword, validatePasswordStrength } from '../utils/password';
+import { hashPassword, validatePasswordStrength, verifyPassword } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
 
@@ -208,5 +208,133 @@ export const verifyEmail = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Email verification error:', error);
     return res.status(500).send('Internal server error');
+  }
+};
+
+/**
+ * ユーザーログインエンドポイント
+ * 
+ * @summary メールアドレスとパスワードでログインし、JWT Cookieを発行
+ * @auth 認証不要
+ * @params
+ *   - Body: { email: string, password: string }
+ *   - Validation: メール形式、パスワード検証
+ * @returns
+ *   - 204: ログイン成功（HttpOnly CookieでJWT発行）
+ * @errors
+ *   - 400: invalid_body（必須フィールド不足、形式エラー）
+ *   - 401: unauthorized（認証失敗）
+ *   - 403: forbidden（メール未認証）
+ * @example
+ *   POST /auth/login
+ *   Body: { "email": "user@example.com", "password": "SecurePass123!" }
+ *   204: No Content + Set-Cookie: access_token=<JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+ */
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    // 必須フィールドの検証
+    if (!email || !password) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'Email and password are required' 
+      });
+    }
+
+    // メール形式の検証
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'Invalid email format' 
+      });
+    }
+
+    // ユーザー検索
+    const user = await prisma.user.findUnique({ 
+      where: { email: email.toLowerCase() } 
+    });
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Invalid credentials' 
+      });
+    }
+
+    // メール認証済みかチェック
+    if (!user.emailVerified) {
+      return res.status(403).json({ 
+        error: 'forbidden',
+        message: 'Email not verified' 
+      });
+    }
+
+    // パスワード検証
+    const isValidPassword = await verifyPassword(user.passwordHash, password);
+    if (!isValidPassword) {
+      return res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Invalid credentials' 
+      });
+    }
+
+    // JWTトークン生成
+    const accessToken = generateAccessToken(user.id, user.email);
+
+    // HttpOnly CookieでJWTを返す
+    res.cookie(COOKIE_NAME, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: COOKIE_MAX_AGE,
+    });
+
+    return res.sendStatus(204);
+
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
+  }
+};
+
+/**
+ * ユーザーログアウトエンドポイント
+ * 
+ * @summary 認証済みユーザーをログアウトし、JWT Cookieを無効化
+ * @auth Bearer JWT (Cookie)
+ * @params
+ *   - Cookie: access_token (JWT)
+ * @returns
+ *   - 204: ログアウト成功（Cookie無効化）
+ * @errors
+ *   - 401: unauthorized（未認証）
+ * @example
+ *   POST /auth/logout
+ *   Cookie: access_token=<JWT>
+ *   204: No Content + Clear-Cookie: access_token
+ */
+export const logout = async (req: Request, res: Response) => {
+  try {
+    // Cookieをクリア
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return res.sendStatus(204);
+
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
   }
 };
