@@ -13,6 +13,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 参考: Prisma Schemaの書き方あれこれ
+// https://zenn.dev/ikekyo/scraps/f6c87fbfd3bf9d
+
 /**
  * ユーザー情報を管理するモデル
  * 
