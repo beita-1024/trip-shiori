@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { hashPassword, validatePasswordStrength, verifyPassword } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
+import { AuthenticatedRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
 
@@ -149,7 +150,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
 
     // 必須パラメータの検証
     if (!uid || !token || typeof uid !== 'string' || typeof token !== 'string') {
-      return res.status(400).send('Invalid or missing parameters');
+      return res.status(400).json({ 
+        error: 'invalid_parameters',
+        message: 'Invalid or missing parameters' 
+      });
     }
 
     // 期限内の最新トークンを取得
@@ -162,13 +166,19 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
 
     if (!record) {
-      return res.status(400).send('Invalid or expired token');
+      return res.status(400).json({ 
+        error: 'invalid_token',
+        message: 'Invalid or expired token' 
+      });
     }
 
     // 生トークンとDBのハッシュを照合
     const isValidToken = await argon2.verify(record.tokenHash, token);
     if (!isValidToken) {
-      return res.status(400).send('Invalid token');
+      return res.status(400).json({ 
+        error: 'invalid_token',
+        message: 'Invalid token' 
+      });
     }
 
     // ユーザー情報を取得
@@ -177,7 +187,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(400).send('User not found');
+      return res.status(400).json({ 
+        error: 'user_not_found',
+        message: 'User not found' 
+      });
     }
 
     // ユーザーを verified にして、トークンは削除
@@ -207,7 +220,10 @@ export const verifyEmail = async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Email verification error:', error);
-    return res.status(500).send('Internal server error');
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
   }
 };
 
@@ -332,6 +348,51 @@ export const logout = async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Logout error:', error);
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
+  }
+};
+
+/**
+ * 保護されたリソースの例エンドポイント
+ * 
+ * @summary 認証済みユーザーのみアクセス可能なリソースの例
+ * @auth Bearer JWT (Cookie)
+ * @params
+ *   - Cookie: access_token (JWT)
+ * @returns
+ *   - 200: 認証済みユーザー情報
+ * @errors
+ *   - 401: unauthorized（未認証）
+ * @example
+ *   GET /auth/protected
+ *   Cookie: access_token=<JWT>
+ *   200: { "user": { "id": "user123", "email": "user@example.com" } }
+ */
+export const protectedResource = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // 認証ミドルウェアでreq.userが設定されている
+    const user = req.user;
+    
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Authentication required' 
+      });
+    }
+
+    return res.status(200).json({
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+      message: 'This is a protected resource',
+    });
+
+  } catch (error) {
+    console.error('Protected resource error:', error);
     return res.status(500).json({ 
       error: 'internal_error',
       message: 'Internal server error' 
