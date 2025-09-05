@@ -1,22 +1,14 @@
 /**
  * CORS設定
  * 
- * 許可されたオリジンのリストとCORS設定を管理
+ * 固定オリジンとCORS設定を管理
  */
 export const corsConfig = {
-  allowedOrigins: new Set([
-    process.env.CLIENT_ORIGIN,
-    'http://localhost:3001',               // 開発用
-  ].filter(Boolean)),
-  
   options: {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || corsConfig.allowedOrigins.has(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`Not allowed by CORS: ${origin}`));
-      }
-    },
+    origin: process.env.CLIENT_ORIGIN || 'http://localhost:3001',
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   }
 };
