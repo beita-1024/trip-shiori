@@ -100,7 +100,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // 検証URLを生成
-    const verifyUrl = `${process.env.API_ORIGIN}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
+    const verifyUrl = `${process.env.APP_URL}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
 
     // メール送信
     try {
