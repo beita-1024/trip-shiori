@@ -6,6 +6,7 @@ import { corsConfig } from './config/cors';
 import itinerariesRouter from './controllers/itinerariesRouter';
 import eventsRouter from './controllers/eventsRouter';
 import itineraryEditRouter from './controllers/itineraryEditRouter';
+import authRouter from './controllers/authRouter';
 import { healthCheck } from './controllers/healthController';
 
 const app = express();
@@ -19,6 +20,7 @@ app.get('/health', healthCheck);
 app.use('/api/itineraries', itinerariesRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/itinerary-edit', itineraryEditRouter);
+app.use('/auth', authRouter);
 
 // テスト環境以外でのみサーバーを起動
 if (process.env.NODE_ENV !== 'test') {
