@@ -1,6 +1,15 @@
 /**
  * Nodemailer設定
  */
+
+// 本番環境ではSMTP_USERおよびSMTP_PASSの設定が必須です。
+const port = parseInt(process.env.SMTP_PORT || '587', 10);
+const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+if (process.env.NODE_ENV === 'production' && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) {
+  throw new Error('SMTP_USER and SMTP_PASS must be set in production');
+}
+
+
 export const nodemailerConfig = {
   /** SMTPホスト */
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
