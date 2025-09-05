@@ -14,6 +14,42 @@ datasource db {
 }
 
 /**
+ * ユーザー情報を管理するモデル
+ * 
+ * 各ユーザーは一意のIDとメールアドレスを持ち、パスワードハッシュや認証状態を保持します。
+ * 行程（Itinerary）やメール認証トークンとのリレーションを持ちます。
+ * 作成日時・更新日時は自動管理されます。
+ */
+model User {
+  /** ユーザーの一意識別子 */
+  id            String   @id @default(cuid())
+
+  /** メールアドレス（ユニーク） */
+  email         String   @unique
+
+  /** パスワードのハッシュ値 */
+  passwordHash  String
+
+  /** 表示名（任意） */
+  name          String?
+
+  /** メール認証日時（未認証ならnull） */
+  emailVerified DateTime?
+
+  /** 作成日時 */
+  createdAt     DateTime @default(now())
+
+  /** 更新日時（自動更新） */
+  updatedAt     DateTime @updatedAt
+
+  /** ユーザーが所有する行程リスト */
+  itineraries   Itinerary[]
+
+  /** メール認証トークンとのリレーション */
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+/**
  * 旅行の行程を管理するモデル
  * 
  * 各行程は一意のIDを持ち、行程データをJSON形式のテキストとして保存します。
@@ -24,6 +60,7 @@ model Itinerary {
   id        String   @id @db.VarChar(255)
 
   /** 行程データ（JSON形式のテキスト） */
+  // NOTE: 行程データはLLM APIで扱いやすいように正規化せずにJsonのまま保存する。
   data      String?  @db.Text
 
   /** 作成日時 */
@@ -31,9 +68,44 @@ model Itinerary {
 
   /** 更新日時（自動更新） */
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  // TODO: 注意！認証機能を実装したらオプショナルを外すこと！
+  /** 所有者のユーザーID（認証機能実装前はオプショナル） */
+  userId    String? 
+
+  // TODO: 注意！認証機能を実装したらオプショナルを外すこと！
+  /** 所有者のユーザー（認証機能実装前はオプショナル） */
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 
+ /**
+  * メール認証トークンを管理するモデル
+  * 
+  * 各トークンは一意のIDとハッシュ化されたトークン値を持ち、ユーザーと紐付けられます。
+  * 有効期限・作成日時を保持し、トークンはユニーク制約付きです。
+  * インデックスにより検索性能を最適化しています。
+  */
+model EmailVerificationToken {
+  /** トークンの一意識別子 */
+  id         String   @id @default(cuid())
 
+  /** 紐付くユーザーID */
+  userId     String
 
+  /** ハッシュ化されたトークン値（ユニーク） */
+  tokenHash  String   @unique
 
+  /** 有効期限 */
+  expiresAt  DateTime
+
+  /** 作成日時 */
+  createdAt  DateTime @default(now())
+
+  /** ユーザーとのリレーション（削除時はカスケード） */
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tokenHash])
+}
