@@ -4,11 +4,16 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { hashPassword, validatePasswordStrength } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate } from '../utils/email';
+import { generateAccessToken } from '../utils/jwt';
 
 const prisma = new PrismaClient();
 
 // 検証トークンの有効期限（30分）
 const EXPIRES_MS = 30 * 60 * 1000;
+
+// Cookie設定
+const COOKIE_NAME = 'access_token';
+const COOKIE_MAX_AGE = 15 * 60 * 1000; // 15分
 
 /**
  * ユーザー登録エンドポイント
@@ -95,7 +100,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // 検証URLを生成
-    const verifyUrl = `${process.env.API_ORIGIN}/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
+    const verifyUrl = `${process.env.API_ORIGIN}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
 
     // メール送信
     try {
@@ -118,5 +123,90 @@ export const register = async (req: Request, res: Response) => {
       error: 'internal_error',
       message: 'Internal server error' 
     });
+  }
+};
+
+/**
+ * メール認証エンドポイント
+ * 
+ * @summary メール認証トークンを検証し、ユーザーを認証済みに更新
+ * @auth 認証不要
+ * @params
+ *   - Query: { uid: string, token: string }
+ *   - Validation: トークンの有効性・期限チェック
+ * @returns
+ *   - 302: 認証成功（ダッシュボードへリダイレクト、JWT Cookie設定）
+ * @errors
+ *   - 400: invalid_token（無効・期限切れトークン）
+ *   - 500: internal_error（サーバーエラー）
+ * @example
+ *   GET /auth/verify-email?uid=user123&token=abc123...
+ *   302: Redirect to /dashboard
+ */
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const { uid, token } = req.query;
+
+    // 必須パラメータの検証
+    if (!uid || !token || typeof uid !== 'string' || typeof token !== 'string') {
+      return res.status(400).send('Invalid or missing parameters');
+    }
+
+    // 期限内の最新トークンを取得
+    const record = await prisma.emailVerificationToken.findFirst({
+      where: { 
+        userId: uid, 
+        expiresAt: { gt: new Date() } 
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!record) {
+      return res.status(400).send('Invalid or expired token');
+    }
+
+    // 生トークンとDBのハッシュを照合
+    const isValidToken = await argon2.verify(record.tokenHash, token);
+    if (!isValidToken) {
+      return res.status(400).send('Invalid token');
+    }
+
+    // ユーザー情報を取得
+    const user = await prisma.user.findUnique({
+      where: { id: uid },
+    });
+
+    if (!user) {
+      return res.status(400).send('User not found');
+    }
+
+    // ユーザーを verified にして、トークンは削除
+    await prisma.$transaction([
+      prisma.user.update({ 
+        where: { id: uid }, 
+        data: { emailVerified: new Date() } 
+      }),
+      prisma.emailVerificationToken.delete({ 
+        where: { id: record.id } 
+      }),
+    ]);
+
+    // 検証完了後に即ログイン：短命JWTをHttpOnly Cookieで返す
+    const accessToken = generateAccessToken(user.id, user.email);
+    res.cookie(COOKIE_NAME, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: COOKIE_MAX_AGE,
+    });
+
+    // ダッシュボード等へ遷移
+    const appOrigin = process.env.APP_ORIGIN || 'http://localhost:3001';
+    return res.redirect(`${appOrigin}/dashboard`);
+
+  } catch (error) {
+    console.error('Email verification error:', error);
+    return res.status(500).send('Internal server error');
   }
 };
