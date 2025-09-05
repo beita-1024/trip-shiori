@@ -14,6 +14,7 @@ services:
     build: ./backend
     ports:
       - "4002:3000"
+      - "5555:5555"  # Prisma Studio
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
