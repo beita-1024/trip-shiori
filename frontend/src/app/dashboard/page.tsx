@@ -1,5 +1,3 @@
-"use client";
-import React from "react";
 import DashboardFeature from "./DashboardFeature";
 
 /**

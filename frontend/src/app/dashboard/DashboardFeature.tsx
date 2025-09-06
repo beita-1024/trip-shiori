@@ -16,7 +16,7 @@ export default function DashboardFeature() {
   const router = useRouter();
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-app">
+    <section className="min-h-screen flex items-center justify-center bg-app">
       <Card elevation={2} className="max-w-md mx-auto p-8 text-center">
         <div className="mb-4">
           <i className="mdi mdi-view-dashboard text-4xl text-muted mb-4" aria-hidden />
@@ -48,6 +48,6 @@ export default function DashboardFeature() {
           </Button>
         </div>
       </Card>
-    </main>
+    </section>
   );
 }

@@ -112,7 +112,14 @@ export default function RegisterFeature() {
     setApiError("");
 
     try {
-      const response = await fetch("http://localhost:4002/auth/register", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+      
+      // デバッグ情報（開発環境のみ）
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log('API URL:', apiUrl);
+      }
+      
+      const response = await fetch(`${apiUrl}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +171,7 @@ export default function RegisterFeature() {
   // 成功メッセージ表示中の場合
   if (showSuccessMessage) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-app">
+      <section className="min-h-screen flex items-center justify-center bg-app">
         <Card elevation={2} className="max-w-md mx-auto p-8 text-center">
           <div className="mb-4">
             <i className="mdi mdi-email-check text-4xl text-green-600 mb-4" aria-hidden />
@@ -178,12 +185,12 @@ export default function RegisterFeature() {
             3秒後にログインページに移動します...
           </p>
         </Card>
-      </main>
+      </section>
     );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-app">
+    <section className="min-h-screen flex items-center justify-center bg-app">
       <Card elevation={2} className="max-w-md mx-auto p-8">
         <Heading className="text-center mb-6">アカウント登録</Heading>
         
@@ -270,6 +277,6 @@ export default function RegisterFeature() {
           </p>
         </div>
       </Card>
-    </main>
+    </section>
   );
 }
