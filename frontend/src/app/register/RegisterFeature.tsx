@@ -140,14 +140,26 @@ export default function RegisterFeature() {
         }, 3000);
       } else {
         // エラーレスポンスの処理
-        const errorData: ApiError = await response.json();
+        const contentType = response.headers.get("content-type");
+        let errorData: Partial<ApiError> | null = null;
+        let fallbackText = "";
+        
+        try {
+          if (contentType?.includes("application/json")) {
+            errorData = await response.json();
+          } else {
+            fallbackText = await response.text();
+          }
+        } catch {
+          // 念のため握りつぶす（非JSON/空ボディ想定）
+        }
         
         switch (response.status) {
           case 400:
-            if (errorData.error === "invalid_body") {
+            if (errorData?.error === "invalid_body") {
               setApiError("入力内容に誤りがあります。メールアドレスとパスワードの形式を確認してください。");
             } else {
-              setApiError(errorData.message || "入力内容に誤りがあります。");
+              setApiError(errorData?.message || fallbackText || "入力内容に誤りがあります。");
             }
             break;
           case 409:
@@ -157,7 +169,7 @@ export default function RegisterFeature() {
             setApiError("サーバーエラーが発生しました。しばらく時間をおいて再度お試しください。");
             break;
           default:
-            setApiError(errorData.message || "登録に失敗しました。");
+            setApiError(errorData?.message || fallbackText || "登録に失敗しました。");
         }
       }
     } catch (error) {
