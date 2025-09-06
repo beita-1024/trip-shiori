@@ -5,7 +5,7 @@ ENV ?= dev
 # 例) make deploy ENV=stg
 
 .DEFAULT_GOAL := help
-.PHONY: help up down build logs ps sh-backend sh-frontend lint test db-migrate db-seed deploy
+.PHONY: help up down build logs ps sh-backend sh-frontend lint test db-migrate db-seed db-studio deploy
 
 help: ## コマンド一覧
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -44,6 +44,9 @@ db-migrate: ## DBマイグレーション
 
 db-seed: ## 初期データ投入
 	$(COMPOSE) exec backend npm run db:seed
+
+db-studio: ## Prisma Studio起動
+	$(COMPOSE) exec backend npx prisma studio
 
 deploy: ## デプロイNoop（後で差し替え）
 	@echo "Deploy to $(ENV) - TODO: GHCRタグ更新/CapRover CLI をここに"
