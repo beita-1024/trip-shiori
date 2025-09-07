@@ -74,8 +74,17 @@ export const authenticateToken = async (
       return;
     }
 
+    // iatフィールドが存在しない場合は無効
+    if (!payload.iat) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Invalid token (missing iat)' 
+      });
+      return;
+    }
+
     // パスワード変更日時がJWT発行日時より後の場合は無効
-    if (user.passwordChangedAt && payload.iat && user.passwordChangedAt.getTime() > payload.iat * 1000) {
+    if (user.passwordChangedAt && user.passwordChangedAt.getTime() > payload.iat * 1000) {
       res.status(401).json({ 
         error: 'unauthorized',
         message: 'Token invalidated due to password change' 

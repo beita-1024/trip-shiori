@@ -35,7 +35,7 @@ export interface JWTPayload {
   type: 'access' | 'refresh';
   
   /** 発行時刻（Unix timestamp） */
-  iat?: number;
+  iat: number;
   
   /** 有効期限（Unix timestamp） */
   exp?: number;

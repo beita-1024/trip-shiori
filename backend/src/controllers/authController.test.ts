@@ -311,5 +311,39 @@ describe('Password Reset Tests', () => {
       expect(protectedResponse.status).toBe(401);
       expect(protectedResponse.body.message).toContain('Token invalidated due to password change');
     });
+
+    test('iatフィールドが無いJWTトークンは無効として扱われる', async () => {
+      // まずログインしてJWTトークンを取得
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(loginResponse.status).toBe(204);
+      const cookies = loginResponse.headers['set-cookie'];
+      expect(cookies).toBeTruthy();
+
+      // iatフィールドを削除した無効なトークンを作成
+      const jwt = require('jsonwebtoken');
+      const secret = process.env.JWT_SECRET || 'your-secret-key';
+      const decodedToken = jwt.decode(cookies[0].split('=')[1].split(';')[0]);
+      
+      // iatフィールドを削除
+      delete decodedToken.iat;
+      
+      // 無効なトークンを再署名
+      const invalidToken = jwt.sign(decodedToken, secret, { algorithm: 'HS256' });
+
+      // 無効なトークンで保護されたリソースにアクセス（失敗するはず）
+      const protectedResponse = await request(app)
+        .get('/auth/protected')
+        .set('Cookie', `access_token=${invalidToken}`);
+
+      expect(protectedResponse.status).toBe(401);
+      expect(protectedResponse.body.message).toContain('Invalid token (missing iat)');
+    });
   });
 });
