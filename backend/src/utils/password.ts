@@ -40,6 +40,7 @@ export async function verifyPassword(hashedPassword: string, plainPassword: stri
   }
 }
 
+// TODO: Zodでパスワード強度をチェックするコードにしたので不要かもしれない。
 /**
  * パスワードの強度を検証する
  * @param password 検証するパスワード

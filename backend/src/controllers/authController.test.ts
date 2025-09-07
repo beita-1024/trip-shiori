@@ -255,7 +255,11 @@ describe('Password Reset Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('invalid_body');
-      expect(response.body.message).toContain('Password does not meet strength requirements');
+      expect(response.body.message).toBe('Validation failed');
+      expect(response.body.details).toBeDefined();
+      expect(response.body.details.some((detail: any) => 
+        detail.field === 'newPassword' && detail.message.includes('8文字以上')
+      )).toBe(true);
     });
   });
 
