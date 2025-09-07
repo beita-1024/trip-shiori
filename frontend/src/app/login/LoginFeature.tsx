@@ -1,51 +1,223 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Heading, Button } from "@/components/Primitives";
+import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
 
 /**
- * ログイン機能のモックコンポーネント
+ * ログインフォームのデータ型
+ */
+interface LoginFormData {
+  email: string;
+  password: string;
+}
+
+/**
+ * ユーザーログイン機能のメインコンポーネント
  * 
- * ログイン画面のモック版です。実際のログイン機能は別Issueで実装予定です。
- * 現在は登録完了後の導線として使用されます。
+ * メールアドレスとパスワードでログインを行い、サーバーからのHttpOnly Cookieを受け取って
+ * ダッシュボードページへ遷移する機能を提供します。
+ * 
+ * 主な機能：
+ * - フォームバリデーション（クライアント側）
+ * - API連携（POST /auth/login）
+ * - エラーハンドリング（400/401/403エラー）
+ * - 成功時のUXフロー（ダッシュボードページ遷移）
+ * - 二重送信防止（送信中はボタン無効化）
  * 
  * @returns レンダリングされたLoginFeatureコンポーネント
  */
 export default function LoginFeature() {
   const router = useRouter();
+  
+  // フォーム状態
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: "",
+    password: "",
+  });
+  
+  // UI状態
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Partial<LoginFormData>>({});
+  const [apiError, setApiError] = useState<string>("");
+
+  /**
+   * フォームフィールドの値を更新する
+   * 
+   * @param field - 更新するフィールド名
+   * @param value - 新しい値
+   */
+  const handleFieldChange = (field: keyof LoginFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // フィールド変更時にエラーをクリア
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+    if (apiError) {
+      setApiError("");
+    }
+  };
+
+  /**
+   * クライアント側バリデーション
+   * 
+   * @param data - バリデーション対象のフォームデータ
+   * @returns バリデーションエラーのマップ
+   */
+  const validateForm = (data: LoginFormData): Partial<LoginFormData> => {
+    const newErrors: Partial<LoginFormData> = {};
+
+    // メールアドレスの検証
+    if (!data.email.trim()) {
+      newErrors.email = "メールアドレスは必須です";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      newErrors.email = "正しいメールアドレス形式で入力してください";
+    }
+
+    // パスワードの検証
+    if (!data.password) {
+      newErrors.password = "パスワードは必須です";
+    }
+
+    return newErrors;
+  };
+
+  /**
+   * フォーム送信処理
+   */
+  const handleSubmit = async () => {
+    // クライアント側バリデーション
+    const validationErrors = validateForm(formData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setApiError("");
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+      
+      // デバッグ情報（開発環境のみ）
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log('API URL:', apiUrl);
+      }
+      
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email.trim(),
+          password: formData.password,
+        }),
+        credentials: 'include', // HttpOnly Cookieを受け取るために必要
+      });
+
+      if (response.status === 204) {
+        // ログイン成功 - ダッシュボードページへ遷移
+        router.push("/dashboard");
+      } else {
+        // エラーレスポンスの処理
+        switch (response.status) {
+          case 400:
+            setApiError("入力内容に誤りがあります。メールアドレスとパスワードの形式を確認してください。");
+            break;
+          case 401:
+          case 403:
+            setApiError("メールアドレスまたはパスワードが違います。");
+            break;
+          default:
+            setApiError("ログインに失敗しました。しばらく時間をおいて再度お試しください。");
+        }
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setApiError("ネットワークエラーが発生しました。インターネット接続を確認してください。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-app">
-      <Card elevation={2} className="max-w-md mx-auto p-8 text-center">
-        <div className="mb-4">
+      <Card elevation={2} className="max-w-md mx-auto p-8">
+        <div className="mb-4 text-center">
           <i className="mdi mdi-login text-4xl text-muted mb-4" aria-hidden />
         </div>
-        <Heading className="mb-6">ログイン</Heading>
+        <Heading className="text-center mb-6">ログイン</Heading>
         
-        <div className="mb-6">
-          <p className="text-body mb-4">
-            ログイン機能は現在開発中です。
-          </p>
-          <p className="text-muted text-sm">
-            登録完了後、メール認証を行ってください。
-          </p>
-        </div>
+        <SimpleForm onSubmit={handleSubmit}>
+          {/* メールアドレス */}
+          <FormField label="メールアドレス" id="email" required>
+            <InputWithPlaceholder
+              id="email"
+              type="email"
+              placeholder="your@example.com"
+              value={formData.email}
+              onChange={(e) => handleFieldChange("email", e.target.value)}
+              className={errors.email ? "border-red-500" : ""}
+              disabled={isSubmitting}
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600" role="alert">
+                {errors.email}
+              </p>
+            )}
+          </FormField>
 
-        <div className="space-y-3">
+          {/* パスワード */}
+          <FormField label="パスワード" id="password" required>
+            <InputWithPlaceholder
+              id="password"
+              type="password"
+              placeholder="パスワードを入力してください"
+              value={formData.password}
+              onChange={(e) => handleFieldChange("password", e.target.value)}
+              className={errors.password ? "border-red-500" : ""}
+              disabled={isSubmitting}
+            />
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600" role="alert">
+                {errors.password}
+              </p>
+            )}
+          </FormField>
+
+          {/* APIエラー表示 */}
+          {apiError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600" role="alert">
+                {apiError}
+              </p>
+            </div>
+          )}
+
+          {/* 送信ボタン */}
           <Button
-            onClick={() => router.push("/register")}
+            type="submit"
+            disabled={isSubmitting}
             className="w-full"
           >
-            登録ページに戻る
+            {isSubmitting ? "ログイン中..." : "ログイン"}
           </Button>
-          <Button
-            kind="ghost"
-            onClick={() => router.push("/")}
-            className="w-full"
-          >
-            ホームに戻る
-          </Button>
+        </SimpleForm>
+
+        {/* 登録ページへのリンク */}
+        <div className="mt-6 text-center">
+          <p className="text-muted text-sm">
+            アカウントをお持ちでない方は{" "}
+            <button
+              type="button"
+              onClick={() => router.push("/register")}
+              className="text-accent hover:text-accent-hover underline"
+              disabled={isSubmitting}
+            >
+              こちらから登録
+            </button>
+          </p>
         </div>
       </Card>
     </section>
