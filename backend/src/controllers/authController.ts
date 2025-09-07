@@ -408,6 +408,8 @@ export const protectedResource = async (req: AuthenticatedRequest, res: Response
  * 
  * @summary メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
  * @auth 認証不要
+ * @rateLimit 15分あたり3回
+ * @idempotency 副作用ありだが常に204レスポンス
  * @params
  *   - Body: { email: string }
  *   - Validation: メール形式チェック
@@ -500,6 +502,8 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
  * 
  * @summary パスワードリセットトークンを検証し、新しいパスワードを設定
  * @auth 認証不要
+ * @rateLimit 15分あたり5回
+ * @idempotency トークン消費で非冪等（再実行時は「トークン無効」などのエラーを記載）
  * @params
  *   - Body: { uid: string, token: string, newPassword: string }
  *   - Validation: トークンの有効性・期限チェック、パスワード強度チェック
