@@ -162,7 +162,8 @@ export default function ResetPasswordFeature() {
       // デバッグ情報（開発環境のみ）
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log('API URL:', apiUrl);
-        console.log('Request body:', { uid, token, newPassword: formData.newPassword });
+        // 機微情報はログ出力しない
+        console.log('Request meta:', { hasUid: Boolean(uid), tokenLength: token?.length ?? 0 });
       }
       
       const response = await fetch(`${apiUrl}/auth/password-reset/confirm`, {
