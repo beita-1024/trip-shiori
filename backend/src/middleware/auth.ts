@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../utils/jwt';
 import { JWTPayload } from '../config/jwt';
+
+const prisma = new PrismaClient();
 
 // Cookie名の定数
 const COOKIE_NAME = 'access_token';
@@ -24,15 +27,15 @@ export interface AuthenticatedRequest extends Request {
  *   - Cookie: access_token (JWT)
  * @returns
  *   - Next: 認証成功（req.userにユーザー情報を設定）
- *   - 401: 認証失敗（トークン無効・期限切れ）
+ *   - 401: 認証失敗（トークン無効・期限切れ・パスワード変更後）
  * @example
  *   app.use('/protected', authenticateToken);
  */
-export const authenticateToken = (
+export const authenticateToken = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   try {
     // CookieからJWTトークンを取得
     const token = req.cookies[COOKIE_NAME];
@@ -57,10 +60,33 @@ export const authenticateToken = (
       return;
     }
 
+    // ユーザー情報を取得してパスワード変更日時をチェック
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, email: true, passwordChangedAt: true },
+    });
+
+    if (!user) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'User not found' 
+      });
+      return;
+    }
+
+    // パスワード変更日時がJWT発行日時より後の場合は無効
+    if (user.passwordChangedAt && payload.iat && user.passwordChangedAt.getTime() > payload.iat * 1000) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Token invalidated due to password change' 
+      });
+      return;
+    }
+
     // リクエストにユーザー情報を追加
     req.user = {
-      id: payload.userId,
-      email: payload.email,
+      id: user.id,
+      email: user.email,
     };
 
     next();

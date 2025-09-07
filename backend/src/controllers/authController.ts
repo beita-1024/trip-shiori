@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { hashPassword, validatePasswordStrength, verifyPassword } from '../utils/password';
-import { sendEmailWithTemplate, createVerificationEmailTemplate } from '../utils/email';
+import { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 
@@ -11,6 +11,9 @@ const prisma = new PrismaClient();
 
 // 検証トークンの有効期限（30分）
 const EXPIRES_MS = 30 * 60 * 1000;
+
+// パスワードリセットトークンの有効期限（15分）
+const PASSWORD_RESET_EXPIRES_MS = 15 * 60 * 1000;
 
 // Cookie設定
 const COOKIE_NAME = 'access_token';
@@ -393,6 +396,208 @@ export const protectedResource = async (req: AuthenticatedRequest, res: Response
 
   } catch (error) {
     console.error('Protected resource error:', error);
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
+  }
+};
+
+/**
+ * パスワードリセットリクエストエンドポイント
+ * 
+ * @summary メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
+ * @auth 認証不要
+ * @params
+ *   - Body: { email: string }
+ *   - Validation: メール形式チェック
+ * @returns
+ *   - 204: リクエスト受付完了（存在不問で同一応答）
+ * @errors
+ *   - 400: invalid_body（必須フィールド不足、形式エラー）
+ *   - 429: rate_limit_exceeded（レート制限超過）
+ *   - 500: internal_error（サーバーエラー、メール送信失敗）
+ * @example
+ *   POST /auth/password-reset/request
+ *   Body: { "email": "user@example.com" }
+ *   204: No Content
+ */
+export const requestPasswordReset = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    // 必須フィールドの検証
+    if (!email) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'Email is required' 
+      });
+    }
+
+    // メール形式の検証
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'Invalid email format' 
+      });
+    }
+
+    // ユーザー検索（存在しない場合でも同じレスポンスを返す）
+    const user = await prisma.user.findUnique({ 
+      where: { email: email.toLowerCase() } 
+    });
+
+    if (user) {
+      // 既存のパスワードリセットトークンを削除
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id }
+      });
+
+      // 新しいパスワードリセットトークンを生成
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
+      
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS),
+        },
+      });
+
+      // リセットURLを生成
+      const resetUrl = `${process.env.APP_URL}/reset-password?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(rawToken)}`;
+
+      // メール送信
+      try {
+        const displayName = user.name || 'ユーザー';
+        const emailTemplate = createPasswordResetEmailTemplate(displayName, resetUrl);
+        await sendEmailWithTemplate(user.email, emailTemplate);
+      } catch (emailError) {
+        console.error('Failed to send password reset email:', emailError);
+        // メール送信に失敗した場合でも、セキュリティ上同じレスポンスを返す
+      }
+    }
+
+    // セキュリティ上、ユーザーの存在に関係なく同じレスポンスを返す
+    return res.status(204).end();
+
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    return res.status(500).json({ 
+      error: 'internal_error',
+      message: 'Internal server error' 
+    });
+  }
+};
+
+/**
+ * パスワードリセット確認エンドポイント
+ * 
+ * @summary パスワードリセットトークンを検証し、新しいパスワードを設定
+ * @auth 認証不要
+ * @params
+ *   - Body: { uid: string, token: string, newPassword: string }
+ *   - Validation: トークンの有効性・期限チェック、パスワード強度チェック
+ * @returns
+ *   - 204: パスワードリセット成功（passwordHashとpasswordChangedAt更新、トークン削除）
+ * @errors
+ *   - 400: invalid_body（必須フィールド不足、形式エラー）
+ *   - 400: invalid_token（無効・期限切れトークン）
+ *   - 429: rate_limit_exceeded（レート制限超過）
+ *   - 500: internal_error（サーバーエラー）
+ * @example
+ *   POST /auth/password-reset/confirm
+ *   Body: { "uid": "user123", "token": "abc123...", "newPassword": "NewSecurePass123!" }
+ *   204: No Content
+ */
+export const confirmPasswordReset = async (req: Request, res: Response) => {
+  try {
+    const { uid, token, newPassword } = req.body;
+
+    // 必須フィールドの検証
+    if (!uid || !token || !newPassword) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'uid, token, and newPassword are required' 
+      });
+    }
+
+    // パスワード強度の検証
+    if (!validatePasswordStrength(newPassword)) {
+      return res.status(400).json({ 
+        error: 'invalid_body',
+        message: 'Password does not meet strength requirements' 
+      });
+    }
+
+    // 期限内のパスワードリセットトークンを取得
+    const resetToken = await prisma.passwordResetToken.findFirst({
+      where: { 
+        userId: uid, 
+        expiresAt: { gt: new Date() } 
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!resetToken) {
+      return res.status(400).json({ 
+        error: 'invalid_token',
+        message: 'Invalid or expired token' 
+      });
+    }
+
+    // 生トークンとDBのハッシュを照合
+    const isValidToken = await argon2.verify(resetToken.tokenHash, token);
+    if (!isValidToken) {
+      return res.status(400).json({ 
+        error: 'invalid_token',
+        message: 'Invalid token' 
+      });
+    }
+
+    // ユーザー情報を取得
+    const user = await prisma.user.findUnique({
+      where: { id: uid },
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        error: 'user_not_found',
+        message: 'User not found' 
+      });
+    }
+
+    // 新しいパスワードをハッシュ化
+    const newPasswordHash = await hashPassword(newPassword);
+
+    // パスワードを更新し、passwordChangedAtを設定、トークンを削除
+    await prisma.$transaction([
+      prisma.user.update({ 
+        where: { id: uid }, 
+        data: { 
+          passwordHash: newPasswordHash,
+          passwordChangedAt: new Date()
+        } 
+      }),
+      prisma.passwordResetToken.delete({ 
+        where: { id: resetToken.id } 
+      }),
+    ]);
+
+    // 既存のCookieをクリア（JWT無効化）
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return res.status(204).end();
+
+  } catch (error) {
+    console.error('Password reset confirmation error:', error);
     return res.status(500).json({ 
       error: 'internal_error',
       message: 'Internal server error' 
