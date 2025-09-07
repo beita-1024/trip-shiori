@@ -86,6 +86,8 @@ export default function LoginFeature() {
    * フォーム送信処理
    */
   const handleSubmit = async () => {
+    if (isSubmitting) return; // 二重送信を早期にガード
+    
     // クライアント側バリデーション
     const validationErrors = validateForm(formData);
     if (Object.keys(validationErrors).length > 0) {
@@ -96,7 +98,13 @@ export default function LoginFeature() {
     setIsSubmitting(true);
     setApiError("");
 
+    // タイムアウト/中断の設定
+    // INFO: fetch はデフォルトでタイムアウトがなく、ネットワーク不調時にUIが固まりがちなので、タイムアウトを設定
+    let timeoutId: number | undefined;
+    const controller = new AbortController();
     try {
+      timeoutId = window.setTimeout(() => controller.abort(), 10000); // 10秒で中断
+      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
       
       // デバッグ情報（開発環境のみ）
@@ -114,6 +122,7 @@ export default function LoginFeature() {
           password: formData.password,
         }),
         credentials: 'include', // HttpOnly Cookieを受け取るために必要
+        signal: controller.signal,
       });
 
       if (response.status === 204) {
@@ -134,9 +143,14 @@ export default function LoginFeature() {
         }
       }
     } catch (error) {
-      console.error("Login error:", error);
-      setApiError("ネットワークエラーが発生しました。インターネット接続を確認してください。");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setApiError("リクエストがタイムアウトしました。ネットワーク状況を確認して再度お試しください。");
+      } else {
+        console.error("Login error:", error);
+        setApiError("ネットワークエラーが発生しました。インターネット接続を確認してください。");
+      }
     } finally {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
@@ -158,11 +172,15 @@ export default function LoginFeature() {
               placeholder="your@example.com"
               value={formData.email}
               onChange={(e) => handleFieldChange("email", e.target.value)}
+              name="email"
+              autoComplete="email"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
               className={errors.email ? "border-red-500" : ""}
               disabled={isSubmitting}
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600" role="alert">
+              <p id="email-error" className="mt-1 text-sm text-red-600" role="alert">
                 {errors.email}
               </p>
             )}
@@ -176,11 +194,15 @@ export default function LoginFeature() {
               placeholder="パスワードを入力してください"
               value={formData.password}
               onChange={(e) => handleFieldChange("password", e.target.value)}
+              name="password"
+              autoComplete="current-password"
+              aria-invalid={!!errors.password}
+              aria-describedby={errors.password ? "password-error" : undefined}
               className={errors.password ? "border-red-500" : ""}
               disabled={isSubmitting}
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-red-600" role="alert">
+              <p id="password-error" className="mt-1 text-sm text-red-600" role="alert">
                 {errors.password}
               </p>
             )}
