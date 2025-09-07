@@ -39,6 +39,9 @@ model User {
   /** メール認証日時（未認証ならnull） */
   emailVerified DateTime?
 
+  /** パスワード変更日時（JWT無効化用） */
+  passwordChangedAt DateTime?
+
   /** 作成日時 */
   createdAt     DateTime @default(now())
 
@@ -50,6 +53,9 @@ model User {
 
   /** メール認証トークンとのリレーション */
   emailVerificationTokens EmailVerificationToken[]
+
+  /** パスワードリセットトークンとのリレーション */
+  passwordResetTokens     PasswordResetToken[]
 }
 
 /**
@@ -90,6 +96,37 @@ model Itinerary {
   * インデックスにより検索性能を最適化しています。
   */
 model EmailVerificationToken {
+  /** トークンの一意識別子 */
+  id         String   @id @default(cuid())
+
+  /** 紐付くユーザーID */
+  userId     String
+
+  /** ハッシュ化されたトークン値（ユニーク） */
+  tokenHash  String   @unique
+
+  /** 有効期限 */
+  expiresAt  DateTime
+
+  /** 作成日時 */
+  createdAt  DateTime @default(now())
+
+  /** ユーザーとのリレーション（削除時はカスケード） */
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tokenHash])
+}
+
+/**
+ * パスワードリセットトークンを管理するモデル
+ * 
+ * 各トークンは一意のIDとハッシュ化されたトークン値を持ち、ユーザーと紐付けられます。
+ * 有効期限・作成日時を保持し、トークンはユニーク制約付きです。
+ * インデックスにより検索性能を最適化しています。
+ */
+model PasswordResetToken {
   /** トークンの一意識別子 */
   id         String   @id @default(cuid())
 
