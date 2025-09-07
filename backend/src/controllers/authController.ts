@@ -449,20 +449,23 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
     });
 
     if (user) {
-      // 既存のパスワードリセットトークンを削除
-      await prisma.passwordResetToken.deleteMany({
-        where: { userId: user.id }
-      });
-
       // 新しいパスワードリセットトークンを生成
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
+      const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
       
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt: new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS),
+      // upsertを使用して競合状態を防止（@@unique([userId])制約により1ユーザー1トークン）
+      await prisma.passwordResetToken.upsert({
+        where: { userId: user.id },
+        update: { 
+          tokenHash, 
+          expiresAt, 
+          createdAt: new Date() 
+        },
+        create: { 
+          userId: user.id, 
+          tokenHash, 
+          expiresAt 
         },
       });
 

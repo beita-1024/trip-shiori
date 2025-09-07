@@ -124,28 +124,30 @@ model EmailVerificationToken {
  * 
  * 各トークンは一意のIDとハッシュ化されたトークン値を持ち、ユーザーと紐付けられます。
  * 有効期限・作成日時を保持し、トークンはユニーク制約付きです。
+ * ユーザー毎に1件のみの制約により競合状態を防止します。
  * インデックスにより検索性能を最適化しています。
  */
 model PasswordResetToken {
   /** トークンの一意識別子 */
   id         String   @id @default(cuid())
 
-  /** 紐付くユーザーID */
-  userId     String
+  /** 紐付くユーザーID（ユニーク制約により1ユーザー1トークン） */
+  userId     String   @unique
 
   /** ハッシュ化されたトークン値（ユニーク） */
   tokenHash  String   @unique
 
   /** 有効期限 */
-  expiresAt  DateTime
+  expiresAt  DateTime @db.Timestamptz(6)
 
   /** 作成日時 */
-  createdAt  DateTime @default(now())
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
 
   /** ユーザーとのリレーション（削除時はカスケード） */
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@index([expiresAt])
   @@index([tokenHash])
+  // 検索最適化：最新・未失効の取得パターンに合わせた複合Index
+  @@index([userId, expiresAt, createdAt])
 }

@@ -93,10 +93,48 @@ describe('Password Reset Tests', () => {
       expect(response.body.error).toBe('invalid_body');
       expect(response.body.message).toContain('Invalid email format');
     });
+
+    test('複数回のリクエストでトークンが上書きされる（upsert動作確認）', async () => {
+      // 1回目のリクエスト
+      const response1 = await request(app)
+        .post('/auth/password-reset/request')
+        .send({ email: testUser.email })
+        .set('Content-Type', 'application/json');
+
+      expect(response1.status).toBe(204);
+
+      // 最初のトークンを取得
+      const firstToken = await prisma.passwordResetToken.findUnique({
+        where: { userId: testUserId },
+      });
+      expect(firstToken).toBeTruthy();
+      const firstTokenHash = firstToken?.tokenHash;
+
+      // 2回目のリクエスト
+      const response2 = await request(app)
+        .post('/auth/password-reset/request')
+        .send({ email: testUser.email })
+        .set('Content-Type', 'application/json');
+
+      expect(response2.status).toBe(204);
+
+      // トークンが更新されていることを確認
+      const secondToken = await prisma.passwordResetToken.findUnique({
+        where: { userId: testUserId },
+      });
+      expect(secondToken).toBeTruthy();
+      expect(secondToken?.tokenHash).not.toBe(firstTokenHash);
+      expect(secondToken?.createdAt.getTime()).toBeGreaterThan(firstToken?.createdAt.getTime() || 0);
+    });
   });
 
   describe('POST /auth/password-reset/confirm', () => {
     beforeEach(async () => {
+      // 既存のパスワードリセットトークンを削除（@@unique([userId])制約のため）
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: testUserId },
+      });
+
       // テスト用のパスワードリセットトークンを作成
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
@@ -161,6 +199,11 @@ describe('Password Reset Tests', () => {
     });
 
     test('期限切れトークンでエラーを返す', async () => {
+      // 既存のトークンを削除してから期限切れトークンを作成
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: testUserId },
+      });
+
       // 期限切れのトークンを作成
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
@@ -230,6 +273,11 @@ describe('Password Reset Tests', () => {
       expect(loginResponse.status).toBe(204);
       const cookies = loginResponse.headers['set-cookie'];
       expect(cookies).toBeTruthy();
+
+      // 既存のパスワードリセットトークンを削除してから新しいトークンを作成
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: testUserId },
+      });
 
       // パスワードリセットトークンを作成
       const rawToken = crypto.randomBytes(32).toString('hex');
