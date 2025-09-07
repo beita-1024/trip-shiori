@@ -115,7 +115,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // 検証URLを生成
-    const verifyUrl = `${process.env.APP_URL}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
+    const verifyUrl = `${process.env.FRONTEND_URL}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
 
     // メール送信
     try {
@@ -230,8 +230,8 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
 
     // ダッシュボード等へ遷移
-    const appOrigin = process.env.APP_ORIGIN || 'http://localhost:3001';
-    return res.redirect(`${appOrigin}/dashboard`);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    return res.redirect(`${frontendUrl}/dashboard`);
 
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -467,7 +467,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       });
 
       // リセットURLを生成
-      const resetUrl = `${process.env.APP_URL}/reset-password?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(rawToken)}`;
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(rawToken)}`;
 
       // メール送信
       try {
