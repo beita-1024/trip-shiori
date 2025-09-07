@@ -241,6 +241,21 @@ export default function LoginFeature() {
             </button>
           </p>
         </div>
+
+        {/* パスワードリセットページへのリンク */}
+        <div className="mt-3 text-center">
+          <p className="text-muted text-sm">
+            パスワードを忘れた方は{" "}
+            <button
+              type="button"
+              onClick={() => router.push("/forgot-password")}
+              className="text-accent hover:text-accent-hover underline"
+              disabled={isSubmitting}
+            >
+              こちらからリセット
+            </button>
+          </p>
+        </div>
       </Card>
     </section>
   );
