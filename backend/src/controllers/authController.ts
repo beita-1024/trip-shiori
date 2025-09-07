@@ -35,10 +35,10 @@ const passwordSchema = z.string()
  * Zodバリデーションエラーを400レスポンスに変換
  * @param error Zodエラー
  * @param res Expressレスポンスオブジェクト
- * @returns レスポンスが送信された場合はtrue
+ * @returns 400エラーレスポンス
  */
-const handleZodError = (error: z.ZodError, res: Response): boolean => {
-  res.status(400).json({
+const handleZodError = (error: z.ZodError, res: Response) => {
+  return res.status(400).json({
     error: 'invalid_body',
     message: 'Validation failed',
     details: error.issues.map((err: z.ZodIssue) => ({
@@ -46,7 +46,6 @@ const handleZodError = (error: z.ZodError, res: Response): boolean => {
       message: err.message
     }))
   });
-  return true;
 };
 
 /**
