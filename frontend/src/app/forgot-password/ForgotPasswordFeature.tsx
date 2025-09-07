@@ -5,41 +5,41 @@ import { useRouter } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
 
 /**
- * ログインフォームのデータ型
+ * パスワードリセット要求フォームのデータ型
  */
-interface LoginFormData {
+interface ForgotPasswordFormData {
   email: string;
-  password: string;
 }
 
 /**
- * ユーザーログイン機能のメインコンポーネント
+ * パスワードリセット要求機能のメインコンポーネント
  * 
- * メールアドレスとパスワードでログインを行い、サーバーからのHttpOnly Cookieを受け取って
- * ダッシュボードページへ遷移する機能を提供します。
+ * メールアドレスを入力してパスワードリセットメールを送信する機能を提供します。
+ * ユーザー列挙耐性のため、常に204 No Contentを返し、成功・失敗に関わらず
+ * 同じメッセージを表示します。
  * 
  * 主な機能：
  * - フォームバリデーション（クライアント側）
- * - API連携（POST /auth/login）
- * - エラーハンドリング（400/401/403エラー）
- * - 成功時のUXフロー（ダッシュボードページ遷移）
+ * - API連携（POST /auth/password-reset/request）
+ * - エラーハンドリング（429レート制限のみ特別扱い）
+ * - 成功時のUXフロー（完了メッセージ表示）
  * - 二重送信防止（送信中はボタン無効化）
  * 
- * @returns レンダリングされたLoginFeatureコンポーネント
+ * @returns レンダリングされたForgotPasswordFeatureコンポーネント
  */
-export default function LoginFeature() {
+export default function ForgotPasswordFeature() {
   const router = useRouter();
   
   // フォーム状態
-  const [formData, setFormData] = useState<LoginFormData>({
+  const [formData, setFormData] = useState<ForgotPasswordFormData>({
     email: "",
-    password: "",
   });
   
   // UI状態
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<LoginFormData>>({});
+  const [errors, setErrors] = useState<Partial<ForgotPasswordFormData>>({});
   const [apiError, setApiError] = useState<string>("");
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   /**
    * フォームフィールドの値を更新する
@@ -47,7 +47,7 @@ export default function LoginFeature() {
    * @param field - 更新するフィールド名
    * @param value - 新しい値
    */
-  const handleFieldChange = (field: keyof LoginFormData, value: string) => {
+  const handleFieldChange = (field: keyof ForgotPasswordFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // フィールド変更時にエラーをクリア
     if (errors[field]) {
@@ -64,19 +64,14 @@ export default function LoginFeature() {
    * @param data - バリデーション対象のフォームデータ
    * @returns バリデーションエラーのマップ
    */
-  const validateForm = (data: LoginFormData): Partial<LoginFormData> => {
-    const newErrors: Partial<LoginFormData> = {};
+  const validateForm = (data: ForgotPasswordFormData): Partial<ForgotPasswordFormData> => {
+    const newErrors: Partial<ForgotPasswordFormData> = {};
 
     // メールアドレスの検証
     if (!data.email.trim()) {
       newErrors.email = "メールアドレスは必須です";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       newErrors.email = "正しいメールアドレス形式で入力してください";
-    }
-
-    // パスワードの検証
-    if (!data.password) {
-      newErrors.password = "パスワードは必須です";
     }
 
     return newErrors;
@@ -99,7 +94,6 @@ export default function LoginFeature() {
     setApiError("");
 
     // タイムアウト/中断の設定
-    // INFO: fetch はデフォルトでタイムアウトがなく、ネットワーク不調時にUIが固まりがちなので、タイムアウトを設定
     let timeoutId: number | undefined;
     const controller = new AbortController();
     try {
@@ -112,41 +106,36 @@ export default function LoginFeature() {
         console.log('API URL:', apiUrl);
       }
       
-      const response = await fetch(`${apiUrl}/auth/login`, {
+      const response = await fetch(`${apiUrl}/auth/password-reset/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: formData.email.trim(),
-          password: formData.password,
         }),
-        credentials: 'include', // HttpOnly Cookieを受け取るために必要
         signal: controller.signal,
       });
 
       if (response.status === 204) {
-        // ログイン成功 - ダッシュボードページへ遷移
-        router.push("/dashboard");
+        // 成功時：完了メッセージを表示（ユーザー列挙耐性のため常に同じメッセージ）
+        setShowSuccessMessage(true);
       } else {
         // エラーレスポンスの処理
         switch (response.status) {
-          case 400:
-            setApiError("入力内容に誤りがあります。メールアドレスとパスワードの形式を確認してください。");
-            break;
-          case 401:
-          case 403:
-            setApiError("メールアドレスまたはパスワードが違います。");
+          case 429:
+            setApiError("リクエストが多すぎます。しばらく時間をおいて再度お試しください。");
             break;
           default:
-            setApiError("ログインに失敗しました。しばらく時間をおいて再度お試しください。");
+            // その他のエラーは一般化メッセージを表示
+            setApiError("送信に失敗しました。しばらく時間をおいて再度お試しください。");
         }
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setApiError("リクエストがタイムアウトしました。ネットワーク状況を確認して再度お試しください。");
       } else {
-        console.error("Login error:", error);
+        console.error("Password reset request error:", error);
         setApiError("ネットワークエラーが発生しました。インターネット接続を確認してください。");
       }
     } finally {
@@ -155,13 +144,55 @@ export default function LoginFeature() {
     }
   };
 
+  // 成功メッセージ表示中の場合
+  if (showSuccessMessage) {
+    return (
+      <section className="min-h-screen flex items-center justify-center bg-app">
+        <Card elevation={2} className="max-w-md mx-auto p-8 text-center">
+          <div className="mb-4">
+            <i className="mdi mdi-email-check text-4xl text-green-600 mb-4" aria-hidden />
+          </div>
+          <Heading className="text-green-600 mb-4">送信完了</Heading>
+          <p className="text-body mb-6">
+            送信しました。メールをご確認ください。
+          </p>
+          <div className="space-y-3">
+            <Button
+              onClick={() => router.push("/login")}
+              className="w-full"
+            >
+              ログインページに戻る
+            </Button>
+            <Button
+              kind="ghost"
+              onClick={() => {
+                setShowSuccessMessage(false);
+                setFormData({ email: "" });
+              }}
+              className="w-full"
+            >
+              もう一度送信する
+            </Button>
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
   return (
     <section className="min-h-screen flex items-center justify-center bg-app">
       <Card elevation={2} className="max-w-md mx-auto p-8">
         <div className="mb-4 text-center">
-          <i className="mdi mdi-login text-4xl text-muted mb-4" aria-hidden />
+          <i className="mdi mdi-lock-reset text-4xl text-muted mb-4" aria-hidden />
         </div>
-        <Heading className="text-center mb-6">ログイン</Heading>
+        <Heading className="text-center mb-6">パスワードリセット</Heading>
+        
+        <div className="mb-6">
+          <p className="text-body text-sm">
+            登録されているメールアドレスを入力してください。<br />
+            パスワードリセット用のメールをお送りします。
+          </p>
+        </div>
         
         <SimpleForm onSubmit={handleSubmit}>
           {/* メールアドレス */}
@@ -186,28 +217,6 @@ export default function LoginFeature() {
             )}
           </FormField>
 
-          {/* パスワード */}
-          <FormField label="パスワード" id="password" required>
-            <InputWithPlaceholder
-              id="password"
-              type="password"
-              placeholder="パスワードを入力してください"
-              value={formData.password}
-              onChange={(e) => handleFieldChange("password", e.target.value)}
-              name="password"
-              autoComplete="current-password"
-              aria-invalid={!!errors.password}
-              aria-describedby={errors.password ? "password-error" : undefined}
-              className={errors.password ? "border-red-500" : ""}
-              disabled={isSubmitting}
-            />
-            {errors.password && (
-              <p id="password-error" className="mt-1 text-sm text-red-600" role="alert">
-                {errors.password}
-              </p>
-            )}
-          </FormField>
-
           {/* APIエラー表示 */}
           {apiError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -223,36 +232,21 @@ export default function LoginFeature() {
             disabled={isSubmitting}
             className="w-full"
           >
-            {isSubmitting ? "ログイン中..." : "ログイン"}
+            {isSubmitting ? "送信中..." : "送信する"}
           </Button>
         </SimpleForm>
 
-        {/* 登録ページへのリンク */}
+        {/* ログインページへのリンク */}
         <div className="mt-6 text-center">
           <p className="text-muted text-sm">
-            アカウントをお持ちでない方は{" "}
+            パスワードを思い出した方は{" "}
             <button
               type="button"
-              onClick={() => router.push("/register")}
+              onClick={() => router.push("/login")}
               className="text-accent hover:text-accent-hover underline"
               disabled={isSubmitting}
             >
-              こちらから登録
-            </button>
-          </p>
-        </div>
-
-        {/* パスワードリセットページへのリンク */}
-        <div className="mt-3 text-center">
-          <p className="text-muted text-sm">
-            パスワードを忘れた方は{" "}
-            <button
-              type="button"
-              onClick={() => router.push("/forgot-password")}
-              className="text-accent hover:text-accent-hover underline"
-              disabled={isSubmitting}
-            >
-              こちらからリセット
+              こちらからログイン
             </button>
           </p>
         </div>
