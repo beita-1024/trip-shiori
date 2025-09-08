@@ -1,0 +1,93 @@
+---
+description: "API エンドポイント追加時の OpenAPI ドキュメント更新ルール"
+globs:
+  - "backend/src/controllers/**/*.ts"
+  - "backend/src/routes/**/*.ts"
+  - "docs/api/openapi.yaml"
+alwaysApply: true
+---
+
+# API ドキュメント管理ルール
+
+新しいAPIエンドポイントを追加・変更した際は、**必ず** `docs/api/openapi.yaml` を更新すること。
+
+## 必須作業
+
+### 1. エンドポイント追加時
+- `docs/api/openapi.yaml` の `paths` セクションに新しいエンドポイントを追加
+- リクエスト・レスポンスのスキーマを `components/schemas` に定義
+- 認証要件、エラーレスポンス、レート制限を明記
+
+### 2. データモデル変更時
+- 既存のスキーマを更新
+- 破壊的変更の場合は `version` を更新
+- 変更履歴を `info/description` に追記
+
+### 3. 認証・セキュリティ変更時
+- `securitySchemes` の更新
+- 各エンドポイントの `security` 要件を確認・更新
+
+## ドキュメント構造
+
+```
+docs/api/
+├── openapi.yaml          # メインのOpenAPI仕様書
+└── README.md            # API使用方法の説明
+```
+
+## 更新手順
+
+1. **TSDocコメント確認**: エンドポイントのTSDocが適切に記述されているか確認
+2. **OpenAPI更新**: `docs/api/openapi.yaml` に対応するエンドポイントを追加
+3. **スキーマ定義**: 新しいデータ型があれば `components/schemas` に追加
+4. **テスト**: OpenAPI仕様書の妥当性を確認
+5. **レビュー**: 変更内容をPRでレビュー
+
+## 品質チェック項目
+
+- [ ] エンドポイントのパスが正しく定義されている
+- [ ] リクエスト・レスポンスのスキーマが正確
+- [ ] 認証要件が明記されている
+- [ ] エラーレスポンスが網羅されている
+- [ ] 例（example）が適切に設定されている
+- [ ] タグ（tags）が適切に分類されている
+
+## 例: 新しいエンドポイント追加
+
+```yaml
+# docs/api/openapi.yaml に追加
+/api/users/{id}:
+  get:
+    summary: ユーザー情報取得
+    description: 指定されたIDのユーザー情報を取得
+    tags:
+      - Users
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: ユーザー情報
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+```
+
+## 注意事項
+
+- **破壊的変更**: 既存APIの破壊的変更は避け、バージョニングを検討
+- **後方互換性**: 既存クライアントへの影響を最小限に
+- **セキュリティ**: 認証・認可要件を必ず明記
+- **エラーハンドリング**: 想定されるエラーケースを網羅
+
+## 参考
+
+- [OpenAPI Specification](https://swagger.io/specification/)
+- 既存のTSDocコメント（`backend/src/controllers/`）
+- プロジェクトの認証・認可仕様
+
+_Last updated: 2025-01-15_

@@ -22,6 +22,9 @@ ENV ?= dev
   db-migrate \
   db-seed \
   db-studio \
+  swagger-ui \
+  swagger-ui-stop \
+  swagger-ui-local \
   deploy
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
@@ -94,6 +97,27 @@ db-seed: ## 初期データ投入
 
 db-studio: ## Prisma Studio起動
 	$(COMPOSE) exec backend npx prisma studio
+
+swagger-ui: ## Swagger UI起動（Docker使用）
+	@echo "Starting Swagger UI on http://localhost:8081"
+	@docker run -d --name trip-shiori-swagger-ui \
+		-p 8081:8080 \
+		-v $(PWD)/docs/api:/usr/share/nginx/html/api \
+		-e SWAGGER_JSON=/usr/share/nginx/html/api/openapi.yaml \
+		swaggerapi/swagger-ui || \
+		(docker start trip-shiori-swagger-ui && echo "Swagger UI container restarted")
+	@echo "Swagger UI is running at http://localhost:8081"
+
+swagger-ui-stop: ## Swagger UI停止
+	@echo "Stopping Swagger UI..."
+	@docker stop trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not running"
+	@docker rm trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not found"
+
+swagger-ui-local: ## Swagger UI起動（ローカル、JSON変換）
+	@echo "Converting YAML to JSON..."
+	@npx js-yaml docs/api/openapi.yaml > docs/api/openapi.json
+	@echo "Starting Swagger UI locally on http://localhost:3000"
+	@npx swagger-ui-serve docs/api/openapi.json
 
 deploy: ## デプロイNoop（後で差し替え）
 	@echo "Deploy to $(ENV) - TODO"
