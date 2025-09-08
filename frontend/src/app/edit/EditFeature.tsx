@@ -15,7 +15,7 @@ import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import SortableEvent from "./SortableEvent";
 import ItineraryPreview from "@/components/ItineraryPreview";
 import TriFoldPrintPreview from "@/components/TriFoldPrintPreview";
-import useItineraryStore, { openPrintPreviewStub, shareUrlStub, startAiChatEditStub, startAiVoiceInputStub } from "@/components/itineraryStore";
+import useItineraryStore from "@/components/itineraryStore";
 import { PlusIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/solid";
 import iconItems from "@/components/iconItems";
 
@@ -607,39 +607,8 @@ export default function EditFeature() {
                   <i className="mdi mdi-restore mr-2" />
                   デフォルトに戻す
                 </Button>
-                {/* <Button kind="ghost" type="button" onClick={() => setShowPrintPreview(true)}>
-                  <i className="mdi mdi-printer mr-2" />
-                  印刷プレビュー（スタブ）
-                </Button>
-                <Button kind="ghost" type="button" onClick={() => setShowTriFoldPrintPreview(true)}>
-                  <i className="mdi mdi-printer mr-2" />
-                  三つ折り印刷プレビュー
-                </Button> */}
               </div>
 
-              {/* <div className="flex items-center gap-2 w-full">
-                <Button
-                  kind="ghost"
-                  type="button"
-                  onClick={async () => {
-                    const url = await shareItinerary();
-                    if (url) setSharedUrl(url);
-                  }}
-                >
-                  <i className="mdi mdi-link-variant mr-2" />
-                  共有URLを生成
-                </Button>
-                <input readOnly value={sharedUrl} className="flex-1 rounded-md border border-ui p-2 bg-app text-body" />
-                <Button kind="ghost" type="button" aria-label="コピー" onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(sharedUrl || '');
-                  } catch (e) {
-                    console.error('clipboard copy failed', e);
-                  }
-                }}>
-                  <i className="mdi mdi-content-copy" aria-hidden />
-                </Button>
-              </div> */}
             </div>
           </div>
         </Card>

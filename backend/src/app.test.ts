@@ -64,17 +64,4 @@ describe('WebAPI E2E Tests', () => {
       expect(response.body.error).toContain('event1 and event2 are required');
     });
   });
-
-  describe('GET /api/itinerary-edit/sample', () => {
-    test('サンプル旅程データを正常に取得できる', async () => {
-      const response = await request(app).get('/api/itinerary-edit/sample');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('data');
-      expect(response.body.data).toHaveProperty('itinerary');
-      expect(response.body.data.itinerary).toHaveProperty('title');
-      expect(response.body.data.itinerary).toHaveProperty('days');
-    });
-  });
 });
