@@ -1,4 +1,0 @@
-# NOTE: npmからpnpmに移行してないが、置くだけおいておく
-packages:
-  - "backend"
-  - "frontend"

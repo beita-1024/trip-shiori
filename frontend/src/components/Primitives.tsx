@@ -6,48 +6,6 @@
  * 
  * 依存: React, Tailwind（@layer utilities に bg-app 等が定義済み）
  * 
- * @fileoverview
- * ─ かんたんな使い方 ─
- * 1) 画面で使いたいところでインポート:
- *    import { Card, Heading, SubHeading, FormField, Input, Textarea, Button, SimpleForm } from "./components/Primitives";
- *
- * 2) コピペで動く最小例（旅行の基本情報フォーム）:
- *    <Card elevation={1} className="max-w-2xl mx-auto">
- *      <Heading>旅行の基本情報</Heading>
- *      <SimpleForm onSubmit={() => alert("保存しました")}>
- *        <FormField label="タイトル" id="title">
- *          <Input id="title" defaultValue="2泊3日の名古屋旅行" />
- *        </FormField>
- *        <FormField label="サブタイトル" id="subtitle">
- *          <Input id="subtitle" defaultValue="グルメと観光を楽しむ名古屋の旅" />
- *        </FormField>
- *        <FormField label="概要" id="overview">
- *          <Textarea id="overview" rows={4} defaultValue="名古屋の名物料理と観光地を満喫する2泊3日の旅行プランです。" />
- *        </FormField>
- *        <div className="flex gap-2">
- *          <Button type="submit">保存</Button>
- *          <Button kind="ghost" type="button">キャンセル</Button>
- *        </div>
- *      </SimpleForm>
- *    </Card>
- *
- * ─ コピペ用タグ（チートシート） ─
- *  <Card elevation={1}>…</Card>
- *  <Heading>見出し</Heading>
- *  <SubHeading>小見出し</SubHeading>
- *  <FormField label="ラベル" id="any">
- *    <Input id="any" placeholder="テキスト" />
- *  </FormField>
- *  <Textarea id="memo" rows={4} placeholder="メモ" />
- *  <Button>決定</Button>
- *  <Button kind="ghost">戻る</Button>
- *  <Button kind="destructive">削除</Button>
- *  <ActionIconButton icon="mdi-delete" elevation={1} dataTip="削除" />
- *  <SimpleForm onSubmit={() => { <submit 処理>}}>
- *    <フィールド>
- *  </SimpleForm>
- *
- * フォーカスリングや色は CSS 変数 --color-accent を利用（テーマに追従）
  */
 
 import React, { forwardRef, useState } from "react";

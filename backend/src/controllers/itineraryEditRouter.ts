@@ -5,7 +5,6 @@
  */
 import { Router } from 'express';
 import { editItinerary } from './itineraryEditController';
-import { sampleItinerary } from '../utils/sampleItinerary';
 
 const router = Router();
 
@@ -36,25 +35,5 @@ const router = Router();
  */
 router.post('/', editItinerary);
 
-/**
- * GET /api/itinerary-edit/sample
- * テスト用サンプル旅程データを取得する
- * 
- * レスポンス:
- * {
- *   "success": true,
- *   "data": {
- *     "itinerary": {...}
- *   }
- * }
- */
-router.get('/sample', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      itinerary: sampleItinerary
-    }
-  });
-});
 
 export default router;
