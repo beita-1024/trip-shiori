@@ -81,10 +81,10 @@ docker run -d -p 8081:8080 -v $(pwd)/docs/api:/usr/share/nginx/html/api -e SWAGG
 ### テスト方法
 ```bash
 # 開発環境でのAPIテスト
-curl -X GET http://localhost:3000/health
+curl -X GET http://localhost:4002/health
 
 # 認証が必要なエンドポイントのテスト
-curl -X GET http://localhost:3000/auth/protected \
+curl -X GET http://localhost:4002/auth/protected \
   -H "Cookie: access_token=<JWT_TOKEN>"
 ```
 

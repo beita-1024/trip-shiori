@@ -113,11 +113,9 @@ swagger-ui-stop: ## Swagger UI停止
 	@docker stop trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not running"
 	@docker rm trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not found"
 
-swagger-ui-local: ## Swagger UI起動（ローカル、JSON変換）
-	@echo "Converting YAML to JSON..."
-	@npx js-yaml docs/api/openapi.yaml > docs/api/openapi.json
-	@echo "Starting Swagger UI locally on http://localhost:3000"
-	@npx swagger-ui-serve docs/api/openapi.json
+swagger-ui-local: ## Swagger UI起動（ローカル）
+	@echo "Starting Swagger UI locally on http://localhost:8081"
+	@npx swagger-ui-watcher docs/api/openapi.yaml --port 8081
 
 deploy: ## デプロイNoop（後で差し替え）
 	@echo "Deploy to $(ENV) - TODO"

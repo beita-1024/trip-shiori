@@ -8,8 +8,12 @@ export const corsConfig = {
   options: {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev';
-      const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3001';
-
+      const clientOrigin = process.env.CLIENT_ORIGIN;
+      if (!isDevelopment && !clientOrigin) {
+        // 起動時に落とすのがより安全だが、ここでは拒否しておく
+        return callback(new Error('CORS misconfiguration: CLIENT_ORIGIN is not set'), false);
+      }
+      
       // 本番環境では CLIENT_ORIGIN のみを許可
       if (!isDevelopment) {
         // オリジンが未定義の場合（Postman等のツール）は許可
