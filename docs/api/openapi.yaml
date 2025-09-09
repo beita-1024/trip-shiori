@@ -504,11 +504,16 @@ paths:
               properties:
                 currentPassword:
                   type: string
-                  example: "currentpassword"
+                  minLength: 8
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  example: "CurrentPass123!"
                 newPassword:
                   type: string
                   minLength: 8
-                  example: "newpassword123"
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  example: "NewSecurePass123!"
       responses:
         '204':
           description: パスワードが正常に変更されました
@@ -544,7 +549,10 @@ paths:
               properties:
                 password:
                   type: string
-                  example: "userpassword"
+                  minLength: 8
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  example: "UserPass123!"
       responses:
         '204':
           description: アカウントが正常に削除されました
