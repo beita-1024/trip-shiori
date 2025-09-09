@@ -950,6 +950,7 @@ components:
       properties:
         error:
           type: string
+          enum: [invalid_body, invalid_query, invalid_params]
           example: invalid_body
         message:
           type: string

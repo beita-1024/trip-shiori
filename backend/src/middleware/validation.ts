@@ -28,8 +28,12 @@ export const validateRequest = <T>(
           message: err.message,
         }));
 
+        const errorCode = target === 'body' ? 'invalid_body' : 
+                          target === 'query' ? 'invalid_query' : 
+                          'invalid_params';
+        
         res.status(400).json({
-          error: 'invalid_body',
+          error: errorCode,
           message: 'Request validation failed',
           details: errorMessages,
         });
