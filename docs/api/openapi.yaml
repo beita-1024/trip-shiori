@@ -953,7 +953,7 @@ components:
           example: invalid_body
         message:
           type: string
-          example: Validation failed
+          example: Request validation failed
         details:
           type: array
           items:
@@ -1163,7 +1163,7 @@ components:
           schema:
             $ref: '#/components/schemas/ValidationError'
           example:
-            error: "validation_error"
+            error: "invalid_body"
             message: "Request validation failed"
             details:
               - field: "name"

@@ -29,7 +29,7 @@ export const validateRequest = <T>(
         }));
 
         res.status(400).json({
-          error: 'validation_error',
+          error: 'invalid_body',
           message: 'Request validation failed',
           details: errorMessages,
         });
