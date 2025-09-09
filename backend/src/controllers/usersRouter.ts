@@ -7,6 +7,7 @@ import {
 } from './usersController';
 import { authenticateToken } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
+import { rateLimit } from '../middleware/rateLimit';
 import { 
   updateUserProfileSchema, 
   changePasswordSchema, 
@@ -18,8 +19,10 @@ const router = Router();
 /**
  * ユーザー管理関連のルート
  * すべてのエンドポイントで認証が必要
+ * レート制限: 60 req/min
  */
 router.use(authenticateToken);
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // プロフィール管理
 router.get('/profile', getUserProfile);

@@ -8,6 +8,7 @@ import {
 } from './itinerariesController';
 import { authenticateToken } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validation';
+import { rateLimit } from '../middleware/rateLimit';
 import { 
   getItinerariesQuerySchema,
   createItinerarySchema,
@@ -19,8 +20,10 @@ const router = Router();
 /**
  * 旅のしおり関連のルート
  * すべてのエンドポイントで認証が必要
+ * レート制限: 60 req/min
  */
 router.use(authenticateToken);
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // 旅程管理CRUD
 // TODO: createItinerarySchema, updateItinerarySchema は
