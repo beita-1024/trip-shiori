@@ -7,20 +7,55 @@ info:
     このAPIは旅行の行程を作成・編集・管理するためのRESTful APIです。
     AI機能を使用してイベントの補完や旅程の編集をサポートします。
     
-    ## 認証
-    - JWT認証を使用（HttpOnly Cookie）
-    - メール認証が必要
-    - パスワードリセット機能あり
     
-    ## レート制限
-    - パスワードリセット: 15分あたり3回
-    - パスワードリセット確認: 15分あたり5回
+    ## グローバルミドルウェア
+    以下のミドルウェアは全エンドポイントで自動的に適用されます：
+    - **CORS**: クロスオリジンリクエストの制御（ブラウザの同一オリジンポリシー対応）
+    - **express.json**: JSONリクエストボディの解析
+    - **cookieParser**: Cookieの解析（JWT認証用）
+    
+    ## ミドルウェア一覧
+    このAPIでは以下のミドルウェアを使用しています：
+    
+    ### auth（JWT認証）
+    - **処理内容**: JWTトークンの検証とユーザー認証
+    - **適用範囲**: 認証が必要なエンドポイント
+    - **目的**: セキュリティ確保とユーザー識別
+    
+    ### rateLimit（レート制限）
+    - **処理内容**: リクエスト頻度の制限
+    - **制限値**:
+      - 一般エンドポイント: 60 req/min
+      - パスワードリセット: 15分あたり3回
+      - パスワードリセット確認: 15分あたり5回
+      - AI機能: 専用制限
+    - **目的**: サーバー負荷軽減とセキュリティ向上
+    
+    ### validation（バリデーション）
+    - **処理内容**: Zodスキーマを使用したリクエストデータの検証
+    - **適用範囲**: リクエストボディ・クエリパラメータ・パスパラメータ
+    - **目的**: 型安全性確保とデータ整合性チェック
+    
+    ### CORS（Cross-Origin Resource Sharing）
+    - **処理内容**: クロスオリジンリクエストの制御
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: ブラウザの同一オリジンポリシー対応とセキュリティ
+    
+    ### express.json（JSONパーサー）
+    - **処理内容**: JSONリクエストボディの解析
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: リクエストボディの解析
+    
+    ### cookieParser（Cookieパーサー）
+    - **処理内容**: Cookieの解析
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: JWT認証用のCookie処理
     
   version: 1.0.0
   contact:
     name: Trip Shiori Team
   license:
-    name: MIT
+    name: None
 
 servers:
   - url: http://localhost:4002
@@ -202,7 +237,11 @@ paths:
   /auth/logout:
     post:
       summary: ユーザーログアウト
-      description: 認証済みユーザーをログアウトし、JWT Cookieを無効化
+      description: |
+        認証済みユーザーをログアウトし、JWT Cookieを無効化
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
       tags:
         - Authentication
       security:
@@ -231,7 +270,12 @@ paths:
   /auth/protected:
     get:
       summary: 保護されたリソース
-      description: 認証済みユーザーのみアクセス可能なリソースの例
+      description: |
+        認証済みユーザーのみアクセス可能なリソースの例
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Authentication
       security:
@@ -272,7 +316,11 @@ paths:
   /auth/password-reset/request:
     post:
       summary: パスワードリセットリクエスト
-      description: メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
+      description: |
+        メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
+        
+        **使用ミドルウェア**:
+        - rateLimit: レート制限（15分あたり3回）- スパム防止とセキュリティ向上のため
       tags:
         - Authentication
       requestBody:
@@ -313,7 +361,11 @@ paths:
   /auth/password-reset/confirm:
     post:
       summary: パスワードリセット確認
-      description: パスワードリセットトークンを検証し、新しいパスワードを設定
+      description: |
+        パスワードリセットトークンを検証し、新しいパスワードを設定
+        
+        **使用ミドルウェア**:
+        - rateLimit: レート制限（15分あたり5回）- ブルートフォース攻撃防止のため
       tags:
         - Authentication
       requestBody:
@@ -362,10 +414,16 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   # ユーザー管理API
+
   /api/users/profile:
     get:
       summary: ユーザープロフィール取得
-      description: 認証済みユーザーのプロフィール情報を取得
+      description: |
+        認証済みユーザーのプロフィール情報を取得
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Users
       security:
@@ -384,7 +442,13 @@ paths:
 
     put:
       summary: ユーザープロフィール更新
-      description: 認証済みユーザーのプロフィール情報を更新
+      description: |
+        認証済みユーザーのプロフィール情報を更新
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
         - Users
       security:
@@ -417,7 +481,13 @@ paths:
   /api/users/password:
     put:
       summary: パスワード変更
-      description: 認証済みユーザーのパスワードを変更
+      description: |
+        認証済みユーザーのパスワードを変更
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
         - Users
       security:
@@ -452,7 +522,13 @@ paths:
   /api/users/account/delete:
     post:
       summary: アカウント削除
-      description: 認証済みユーザーのアカウントを削除（パスワード確認必須）
+      description: |
+        認証済みユーザーのアカウントを削除（パスワード確認必須）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
         - Users
       security:
@@ -483,7 +559,13 @@ paths:
   /api/itineraries:
     get:
       summary: 旅程一覧取得
-      description: 認証済みユーザーの旅程一覧を取得（ページネーション対応）
+      description: |
+        認証済みユーザーの旅程一覧を取得（ページネーション対応）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: クエリパラメータのバリデーション（Zodスキーマ）
       tags:
         - Itineraries
       security:
@@ -543,7 +625,13 @@ paths:
 
     post:
       summary: 旅程作成
-      description: 認証済みユーザーが新しい旅程を作成
+      description: |
+        認証済みユーザーが新しい旅程を作成
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
         - Itineraries
       security:
@@ -584,7 +672,12 @@ paths:
   /api/itineraries/{id}:
     get:
       summary: 旅程詳細取得
-      description: 認証済みユーザーが自分の旅程を取得（識別子ベース）
+      description: |
+        認証済みユーザーが自分の旅程を取得（識別子ベース）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Itineraries
       security:
@@ -621,7 +714,13 @@ paths:
 
     put:
       summary: 旅程更新
-      description: 認証済みユーザーが自分の旅程を更新
+      description: |
+        認証済みユーザーが自分の旅程を更新
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
         - Itineraries
       security:
@@ -670,7 +769,12 @@ paths:
 
     delete:
       summary: 旅程削除
-      description: 認証済みユーザーが自分の旅程を削除
+      description: |
+        認証済みユーザーが自分の旅程を削除
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Itineraries
       security:
@@ -820,6 +924,7 @@ components:
       in: cookie
       name: access_token
       description: JWT認証トークン（HttpOnly Cookie）
+
 
   schemas:
     Error:
