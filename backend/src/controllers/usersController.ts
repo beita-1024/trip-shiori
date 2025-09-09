@@ -28,6 +28,9 @@ const prisma = new PrismaClient();
  */
 export const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // 認証ミドルウェア（例: authenticateToken）によって
+    // req.user に現在ログイン中のユーザー情報（id等）がセットされている
+    // ここで未認証なら401を返す
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -35,6 +38,8 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
       });
     }
 
+    // req.user.id を使ってDBからユーザー情報を取得
+    // selectで返すフィールドを限定（セキュリティ・パフォーマンスのため）
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
@@ -47,6 +52,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
       },
     });
 
+    // ユーザーが見つからない場合（理論上は稀だが、削除済み等）は401
     if (!user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -54,6 +60,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
       });
     }
 
+    // 日付型（Date）はISO文字列に変換して返す
     return res.status(200).json({
       id: user.id,
       email: user.email,
@@ -63,6 +70,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
       updatedAt: user.updatedAt.toISOString(),
     });
   } catch (error) {
+    // 予期しないエラーは500で返す
     console.error('Get user profile error:', error);
     return res.status(500).json({ 
       error: 'internal_server_error',
@@ -90,6 +98,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
  */
 export const updateUserProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // 認証ユーザーが存在しない場合は401を返す
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -97,10 +106,12 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    // Zodバリデーション済みデータを取得
+    // バリデーション済みのリクエストボディを取得
     const validatedBody = (req as any).validatedBody as UpdateUserProfileRequest;
     const { name } = validatedBody;
 
+    // nameが未指定の場合はnullで上書きされる点に注意
+    // 他のフィールドは更新不可（現状nameのみ）
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: { name: name || null },
@@ -114,6 +125,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
       },
     });
 
+    // 日付型はISO文字列に変換して返却
     return res.status(200).json({
       id: updatedUser.id,
       email: updatedUser.email,
@@ -123,6 +135,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
       updatedAt: updatedUser.updatedAt.toISOString(),
     });
   } catch (error) {
+    // 予期しないエラーは500で返す
     console.error('Update user profile error:', error);
     return res.status(500).json({ 
       error: 'internal_server_error',
@@ -150,6 +163,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
  */
 export const changePassword = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ユーザー認証情報が存在するか確認
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -157,16 +171,18 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
       });
     }
 
-    // Zodバリデーション済みデータを取得
+    // Zodバリデーション済みのリクエストボディを取得
+    // INFO: バリデーションは事前ミドルウェアで実施されている前提
     const validatedBody = (req as any).validatedBody as ChangePasswordRequest;
     const { currentPassword, newPassword } = validatedBody;
 
-    // 現在のパスワードを確認
+    // 現在のパスワードハッシュをDBから取得
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { passwordHash: true },
     });
 
+    // ユーザーが存在しない場合は認証エラー
     if (!user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -174,6 +190,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
       });
     }
 
+    // 現在のパスワードが正しいか検証
     const isCurrentPasswordValid = await verifyPassword(currentPassword, user.passwordHash);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({ 
@@ -182,8 +199,11 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
       });
     }
 
-    // 新しいパスワードをハッシュ化して更新
+    // 新しいパスワードをハッシュ化
     const newPasswordHash = await hashPassword(newPassword);
+
+    // パスワードとパスワード変更日時を更新
+    // INFO: passwordChangedAtを更新することで既存のトークンを無効化できる
     await prisma.user.update({
       where: { id: req.user.id },
       data: { 
@@ -192,8 +212,10 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
       },
     });
 
+    // 成功時は204 No Contentを返却
     return res.status(204).send();
   } catch (error) {
+    // 予期しないエラーは500で返却
     console.error('Change password error:', error);
     return res.status(500).json({ 
       error: 'internal_server_error',
@@ -221,6 +243,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
  */
 export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // 認証ユーザーが存在するかチェック
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -228,16 +251,17 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
       });
     }
 
-    // Zodバリデーション済みデータを取得
+    // Zodバリデーション済みのリクエストボディを取得
     const validatedBody = (req as any).validatedBody as DeleteAccountRequest;
     const { password } = validatedBody;
 
-    // パスワードを確認
+    // ユーザーのパスワードハッシュを取得
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { passwordHash: true },
     });
 
+    // ユーザーが存在しない場合は401を返却
     if (!user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -245,6 +269,7 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
       });
     }
 
+    // パスワードが正しいか検証
     const isPasswordValid = await verifyPassword(password, user.passwordHash);
     if (!isPasswordValid) {
       return res.status(400).json({ 
@@ -258,8 +283,10 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
       where: { id: req.user.id },
     });
 
+    // 削除成功時は204 No Contentを返却
     return res.status(204).send();
   } catch (error) {
+    // 予期しないエラーは500で返却
     console.error('Delete user account error:', error);
     return res.status(500).json({ 
       error: 'internal_server_error',
