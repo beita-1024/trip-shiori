@@ -1,13 +1,46 @@
 import { Router } from 'express';
-import { createItinerary, getItinerary, getAllItineraries } from './itinerariesController';
+import { 
+  createItinerary, 
+  getItinerary, 
+  getUserItineraries,
+  updateItinerary,
+  deleteItinerary 
+} from './itinerariesController';
+import { authenticateToken } from '../middleware/auth';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation';
+import { rateLimit } from '../middleware/rateLimit';
+import { z } from 'zod';
+import { 
+  getItinerariesQuerySchema,
+  createItinerarySchema,
+  updateItinerarySchema
+} from '../validators/itineraryValidators';
 
 const router = Router();
 
 /**
- * 旅のしおり関連のルート
+ * パスパラメータのバリデーションスキーマ
  */
-router.post('/', createItinerary);
-router.get('/:id', getItinerary);
-router.get('/', getAllItineraries);
+const idParamSchema = z.object({ 
+  id: z.string().min(1, 'ID is required') 
+});
+
+/**
+ * 旅のしおり関連のルート
+ * すべてのエンドポイントで認証が必要
+ * レート制限: 60 req/min
+ */
+router.use(authenticateToken);
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
+
+// 旅程管理CRUD
+// TODO: createItinerarySchema, updateItinerarySchema は
+//       現在緩いバリデーション（任意のJSONオブジェクト）だが、
+//       旅程のフォーマットが固まったら厳密なスキーマに変更する
+router.post('/', validateBody(createItinerarySchema), createItinerary);           // 旅程作成
+router.get('/', validateQuery(getItinerariesQuerySchema), getUserItineraries);    // ユーザーの旅程一覧取得（ページネーション）
+router.get('/:id', validateParams(idParamSchema), getItinerary);                  // 旅程詳細取得
+router.put('/:id', validateParams(idParamSchema), validateBody(updateItinerarySchema), updateItinerary); // 旅程更新
+router.delete('/:id', validateParams(idParamSchema), deleteItinerary);            // 旅程削除
 
 export default router;

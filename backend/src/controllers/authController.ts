@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { passwordSchema } from '../validators/commonSchemas';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
@@ -20,16 +21,7 @@ const PASSWORD_RESET_EXPIRES_MS = 15 * 60 * 1000;
 const COOKIE_NAME = 'access_token';
 const COOKIE_MAX_AGE = 15 * 60 * 1000; // 15分
 
-/**
- * パスワード強度検証のZodスキーマ
- * 最小8文字、大文字・小文字・数字・特殊文字を含む
- */
-const passwordSchema = z.string()
-  .min(8, 'パスワードは8文字以上である必要があります')
-  .regex(/[A-Z]/, '大文字を含める必要があります')
-  .regex(/[a-z]/, '小文字を含める必要があります')
-  .regex(/\d/, '数字を含める必要があります')
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, '特殊文字を含める必要があります');
+// パスワードスキーマは共通スキーマからインポート
 
 /**
  * Zodバリデーションエラーを400レスポンスに変換

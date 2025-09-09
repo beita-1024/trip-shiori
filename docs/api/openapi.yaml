@@ -7,20 +7,55 @@ info:
     このAPIは旅行の行程を作成・編集・管理するためのRESTful APIです。
     AI機能を使用してイベントの補完や旅程の編集をサポートします。
     
-    ## 認証
-    - JWT認証を使用（HttpOnly Cookie）
-    - メール認証が必要
-    - パスワードリセット機能あり
     
-    ## レート制限
-    - パスワードリセット: 15分あたり3回
-    - パスワードリセット確認: 15分あたり5回
+    ## グローバルミドルウェア
+    以下のミドルウェアは全エンドポイントで自動的に適用されます：
+    - **CORS**: クロスオリジンリクエストの制御（ブラウザの同一オリジンポリシー対応）
+    - **express.json**: JSONリクエストボディの解析
+    - **cookieParser**: Cookieの解析（JWT認証用）
+    
+    ## ミドルウェア一覧
+    このAPIでは以下のミドルウェアを使用しています：
+    
+    ### auth（JWT認証）
+    - **処理内容**: JWTトークンの検証とユーザー認証
+    - **適用範囲**: 認証が必要なエンドポイント
+    - **目的**: セキュリティ確保とユーザー識別
+    
+    ### rateLimit（レート制限）
+    - **処理内容**: リクエスト頻度の制限
+    - **制限値**:
+      - 一般エンドポイント: 60 req/min
+      - パスワードリセット: 15分あたり3回
+      - パスワードリセット確認: 15分あたり5回
+      - AI機能: 専用制限
+    - **目的**: サーバー負荷軽減とセキュリティ向上
+    
+    ### validation（バリデーション）
+    - **処理内容**: Zodスキーマを使用したリクエストデータの検証
+    - **適用範囲**: リクエストボディ・クエリパラメータ・パスパラメータ
+    - **目的**: 型安全性確保とデータ整合性チェック
+    
+    ### CORS（Cross-Origin Resource Sharing）
+    - **処理内容**: クロスオリジンリクエストの制御
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: ブラウザの同一オリジンポリシー対応とセキュリティ
+    
+    ### express.json（JSONパーサー）
+    - **処理内容**: JSONリクエストボディの解析
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: リクエストボディの解析
+    
+    ### cookieParser（Cookieパーサー）
+    - **処理内容**: Cookieの解析
+    - **適用範囲**: 全エンドポイント（グローバル設定）
+    - **目的**: JWT認証用のCookie処理
     
   version: 1.0.0
   contact:
     name: Trip Shiori Team
   license:
-    name: MIT
+    name: None
 
 servers:
   - url: http://localhost:4002
@@ -70,8 +105,9 @@ paths:
                 password:
                   type: string
                   minLength: 8
+                  maxLength: 1024
                   pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: SecurePass123!
                 name:
                   type: string
@@ -165,6 +201,9 @@ paths:
                   example: user@example.com
                 password:
                   type: string
+                  minLength: 1
+                  maxLength: 1024
+                  description: パスワード（ログイン時は強度チェックなし）
                   example: SecurePass123!
       responses:
         '204':
@@ -202,7 +241,11 @@ paths:
   /auth/logout:
     post:
       summary: ユーザーログアウト
-      description: 認証済みユーザーをログアウトし、JWT Cookieを無効化
+      description: |
+        認証済みユーザーをログアウトし、JWT Cookieを無効化
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
       tags:
         - Authentication
       security:
@@ -231,7 +274,12 @@ paths:
   /auth/protected:
     get:
       summary: 保護されたリソース
-      description: 認証済みユーザーのみアクセス可能なリソースの例
+      description: |
+        認証済みユーザーのみアクセス可能なリソースの例
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Authentication
       security:
@@ -272,7 +320,11 @@ paths:
   /auth/password-reset/request:
     post:
       summary: パスワードリセットリクエスト
-      description: メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
+      description: |
+        メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
+        
+        **使用ミドルウェア**:
+        - rateLimit: レート制限（15分あたり3回）- スパム防止とセキュリティ向上のため
       tags:
         - Authentication
       requestBody:
@@ -313,7 +365,11 @@ paths:
   /auth/password-reset/confirm:
     post:
       summary: パスワードリセット確認
-      description: パスワードリセットトークンを検証し、新しいパスワードを設定
+      description: |
+        パスワードリセットトークンを検証し、新しいパスワードを設定
+        
+        **使用ミドルウェア**:
+        - rateLimit: レート制限（15分あたり5回）- ブルートフォース攻撃防止のため
       tags:
         - Authentication
       requestBody:
@@ -336,8 +392,9 @@ paths:
                 newPassword:
                   type: string
                   minLength: 8
+                  maxLength: 1024
                   pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: NewSecurePass123!
       responses:
         '204':
@@ -361,21 +418,252 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /api/itineraries:
-    post:
-      summary: 旅のしおり作成
-      description: 新しい旅のしおりを作成
+  # ユーザー管理API
+
+  /api/users/profile:
+    get:
+      summary: ユーザープロフィール取得
+      description: |
+        認証済みユーザーのプロフィール情報を取得
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
-        - Itineraries
+        - Users
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: ユーザープロフィール情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: ユーザープロフィール更新
+      description: |
+        認証済みユーザーのプロフィール情報を更新
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Itinerary'
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "New Name"
+      responses:
+        '200':
+          description: 更新されたユーザープロフィール情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/password:
+    put:
+      summary: パスワード変更
+      description: |
+        認証済みユーザーのパスワードを変更
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  minLength: 1
+                  description: 現在のパスワード（既存ユーザーの弱いパスワード対応のため強度チェックなし）
+                  example: "currentpass"
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 1024
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
+                  example: "NewSecurePass123!"
+      responses:
+        '204':
+          description: パスワードが正常に変更されました
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/account/delete:
+    post:
+      summary: アカウント削除
+      description: |
+        認証済みユーザーのアカウントを削除（パスワード確認必須）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 1024
+                  description: 現在のパスワード（アカウント削除確認用、強度チェックなし）
+                  example: "UserPass123!"
+      responses:
+        '204':
+          description: アカウントが正常に削除されました
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # 旅程管理CRUD API
+  /api/itineraries:
+    get:
+      summary: 旅程一覧取得
+      description: |
+        認証済みユーザーの旅程一覧を取得（ページネーション対応）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: クエリパラメータのバリデーション（Zodスキーマ）
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: ページ番号（1から開始）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: 1ページあたりの件数（最大100）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: sort
+          in: query
+          description: ソートフィールド
+          required: false
+          schema:
+            type: string
+            enum: [createdAt, updatedAt]
+            default: createdAt
+        - name: order
+          in: query
+          description: ソート順序
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: 旅程一覧とページネーション情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itineraries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryListItem'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: 旅程作成
+      description: |
+        認証済みユーザーが新しい旅程を作成
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 旅程データ（任意のJSON形式）
+              example:
+                title: "Tokyo Trip"
+                start_date: "2025-09-01"
+                end_date: "2025-09-05"
+                days: []
       responses:
         '201':
-          description: 旅のしおり作成成功
+          description: 旅程が正常に作成されました
           content:
             application/json:
               schema:
@@ -383,85 +671,146 @@ paths:
                 properties:
                   id:
                     type: string
-                    example: abc123def456
-        '422':
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errors:
-                    type: array
-                    items:
-                      type: string
+                    example: "itn_123"
+                  message:
+                    type: string
+                    example: "Itinerary created successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errors:
-                    type: array
-                    items:
-                      type: string
-
-    get:
-      summary: 全旅のしおり取得
-      description: 全ての旅のしおりを取得
-      tags:
-        - Itineraries
-      responses:
-        '200':
-          description: 旅のしおり一覧
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ItineraryRecord'
+          $ref: '#/components/responses/InternalServerError'
 
   /api/itineraries/{id}:
     get:
-      summary: 旅のしおり取得
-      description: 指定されたIDの旅のしおりを取得
+      summary: 旅程詳細取得
+      description: |
+        認証済みユーザーが自分の旅程を取得（識別子ベース）
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
       tags:
         - Itineraries
+      security:
+        - cookieAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: 旅程の一意識別子
           schema:
             type: string
-          description: 旅のしおりID
+            example: "itn_123"
       responses:
         '200':
-          description: 旅のしおりデータ
+          description: 旅程データ（JSON形式）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Itinerary'
+                type: object
+                description: 旅程データ（任意のJSON形式）
+                example:
+                  title: "Tokyo Trip"
+                  start_date: "2025-09-01"
+                  end_date: "2025-09-05"
+                  days: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: 旅のしおりが見つからない
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Itinerary not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: サーバーエラー
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: 旅程更新
+      description: |
+        認証済みユーザーが自分の旅程を更新
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+        - validation: リクエストボディのバリデーション（Zodスキーマ）
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 更新する旅程データ
+              example:
+                title: "Updated Tokyo Trip"
+                start_date: "2025-09-01"
+                end_date: "2025-09-05"
+                days: []
+      responses:
+        '200':
+          description: 旅程が正常に更新されました
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
+                  message:
                     type: string
-                    example: Internal server error
+                    example: "Itinerary updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: 旅程削除
+      description: |
+        認証済みユーザーが自分の旅程を削除
+        
+        **使用ミドルウェア**:
+        - auth: JWT検証（認証済みユーザーのみアクセス可能）
+        - rateLimit: リクエスト頻度制限（60 req/min）
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      responses:
+        '204':
+          description: 旅程が正常に削除されました
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/events/complete:
     post:
@@ -589,6 +938,7 @@ components:
       name: access_token
       description: JWT認証トークン（HttpOnly Cookie）
 
+
   schemas:
     Error:
       type: object
@@ -605,10 +955,11 @@ components:
       properties:
         error:
           type: string
+          enum: [invalid_body, invalid_query, invalid_params]
           example: invalid_body
         message:
           type: string
-          example: Validation failed
+          example: Request validation failed
         details:
           type: array
           items:
@@ -620,6 +971,74 @@ components:
               message:
                 type: string
                 example: Invalid email format
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "usr_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          nullable: true
+          example: "Taro Yamada"
+        emailVerified:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+
+    ItineraryListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "itn_123"
+        data:
+          type: object
+          description: 旅程データ（任意のJSON形式）
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
 
     Event:
       type: object
@@ -742,11 +1161,67 @@ components:
           description: 変更内容の自然言語説明
           example: "2日目の朝食を和食レストランに変更しました"
 
+  responses:
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            error: "invalid_body"
+            message: "Request validation failed"
+            details:
+              - field: "name"
+                message: "Name must be 255 characters or less"
+
+    Unauthorized:
+      description: 認証が必要です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "unauthorized"
+            message: "Access token required"
+
+    Forbidden:
+      description: アクセスが拒否されました
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+            message: "Access denied"
+
+    NotFound:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "not_found"
+            message: "Resource not found"
+
+    InternalServerError:
+      description: 内部サーバーエラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "internal_server_error"
+            message: "An unexpected error occurred"
+
 tags:
   - name: System
     description: システム関連
   - name: Authentication
     description: 認証・認可
+  - name: Users
+    description: ユーザー管理
   - name: Itineraries
     description: 旅のしおり管理
   - name: Events

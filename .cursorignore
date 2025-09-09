@@ -75,8 +75,6 @@ node-gyp-build/
 # docker-compose.yml
 .docker/
 
-# Ignore generated docs
-docs/
 
 # Ignore package manager directories
 .pnpm-store/
