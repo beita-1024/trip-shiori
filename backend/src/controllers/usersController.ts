@@ -191,7 +191,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
     }
 
     // 現在のパスワードが正しいか検証
-    const isCurrentPasswordValid = await verifyPassword(currentPassword, user.passwordHash);
+    const isCurrentPasswordValid = await verifyPassword(user.passwordHash, currentPassword);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({ 
         error: 'invalid_current_password',
@@ -270,7 +270,7 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
     }
 
     // パスワードが正しいか検証
-    const isPasswordValid = await verifyPassword(password, user.passwordHash);
+    const isPasswordValid = await verifyPassword(user.passwordHash, password);
     if (!isPasswordValid) {
       return res.status(400).json({ 
         error: 'invalid_password',
