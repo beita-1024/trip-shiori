@@ -98,12 +98,14 @@ db-seed: ## 初期データ投入
 db-studio: ## Prisma Studio起動
 	$(COMPOSE) exec backend npx prisma studio
 
+# INFO: set-cookieを受け取って使うには、127.0.0.1:8081じゃなくて、localhost:8081 でブラウザを開く必要がある。
 swagger-ui: ## Swagger UI起動（Docker使用）
 	@echo "Starting Swagger UI on http://localhost:8081"
 	@docker run -d --name trip-shiori-swagger-ui \
 		-p 8081:8080 \
 		-v $(PWD)/docs/api:/usr/share/nginx/html/api \
 		-e SWAGGER_JSON=/usr/share/nginx/html/api/openapi.yaml \
+  	-e WITH_CREDENTIALS=true \
 		swaggerapi/swagger-ui || \
 		(docker start trip-shiori-swagger-ui && echo "Swagger UI container restarted")
 	@echo "Swagger UI is running at http://localhost:8081"
@@ -113,6 +115,8 @@ swagger-ui-stop: ## Swagger UI停止
 	@docker stop trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not running"
 	@docker rm trip-shiori-swagger-ui 2>/dev/null || echo "Swagger UI container not found"
 
+
+# INFO: WITH_CREDENTIALS=trueはこっちではできないので注意
 swagger-ui-local: ## Swagger UI起動（ローカル）
 	@echo "Starting Swagger UI locally on http://localhost:8081"
 	@npx swagger-ui-watcher docs/api/openapi.yaml --port 8081

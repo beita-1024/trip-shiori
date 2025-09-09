@@ -1,0 +1,36 @@
+import { Router } from 'express';
+import { 
+  getUserProfile, 
+  updateUserProfile, 
+  changePassword, 
+  deleteUserAccount 
+} from './usersController';
+import { authenticateToken } from '../middleware/auth';
+import { validateBody } from '../middleware/validation';
+import { 
+  updateUserProfileSchema, 
+  changePasswordSchema, 
+  deleteAccountSchema 
+} from '../validators/userValidators';
+
+const router = Router();
+
+/**
+ * ユーザー管理関連のルート
+ * すべてのエンドポイントで認証が必要
+ */
+router.use(authenticateToken);
+
+// プロフィール管理
+router.get('/profile', getUserProfile);
+router.put('/profile', validateBody(updateUserProfileSchema), updateUserProfile);
+
+// パスワード管理
+router.put('/password', validateBody(changePasswordSchema), changePassword);
+
+// アカウント管理
+// INFO: 当初はリクエストボディ付きのDELETEで実装していたが、
+//       初期の仕様と違うが、OpenAPI仕様に準拠するため、現在はPOSTで実装している。
+router.post('/account/delete', validateBody(deleteAccountSchema), deleteUserAccount);
+
+export default router;

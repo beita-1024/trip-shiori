@@ -361,21 +361,208 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /api/itineraries:
-    post:
-      summary: 旅のしおり作成
-      description: 新しい旅のしおりを作成
+  # ユーザー管理API
+  /api/users/profile:
+    get:
+      summary: ユーザープロフィール取得
+      description: 認証済みユーザーのプロフィール情報を取得
       tags:
-        - Itineraries
+        - Users
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: ユーザープロフィール情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: ユーザープロフィール更新
+      description: 認証済みユーザーのプロフィール情報を更新
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Itinerary'
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  example: "New Name"
+      responses:
+        '200':
+          description: 更新されたユーザープロフィール情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/password:
+    put:
+      summary: パスワード変更
+      description: 認証済みユーザーのパスワードを変更
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  example: "currentpassword"
+                newPassword:
+                  type: string
+                  minLength: 8
+                  example: "newpassword123"
+      responses:
+        '204':
+          description: パスワードが正常に変更されました
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/account/delete:
+    post:
+      summary: アカウント削除
+      description: 認証済みユーザーのアカウントを削除（パスワード確認必須）
+      tags:
+        - Users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  example: "userpassword"
+      responses:
+        '204':
+          description: アカウントが正常に削除されました
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # 旅程管理CRUD API
+  /api/itineraries:
+    get:
+      summary: 旅程一覧取得
+      description: 認証済みユーザーの旅程一覧を取得（ページネーション対応）
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: ページ番号（1から開始）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: 1ページあたりの件数（最大100）
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: sort
+          in: query
+          description: ソートフィールド
+          required: false
+          schema:
+            type: string
+            enum: [createdAt, updatedAt]
+            default: createdAt
+        - name: order
+          in: query
+          description: ソート順序
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: 旅程一覧とページネーション情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itineraries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryListItem'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: 旅程作成
+      description: 認証済みユーザーが新しい旅程を作成
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 旅程データ（任意のJSON形式）
+              example:
+                title: "Tokyo Trip"
+                start_date: "2025-09-01"
+                end_date: "2025-09-05"
+                days: []
       responses:
         '201':
-          description: 旅のしおり作成成功
+          description: 旅程が正常に作成されました
           content:
             application/json:
               schema:
@@ -383,85 +570,130 @@ paths:
                 properties:
                   id:
                     type: string
-                    example: abc123def456
-        '422':
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errors:
-                    type: array
-                    items:
-                      type: string
+                    example: "itn_123"
+                  message:
+                    type: string
+                    example: "Itinerary created successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  errors:
-                    type: array
-                    items:
-                      type: string
-
-    get:
-      summary: 全旅のしおり取得
-      description: 全ての旅のしおりを取得
-      tags:
-        - Itineraries
-      responses:
-        '200':
-          description: 旅のしおり一覧
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ItineraryRecord'
+          $ref: '#/components/responses/InternalServerError'
 
   /api/itineraries/{id}:
     get:
-      summary: 旅のしおり取得
-      description: 指定されたIDの旅のしおりを取得
+      summary: 旅程詳細取得
+      description: 認証済みユーザーが自分の旅程を取得（識別子ベース）
       tags:
         - Itineraries
+      security:
+        - cookieAuth: []
       parameters:
         - name: id
           in: path
           required: true
+          description: 旅程の一意識別子
           schema:
             type: string
-          description: 旅のしおりID
+            example: "itn_123"
       responses:
         '200':
-          description: 旅のしおりデータ
+          description: 旅程データ（JSON形式）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Itinerary'
+                type: object
+                description: 旅程データ（任意のJSON形式）
+                example:
+                  title: "Tokyo Trip"
+                  start_date: "2025-09-01"
+                  end_date: "2025-09-05"
+                  days: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
-          description: 旅のしおりが見つからない
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Itinerary not found
+          $ref: '#/components/responses/NotFound'
         '500':
-          description: サーバーエラー
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: 旅程更新
+      description: 認証済みユーザーが自分の旅程を更新
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 更新する旅程データ
+              example:
+                title: "Updated Tokyo Trip"
+                start_date: "2025-09-01"
+                end_date: "2025-09-05"
+                days: []
+      responses:
+        '200':
+          description: 旅程が正常に更新されました
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
+                  message:
                     type: string
-                    example: Internal server error
+                    example: "Itinerary updated successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: 旅程削除
+      description: 認証済みユーザーが自分の旅程を削除
+      tags:
+        - Itineraries
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      responses:
+        '204':
+          description: 旅程が正常に削除されました
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /api/events/complete:
     post:
@@ -621,6 +853,74 @@ components:
                 type: string
                 example: Invalid email format
 
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "usr_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          nullable: true
+          example: "Taro Yamada"
+        emailVerified:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-01-01T00:00:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+
+    ItineraryListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "itn_123"
+        data:
+          type: object
+          description: 旅程データ（任意のJSON形式）
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T00:00:00Z"
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
     Event:
       type: object
       required:
@@ -742,11 +1042,67 @@ components:
           description: 変更内容の自然言語説明
           example: "2日目の朝食を和食レストランに変更しました"
 
+  responses:
+    BadRequest:
+      description: リクエストが不正です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            error: "validation_error"
+            message: "Request validation failed"
+            details:
+              - field: "name"
+                message: "Name must be 255 characters or less"
+
+    Unauthorized:
+      description: 認証が必要です
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "unauthorized"
+            message: "Access token required"
+
+    Forbidden:
+      description: アクセスが拒否されました
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+            message: "Access denied"
+
+    NotFound:
+      description: リソースが見つかりません
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "not_found"
+            message: "Resource not found"
+
+    InternalServerError:
+      description: 内部サーバーエラー
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "internal_server_error"
+            message: "An unexpected error occurred"
+
 tags:
   - name: System
     description: システム関連
   - name: Authentication
     description: 認証・認可
+  - name: Users
+    description: ユーザー管理
   - name: Itineraries
     description: 旅のしおり管理
   - name: Events
