@@ -205,7 +205,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
     const skip = (page - 1) * limit;
 
     // 旅程の取得（認証済みユーザーのもののみ）
-    const [itineraries, total] = await Promise.all([
+    const [rawItineraries, total] = await Promise.all([
       prisma.itinerary.findMany({
         where: { userId: req.user.id },
         select: {
@@ -222,6 +222,19 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
         where: { userId: req.user.id },
       }),
     ]);
+
+    // dataフィールドの型揺れを解決（string → object に正規化）
+    const itineraries = rawItineraries.map((it) => {
+      const d = (it as any).data;
+      if (typeof d === 'string') {
+        try { 
+          return { ...it, data: JSON.parse(d) }; 
+        } catch { 
+          return { ...it, data: d }; 
+        }
+      }
+      return it;
+    });
 
     const totalPages = Math.ceil(total / limit);
 
