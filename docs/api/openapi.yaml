@@ -105,8 +105,9 @@ paths:
                 password:
                   type: string
                   minLength: 8
+                  maxLength: 1024
                   pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: SecurePass123!
                 name:
                   type: string
@@ -200,6 +201,9 @@ paths:
                   example: user@example.com
                 password:
                   type: string
+                  minLength: 1
+                  maxLength: 1024
+                  description: パスワード（ログイン時は強度チェックなし）
                   example: SecurePass123!
       responses:
         '204':
@@ -388,8 +392,9 @@ paths:
                 newPassword:
                   type: string
                   minLength: 8
+                  maxLength: 1024
                   pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: NewSecurePass123!
       responses:
         '204':
@@ -510,8 +515,9 @@ paths:
                 newPassword:
                   type: string
                   minLength: 8
+                  maxLength: 1024
                   pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: "NewSecurePass123!"
       responses:
         '204':
@@ -548,9 +554,9 @@ paths:
               properties:
                 password:
                   type: string
-                  minLength: 8
-                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
+                  minLength: 1
+                  maxLength: 1024
+                  description: 現在のパスワード（アカウント削除確認用、強度チェックなし）
                   example: "UserPass123!"
       responses:
         '204':

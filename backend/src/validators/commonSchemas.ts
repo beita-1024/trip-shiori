@@ -5,10 +5,11 @@ import { z } from 'zod';
  * 登録、リセット、変更で統一して使用
  */
 export const passwordSchema = z.string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(8, 'パスワードは8文字以上である必要があります')
+  .max(1024, 'パスワードが長すぎます（最大1024文字）')
   .regex(
     /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$/,
-    'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    '大文字・小文字・数字・記号を各1文字以上含めてください'
   );
 
 /**
@@ -21,7 +22,7 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema,
 }).refine(
   (v) => v.currentPassword !== v.newPassword,
-  { message: 'New password must differ from current password', path: ['newPassword'] }
+  { message: '新しいパスワードは現在のパスワードと異なる必要があります', path: ['newPassword'] }
 ).strict();
 
 /**
