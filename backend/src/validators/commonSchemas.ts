@@ -14,9 +14,10 @@ export const passwordSchema = z.string()
 /**
  * パスワード変更のバリデーションスキーマ
  * 現在のパスワードと新しいパスワードが異なることを確認
+ * 現在のパスワードは非空文字列のみ要求（既存ユーザーの弱いパスワード対応）
  */
 export const changePasswordSchema = z.object({
-  currentPassword: passwordSchema,
+  currentPassword: z.string().min(1, '現在のパスワードは必須です'),
   newPassword: passwordSchema,
 }).refine(
   (v) => v.currentPassword !== v.newPassword,

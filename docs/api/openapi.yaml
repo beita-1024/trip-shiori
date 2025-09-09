@@ -504,10 +504,9 @@ paths:
               properties:
                 currentPassword:
                   type: string
-                  minLength: 8
-                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
-                  description: 8文字以上、大文字・小文字・数字・特殊文字を含む
-                  example: "CurrentPass123!"
+                  minLength: 1
+                  description: 現在のパスワード（既存ユーザーの弱いパスワード対応のため強度チェックなし）
+                  example: "currentpass"
                 newPassword:
                   type: string
                   minLength: 8
