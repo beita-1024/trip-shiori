@@ -22,6 +22,11 @@ info:
     - **適用範囲**: 認証が必要なエンドポイント
     - **目的**: セキュリティ確保とユーザー識別
     
+    ### checkItineraryOwnership（旅程所有権チェック）
+    - **処理内容**: 認証済みユーザーが指定された旅程の所有者かどうかをチェック
+    - **適用範囲**: 旅程の所有権が必要なエンドポイント
+    - **目的**: 所有者以外のアクセスを防止し、セキュリティを強化
+    
     ### rateLimit（レート制限）
     - **処理内容**: リクエスト頻度の制限
     - **制限値**:
@@ -888,7 +893,8 @@ paths:
         旅程の所有者のみが共有設定を作成でき、セキュリティを確保します。
         
         **使用ミドルウェア**:
-        - auth: JWT認証（所有者チェック）
+        - auth: JWT認証（Cookie: access_token）
+        - checkItineraryOwnership: 旅程所有権チェック（所有者のみアクセス可能）
         - rateLimit: リクエスト頻度制限（30 req/min）
         - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
@@ -1076,7 +1082,8 @@ paths:
         旅程の所有者が共有設定を更新（部分更新対応）
         
         **使用ミドルウェア**:
-        - auth: JWT認証（所有者チェック）
+        - auth: JWT認証（Cookie: access_token）
+        - checkItineraryOwnership: 旅程所有権チェック（所有者のみアクセス可能）
         - rateLimit: リクエスト頻度制限（30 req/min）
         - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
@@ -1163,7 +1170,8 @@ paths:
         旅程の所有者が共有設定を削除
         
         **使用ミドルウェア**:
-        - auth: JWT認証（所有者チェック）
+        - auth: JWT認証（Cookie: access_token）
+        - checkItineraryOwnership: 旅程所有権チェック（所有者のみアクセス可能）
         - rateLimit: リクエスト頻度制限（30 req/min）
       tags:
         - Itinerary Share
