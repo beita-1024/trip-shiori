@@ -86,7 +86,7 @@ model Itinerary {
   /** 所有者のユーザー（認証機能実装前はオプショナル） */
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /** 共有設定（1対1） */
+  /** 共有設定（1対1、オプショナル） */
   share     ItineraryShare?
 
   @@index([userId, updatedAt])
@@ -186,11 +186,8 @@ model ItineraryShare {
   /** 公開範囲 */
   scope        ShareScope @default(PUBLIC_LINK)
 
-  /** 許可されたメールアドレスリスト（JSON配列、RESTRICTED_EMAILS時のみ使用） */
-  // INFO: Prismaでは、配列型を直接サポートしていないデータベース（PostgreSQL以外）との互換性を保つため、配列をJSON文字列として保存する設計が一般的とのこと
-  allowedEmails String?   @db.Text
-  // TODO: メールの配列を別テーブルに正規化するかは要検討、実装しないと判断するまで残す
-  // allowedEmails ItineraryShareEmail[]
+  /** 許可されたメールアドレスとのリレーション */
+  allowedEmails ItineraryShareEmail[]
  
   /** 共有開始日時 */
   createdAt    DateTime @default(now())
@@ -199,7 +196,7 @@ model ItineraryShare {
   updatedAt    DateTime @updatedAt
 
   /** 共有対象の旅程 */
-  itinerary    Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  itinerary    Itinerary? @relation(fields: [itineraryId], references: [id])
 
   /** アクセス回数 */
   accessCount    Int      @default(0)
@@ -212,18 +209,31 @@ model ItineraryShare {
   @@index([scope])
 }
 
-// TODO: メールの配列を別テーブルに正規化するかは要検討、実装しないと判断するまで残す
-// model ItineraryShareEmail {
-//   id        String   @id @default(cuid())
-//   shareId   String
-//   email     String
-//   createdAt DateTime @default(now())
-//   
-//   share     ItineraryShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
-//   
-//   @@unique([shareId, email])
-//   @@index([email])
-// }
+/**
+ * 共有設定の許可されたメールアドレスを管理するモデル
+ * 
+ * 各共有設定に対して許可されたメールアドレスを正規化して管理します。
+ * 同一の共有設定に対して同じメールアドレスは重複登録できません。
+ */
+model ItineraryShareEmail {
+  /** メールアドレスの一意識別子 */
+  id        String   @id @default(cuid())
+
+  /** 共有設定ID */
+  shareId   String
+
+  /** 許可されたメールアドレス */
+  email     String
+
+  /** 作成日時 */
+  createdAt DateTime @default(now())
+  
+  /** 共有設定とのリレーション */
+  share     ItineraryShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  
+  @@unique([shareId, email])
+  @@index([email])
+}
 
 /**
  * 共有権限の列挙型
