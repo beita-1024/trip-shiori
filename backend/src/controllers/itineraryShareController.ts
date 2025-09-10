@@ -36,38 +36,11 @@ const prisma = new PrismaClient();
  */
 export const createItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // 認証チェック
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'Authentication required' 
-      });
-    }
-
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as CreateItineraryShareRequest;
 
-    // 旅程の存在確認と所有者チェック
-    // 存在しない旅程に対する共有設定作成を防ぎ、不正なIDによる攻撃を防ぐ
-    const itinerary = await prisma.itinerary.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!itinerary) {
-      return res.status(404).json({
-        error: 'itinerary_not_found',
-        message: 'Itinerary not found'
-      });
-    }
-
-    // 所有者のみが共有設定を作成可能
-    if (itinerary.userId !== req.user.id) {
-      return res.status(403).json({
-        error: 'forbidden',
-        message: 'Only the owner can create share settings'
-      });
-    }
+    // ミドルウェアで所有権チェック済み
+    const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 重複する共有設定の作成を防ぎ、データの整合性を保つ
@@ -211,29 +184,11 @@ export const getItineraryShare = async (req: Request, res: Response) => {
  */
 export const updateItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // 認証チェック
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'Authentication required' 
-      });
-    }
-
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as UpdateItineraryShareRequest;
 
-    // 旅程の所有者チェック
-    const itinerary = await prisma.itinerary.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!itinerary || itinerary.userId !== req.user.id) {
-      return res.status(403).json({
-        error: 'forbidden',
-        message: 'Only the owner can update share settings'
-      });
-    }
+    // ミドルウェアで所有権チェック済み
+    const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 存在しない共有設定の更新を防ぎ、不正なIDによる攻撃を防ぐ
@@ -335,28 +290,10 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
  */
 export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // 認証チェック
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'Authentication required' 
-      });
-    }
-
     const { id } = req.params;
 
-    // 旅程の所有者チェック
-    const itinerary = await prisma.itinerary.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!itinerary || itinerary.userId !== req.user.id) {
-      return res.status(403).json({
-        error: 'forbidden',
-        message: 'Only the owner can delete share settings'
-      });
-    }
+    // ミドルウェアで所有権チェック済み
+    const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 存在しない共有設定の削除を防ぎ、不正なIDによる攻撃を防ぐ
