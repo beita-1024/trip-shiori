@@ -11,6 +11,39 @@ import {
   type DeleteAccountRequest
 } from '../validators/userValidators';
 
+
+// TODO: (req as any).validatedBody as UpdateUserProfileRequest;みたいになっているのは
+// とりあえずの苦肉の策、
+// (req: Combine<AuthenticatedRequest, UpdateUserProfileRequest>
+// みたいに書きたい
+// 以下のようにすれば可能？要検証
+// type Merge<A, B> = Omit<A, keyof B> & B;
+// type ConflictKeys<A, B> = keyof A & keyof B;
+// // 衝突が無い時だけ A & B、あるなら never（＝型エラーにしたいとき）
+// type NoConflict<A, B> =
+//   [ConflictKeys<A, B>] extends [never]
+//     ? A & B
+//     : never;
+
+// // --- main ---
+// // Mode: "merge" なら B で上書き / "strict" ならキー衝突でエラー
+// export type Combine<
+//   A,
+//   B,
+//   Mode extends "merge" | "strict" = "merge"
+// > = Mode extends "merge" ? Merge<A, B> : NoConflict<A, B>;
+// type A = { id: string; createdAt: string };
+// type B = { title: string };
+
+// // 1) 上書きマージ（デフォルト）: A と B を結合
+// type C1 = Combine<A, B>;                 // { id: string; createdAt: string; title: string }
+
+// // 2) 厳格（衝突でエラー）
+// type C2 = Combine<A, { id: number }, "strict">; // X id が衝突 → never（型エラー）
+
+// // 3) 上書き（B優先）
+// type C3 = Combine<A, { id: number }>;    // { createdAt: string; id: number }
+
 const prisma = new PrismaClient();
 
 /**
@@ -88,6 +121,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
         message: 'User not authenticated' 
       });
     }
+    
 
     // バリデーション済みのリクエストボディを取得
     const validatedBody = (req as any).validatedBody as UpdateUserProfileRequest;
