@@ -635,11 +635,11 @@ paths:
           schema:
             oneOf:
               - type: string
-                enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
               - type: array
                 items:
                   type: string
-                  enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
           example: "PUBLIC_LINK"
         - name: sharePermission
           in: query
@@ -694,7 +694,7 @@ paths:
         
         **自動設定**:
         - 旅程作成時に自動的にデフォルト共有設定が作成されます
-        - デフォルト設定: READ_ONLY権限、PUBLIC_LINK公開範囲
+        - デフォルト設定: EDIT権限、PRIVATE公開範囲
         - パスワード保護なし、有効期限なし（後で変更可能）
         
         **使用ミドルウェア**:
@@ -747,6 +747,7 @@ paths:
         **アクセス制御**:
         1. **所有者**: 旅程の作成者は常にアクセス可能
         2. **共有設定がある場合**: 公開範囲（scope）に応じて以下のアクセス制御が行われます：
+           - PRIVATE: 所有者のみアクセス可能（デフォルト）
            - PUBLIC_LINK: リンクを知っている人全員（認証不要）
            - AUTHENTICATED_USERS: 認証済みユーザーのみ
            - RESTRICTED_EMAILS: 特定のメールアドレスのみ（認証必須）
@@ -935,7 +936,7 @@ paths:
                   example: "2024-12-31T23:59:59Z"
                 scope:
                   type: string
-                  enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
                   description: 公開範囲
                   example: "PUBLIC_LINK"
                 allowedEmails:
@@ -1049,9 +1050,9 @@ paths:
                     example: "2024-12-31T23:59:59Z"
                   scope:
                     type: string
-                    enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                    enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
                     description: 公開範囲
-                    example: "PUBLIC_LINK"
+                    example: "PRIVATE"
                   allowedEmails:
                     type: array
                     items:
@@ -1123,7 +1124,7 @@ paths:
                   example: "2024-12-31T23:59:59Z"
                 scope:
                   type: string
-                  enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
                   description: 公開範囲
                   example: "RESTRICTED_EMAILS"
                 allowedEmails:
@@ -1446,7 +1447,7 @@ components:
           example: "2024-12-31T23:59:59Z"
         scope:
           type: string
-          enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+          enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
           description: 公開範囲
           example: "PUBLIC_LINK"
         allowedEmails:
