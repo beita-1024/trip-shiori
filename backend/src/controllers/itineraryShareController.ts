@@ -18,6 +18,16 @@ const prisma = new PrismaClient();
  * 
  * @summary 旅程の所有者が共有設定を作成
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkItineraryOwnership: 旅程所有権チェック
+ *   - validateParams: パスパラメータバリデーション
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.params.id: バリデーション済み旅程ID
+ *   - req.validatedBody: バリデーション済みリクエストボディ
+ *   - req.itinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string } - 旅程ID
  *   - Body: { permission: SharePermission, password?: string, expiresAt?: string, scope: ShareScope, allowedEmails?: string[] }
@@ -107,6 +117,10 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
  * 
  * @summary 旅程の共有設定を取得（認証不要）
  * @auth なし（共有リンク機能のため）
+ * @middleware
+ *   - validateParams: パスパラメータバリデーション
+ * @context
+ *   - req.params.id: バリデーション済み旅程ID
  * @params
  *   - Path: { id: string } - 旅程ID
  * @returns
@@ -167,6 +181,16 @@ export const getItineraryShare = async (req: Request, res: Response) => {
  * 
  * @summary 旅程の所有者が共有設定を更新（部分更新対応）
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkItineraryOwnership: 旅程所有権チェック
+ *   - validateParams: パスパラメータバリデーション
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.params.id: バリデーション済み旅程ID
+ *   - req.validatedBody: バリデーション済みリクエストボディ
+ *   - req.itinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string } - 旅程ID
  *   - Body: 更新するフィールドのみ（部分更新）
@@ -276,6 +300,14 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
  * 
  * @summary 旅程の所有者が共有設定を削除
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkItineraryOwnership: 旅程所有権チェック
+ *   - validateParams: パスパラメータバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.params.id: バリデーション済み旅程ID
+ *   - req.itinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string } - 旅程ID
  * @returns

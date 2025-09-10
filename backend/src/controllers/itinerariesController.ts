@@ -18,6 +18,12 @@ const prisma = new PrismaClient();
  * 
  * @summary 認証済みユーザーが新しい旅程を作成
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.validatedBody: バリデーション済みリクエストボディ
  * @params
  *   - Body: 旅程データ（任意のJSON形式）
  * @returns
@@ -109,6 +115,12 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  * 
  * @summary 認証済みユーザーが自分の旅程を取得、または共有設定によりアクセス可能な旅程を取得
  * @auth Bearer JWT (Cookie: access_token) - 共有設定がある場合は認証不要
+ * @middleware
+ *   - optionalAuthenticate: オプショナル認証（共有設定がある場合は認証不要）
+ *   - validateParams: パスパラメータバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）- 認証されている場合のみ
+ *   - req.params.id: バリデーション済み旅程ID
  * @params
  *   - Path: { id: string }
  * @returns
@@ -279,6 +291,12 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *
  * @summary 認証済みユーザーが自分の旅程一覧、または共有された旅程も含めて取得
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - validateQuery: クエリパラメータバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.validatedQuery: バリデーション済みクエリパラメータ
  * @params
  *   - Query:
  *       - page?: number — ページ番号（デフォルト: 1）
@@ -548,6 +566,16 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
  * 
  * @summary 認証済みユーザーが自分の旅程を更新
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkItineraryOwnershipForEdit: 旅程所有権チェック
+ *   - validateParams: パスパラメータバリデーション
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.params.id: バリデーション済み旅程ID
+ *   - req.validatedBody: バリデーション済みリクエストボディ
+ *   - req.existingItinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string }
  *   - Body: 更新する旅程データ
@@ -565,37 +593,13 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
  */
 export const updateItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'User not authenticated' 
-      });
-    }
-
     const { id } = req.params;
     // Zodバリデーション済みデータを取得
     const validatedBody = (req as any).validatedBody as UpdateItineraryRequest;
     const payload = validatedBody;
 
-    // 旅程の存在確認と所有者チェック
-    const existingItinerary = await prisma.itinerary.findUnique({
-      where: { id },
-      select: { userId: true },
-    });
-
-    if (!existingItinerary) {
-      return res.status(404).json({ 
-        error: 'not_found',
-        message: 'Itinerary not found' 
-      });
-    }
-
-    if (existingItinerary.userId !== req.user.id) {
-      return res.status(403).json({ 
-        error: 'forbidden',
-        message: 'Access denied' 
-      });
-    }
+    // ミドルウェアで所有権チェック済み
+    const existingItinerary = (req as any).existingItinerary;
 
     // データをJSON文字列として保存
     const dataString = JSON.stringify(payload);
@@ -622,6 +626,14 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
  * 
  * @summary 認証済みユーザーが自分の旅程を削除
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkItineraryOwnershipForEdit: 旅程所有権チェック
+ *   - validateParams: パスパラメータバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.params.id: バリデーション済み旅程ID
+ *   - req.existingItinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string }
  * @returns
@@ -636,34 +648,10 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'User not authenticated' 
-      });
-    }
-
     const { id } = req.params;
 
-    // 旅程の存在確認と所有者チェック
-    const existingItinerary = await prisma.itinerary.findUnique({
-      where: { id },
-      select: { userId: true },
-    });
-
-    if (!existingItinerary) {
-      return res.status(404).json({ 
-        error: 'not_found',
-        message: 'Itinerary not found' 
-      });
-    }
-
-    if (existingItinerary.userId !== req.user.id) {
-      return res.status(403).json({ 
-        error: 'forbidden',
-        message: 'Access denied' 
-      });
-    }
+    // ミドルウェアで所有権チェック済み
+    const existingItinerary = (req as any).existingItinerary;
 
     await prisma.itinerary.delete({
       where: { id },
