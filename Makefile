@@ -9,6 +9,7 @@ ENV ?= dev
   help \
   up \
   down \
+  restart \
   build \
   logs \
   logs-backend \
@@ -56,6 +57,10 @@ up: ## Compose起動（バックグラウンド）
 
 down: ## 停止＆ネットワーク片付け
 	$(COMPOSE) down
+
+restart: ## サービス再起動（down + up）
+	$(COMPOSE) down
+	$(COMPOSE) up -d
 
 build: ## イメージビルド
 	$(COMPOSE) build
