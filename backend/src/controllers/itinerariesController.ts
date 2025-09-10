@@ -55,36 +55,17 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
 
       try {
         /**
-         * トランザクションによる原子性の担保
-         * 旅程と共有設定（Itinerary, ItineraryShare）は1対1のリレーションであり、
-         * どちらか一方の作成に失敗した場合にデータ不整合（片方だけ存在）が発生しないよう
-         * トランザクションでまとめて作成する。これにより原子性を担保し、セキュリティホールを防ぐ。
+         * 旅程作成（プライベートな旅程として作成）
+         * 共有設定は作成せず、ユーザーが明示的に共有を選択した時のみ作成する
          */
-        const created = await prisma.$transaction(async (tx) => {
-          // 旅程作成時に認証済みユーザーを所有者として設定
-          // 旅程の所有者を明確にし、不正な所有者設定を防ぐ
-          const itinerary = await tx.itinerary.create({
-            data: {
-              id: candidateId,
-              // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
-              // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
-              data: dataString,
-              userId: req.user!.id, // 認証済みユーザーを所有者として設定
-            },
-          });
-
-          // デフォルト共有設定の作成
-          // すべての旅程に共有設定を付与し、アクセス制御の一貫性を保つ
-          await tx.itineraryShare.create({
-            data: {
-              itineraryId: candidateId,
-              permission: 'READ_ONLY' as const, // デフォルトは読み取り専用
-              scope: 'PUBLIC_LINK' as const, // デフォルトは公開リンク
-              // デフォルトではパスワードなし、有効期限なし（後で設定可能）
-            },
-          });
-
-          return itinerary;
+        const created = await prisma.itinerary.create({
+          data: {
+            id: candidateId,
+            // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
+            // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
+            data: dataString,
+            userId: req.user!.id, // 認証済みユーザーを所有者として設定
+          },
         });
 
         console.debug("Created itinerary with ID:", created.id); // デバッグ用: 作成した旅のしおりのIDを表示

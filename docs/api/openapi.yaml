@@ -882,12 +882,13 @@ paths:
     post:
       summary: 共有設定作成
       description: |
-        旅程の共有設定を作成（認証不要）
+        旅程の所有者が共有設定を作成
         
         旅程IDベースの共有URLを生成し、権限レベル、パスワード保護、有効期限の設定を可能にします。
-        所有者のない旅程も許可し、共有設定のみでアクセス制御を行います。
+        旅程の所有者のみが共有設定を作成でき、セキュリティを確保します。
         
         **使用ミドルウェア**:
+        - auth: JWT認証（所有者チェック）
         - rateLimit: リクエスト頻度制限（30 req/min）
         - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
@@ -956,6 +957,21 @@ paths:
                     example: "Share settings created successfully"
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: アクセス拒否（所有者以外）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "forbidden"
+                  message:
+                    type: string
+                    example: "Only the owner can create share settings"
         '404':
           description: 旅程が見つかりません
           content:
@@ -1057,9 +1073,10 @@ paths:
     put:
       summary: 共有設定更新
       description: |
-        旅程の共有設定を更新（部分更新対応、認証不要）
+        旅程の所有者が共有設定を更新（部分更新対応）
         
         **使用ミドルウェア**:
+        - auth: JWT認証（所有者チェック）
         - rateLimit: リクエスト頻度制限（30 req/min）
         - validation: リクエストボディのバリデーション（Zodスキーマ）
       tags:
@@ -1143,9 +1160,10 @@ paths:
     delete:
       summary: 共有設定削除
       description: |
-        旅程の共有設定を削除（認証不要）
+        旅程の所有者が共有設定を削除
         
         **使用ミドルウェア**:
+        - auth: JWT認証（所有者チェック）
         - rateLimit: リクエスト頻度制限（30 req/min）
       tags:
         - Itinerary Share
@@ -1160,6 +1178,21 @@ paths:
       responses:
         '204':
           description: 共有設定が正常に削除されました
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: アクセス拒否（所有者以外）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "forbidden"
+                  message:
+                    type: string
+                    example: "Only the owner can delete share settings"
         '404':
           description: 共有設定が見つかりません
           content:
