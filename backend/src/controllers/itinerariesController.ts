@@ -149,6 +149,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
      * - select: 必要なフィールドのみ取得し、余計なデータ転送・情報漏洩を防ぐため。
      * - share.allowedEmails: 許可メールアドレス一覧（RESTRICTED_EMAILS用）も同時取得。
      */
+    // --- N+1問題を回避した実装 ---
     const itinerary = await prisma.itinerary.findUnique({
       where: { id },
       select: {
@@ -167,7 +168,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
               select: {
                 email: true,
               },
-            } as any,
+            },
           },
         },
       },
@@ -293,12 +294,12 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 /**
- * ユーザーの旅程一覧を取得する（ページネーション対応、共有設定フィルター対応）
+ * ユーザーの旅程一覧を取得する（ページネーション・共有設定フィルター対応）
  *
- * @summary 認証済みユーザーが自分の旅程一覧を取得、または共有された旅程も含めて取得
+ * @summary 認証済みユーザーが自分の旅程一覧、または共有された旅程も含めて取得
  * @auth Bearer JWT (Cookie: access_token)
  * @params
- *   - Query: 
+ *   - Query:
  *       - page?: number — ページ番号（デフォルト: 1）
  *       - limit?: number — 1ページあたりの件数（デフォルト: 10, 最大: 100）
  *       - sort?: string — ソート対象フィールド（createdAt/updatedAt、デフォルト: createdAt）
@@ -308,12 +309,58 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *       - includeShare?: boolean — 各旅程の共有設定情報を含めるか（デフォルト: false, オプション）
  *       - includeShared?: boolean — 共有された旅程も含めるか（デフォルト: false, オプション）
  * @returns
- *   - 200: { itineraries: Array<{id: string, data: any, createdAt: string, updatedAt: string, share?: any}>, pagination: {...} }
+ *   - 200: 
+ *       {
+ *         itineraries: Array<{
+ *           id: string,                // 旅程ID
+ *           data: any,                 // 旅程本体データ（JSON形式、型はバージョンにより異なる）
+ *           createdAt: string,         // 作成日時（ISO8601文字列）
+ *           updatedAt: string,         // 更新日時（ISO8601文字列）
+ *           share?: {                  // includeShare=true時のみ
+ *             id: string,              // 共有設定ID
+ *             scope: string,           // 共有範囲（PUBLIC_LINK等）
+ *             permission: string,      // 共有権限（READ_ONLY/EDIT）
+ *             expiresAt?: string,      // 有効期限（あれば）
+ *             allowedEmails?: string[] // 許可メールアドレス（RESTRICTED_EMAILS時のみ）
+ *           } | null
+ *         }>,
+ *         pagination: {
+ *           page: number,              // 現在のページ番号
+ *           limit: number,             // 1ページあたり件数
+ *           total: number,             // 総件数
+ *           totalPages: number         // 総ページ数
+ *         }
+ *       }
+ *     - itineraries配列には、条件に合致した旅程が格納される
+ *     - includeShare=trueの場合、各旅程の共有設定情報（share）が含まれる
+ *     - paginationにはページネーション情報が含まれる
  * @errors
- *   - 401: unauthorized
+ *   - 401: unauthorized — 未認証時
  * @example
  *   GET /api/itineraries?page=1&limit=10&sort=createdAt&order=desc&includeShare=true&includeShared=true
- *   200: { "itineraries": [...], "pagination": { "page": 1, "limit": 10, "total": 100, ... } }
+ *   200: {
+ *     "itineraries": [
+ *       {
+ *         "id": "iti_abc123",
+ *         "data": { ... },
+ *         "createdAt": "2025-01-01T00:00:00Z",
+ *         "updatedAt": "2025-01-02T00:00:00Z",
+ *         "share": {
+ *           "id": "shr_xyz789",
+ *           "scope": "PUBLIC_LINK",
+ *           "permission": "READ_ONLY",
+ *           "expiresAt": null,
+ *           "allowedEmails": null
+ *         }
+ *       }
+ *     ],
+ *     "pagination": {
+ *       "page": 1,
+ *       "limit": 10,
+ *       "total": 100,
+ *       "totalPages": 10
+ *     }
+ *   }
  * @options
  *   - includeShare: true にすると各旅程の共有設定情報（share）がレスポンスに含まれる
  *   - includeShared: true にすると自分が作成した旅程だけでなく、共有された旅程も一覧に含まれる
@@ -343,6 +390,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
     } = validatedQuery;
     const sortOrder = order === 'asc' ? 'asc' : 'desc';
 
+    // ページネーションのスキップ数を計算
     const skip = (page - 1) * limit;
 
     // 基本的なWHERE条件を構築
@@ -444,6 +492,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
         where: whereClause,
         select: selectFields,
         orderBy: { [sortField]: sortOrder },
+        // ページネーション
         skip,
         take: limit,
       }),
