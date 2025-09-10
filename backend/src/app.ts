@@ -11,6 +11,7 @@ import itineraryEditRouter from './controllers/itineraryEditRouter';
 import authRouter from './controllers/authRouter';
 import usersRouter from './controllers/usersRouter';
 import { healthCheck } from './controllers/healthController';
+import { startShareCleanupJob } from './jobs/shareCleanupJob';
 
 const app = express();
 
@@ -33,6 +34,9 @@ if (process.env.NODE_ENV !== 'test') {
   const PORT = 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
+    
+    // 共有設定のクリーンアップジョブを開始
+    startShareCleanupJob();
   });
 }
 
