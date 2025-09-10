@@ -85,6 +85,14 @@ model Itinerary {
   // TODO: 注意！認証機能を実装したらオプショナルを外すこと！
   /** 所有者のユーザー（認証機能実装前はオプショナル） */
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /** 共有設定（1対1） */
+  share     ItineraryShare?
+
+  @@index([userId, updatedAt])
+  @@index([userId, createdAt])
+  @@index([updatedAt]) // 所有者なし旅程の検索用
+  @@index([createdAt]) // 所有者なし旅程の検索用
 }
 
 
@@ -150,4 +158,94 @@ model PasswordResetToken {
   @@index([tokenHash])
   // 検索最適化：最新・未失効の取得パターンに合わせた複合Index
   @@index([userId, expiresAt, createdAt])
+}
+
+/**
+ * 旅程の共有設定を管理するモデル
+ * 
+ * 各旅程に対して共有設定（公開リンク、権限、有効期限など）を管理します。
+ * 所有者のない旅程でも共有設定によりアクセス制御が可能です。
+ * 共有が無効化された場合や旅程が削除された場合は自動的にクリーンアップされます。
+ */
+model ItineraryShare {
+  /** 共有設定の一意識別子 */
+  id           String   @id @default(cuid())
+
+  /** 共有対象の旅程ID */
+  itineraryId  String
+
+  /** 共有権限レベル */
+  permission   SharePermission @default(READ_ONLY)
+
+  /** 共有パスワード（ハッシュ化済み、オプション） */
+  passwordHash String?
+
+  /** 有効期限（nullの場合は無期限） */
+  expiresAt    DateTime?
+
+  /** 公開範囲 */
+  scope        ShareScope @default(PUBLIC_LINK)
+
+  /** 許可されたメールアドレスリスト（JSON配列、RESTRICTED_EMAILS時のみ使用） */
+  // INFO: Prismaでは、配列型を直接サポートしていないデータベース（PostgreSQL以外）との互換性を保つため、配列をJSON文字列として保存する設計が一般的とのこと
+  allowedEmails String?   @db.Text
+  // TODO: メールの配列を別テーブルに正規化するかは要検討、実装しないと判断するまで残す
+  // allowedEmails ItineraryShareEmail[]
+ 
+  /** 共有開始日時 */
+  createdAt    DateTime @default(now())
+
+  /** 共有設定の更新日時 */
+  updatedAt    DateTime @updatedAt
+
+  /** 共有対象の旅程 */
+  itinerary    Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  /** アクセス回数 */
+  accessCount    Int      @default(0)
+
+  /** 最終アクセス日時 */
+  lastAccessedAt DateTime?
+
+  @@unique([itineraryId])
+  @@index([expiresAt])
+  @@index([scope])
+}
+
+// TODO: メールの配列を別テーブルに正規化するかは要検討、実装しないと判断するまで残す
+// model ItineraryShareEmail {
+//   id        String   @id @default(cuid())
+//   shareId   String
+//   email     String
+//   createdAt DateTime @default(now())
+//   
+//   share     ItineraryShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+//   
+//   @@unique([shareId, email])
+//   @@index([email])
+// }
+
+/**
+ * 共有権限の列挙型
+ */
+enum SharePermission {
+  /** 読み取り専用 */
+  READ_ONLY
+  /** 編集可能 */
+  EDIT
+}
+
+/**
+ * 公開範囲の列挙型
+ */
+enum ShareScope {
+  /** リンクを知っている人全員（現在の仕様） */
+  PUBLIC_LINK
+  /** 特定のメールアドレスリストのみ */
+  RESTRICTED_EMAILS
+  /** 認証済みユーザーのみ */
+  AUTHENTICATED_USERS
+  /** 全体公開（検索エンジンにインデックスされ、誰でもアクセス可能） */
+  // PUBLIC設定に関しては実装はしても、しばらくWebUI設定できないように隠すようにする。
+  PUBLIC
 }
