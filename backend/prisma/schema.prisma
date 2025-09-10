@@ -184,7 +184,7 @@ model ItineraryShare {
   expiresAt    DateTime?
 
   /** 公開範囲 */
-  scope        ShareScope @default(PUBLIC_LINK)
+  scope        ShareScope @default(PRIVATE)
   // /** 許可されたメールアドレスリスト（JSON配列、RESTRICTED_EMAILS時のみ使用） */
   // // INFO: Prismaでは、配列型を直接サポートしていないデータベース（PostgreSQL以外）との互換性を保つため、配列をJSON文字列として保存する設計が一般的とのこと
   // allowedEmails String?   @db.Text
@@ -252,6 +252,8 @@ enum SharePermission {
  * 公開範囲の列挙型
  */
 enum ShareScope {
+  /** プライベート（共有なし） */
+  PRIVATE
   /** リンクを知っている人全員（現在の仕様） */
   PUBLIC_LINK
   /** 特定のメールアドレスリストのみ */

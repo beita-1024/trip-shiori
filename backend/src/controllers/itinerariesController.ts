@@ -62,16 +62,29 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
       try {
         /**
          * 旅程作成（プライベートな旅程として作成）
-         * 共有設定は作成せず、ユーザーが明示的に共有を選択した時のみ作成する
+         * デフォルトでPRIVATEな共有設定を同時に作成する
          */
-        const created = await prisma.itinerary.create({
-          data: {
-            id: candidateId,
-            // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
-            // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
-            data: dataString,
-            userId: req.user!.id, // 認証済みユーザーを所有者として設定
-          },
+        const created = await prisma.$transaction(async (tx) => {
+          const itinerary = await tx.itinerary.create({
+            data: {
+              id: candidateId,
+              // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
+              // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
+              data: dataString,
+              userId: req.user!.id, // 認証済みユーザーを所有者として設定
+            },
+          });
+
+          // デフォルト共有設定を作成（PRIVATE）
+          await tx.itineraryShare.create({
+            data: {
+              itineraryId: candidateId,
+              permission: 'EDIT',
+              scope: 'PRIVATE', // デフォルトはプライベート
+            },
+          });
+
+          return itinerary;
         });
 
         console.debug("Created itinerary with ID:", created.id); // デバッグ用: 作成した旅のしおりのIDを表示
@@ -522,15 +535,20 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
         userId: it.userId,
       };
 
-      if (includeShare && (it as any).share) {
-        result.share = {
-          permission: (it as any).share.permission,
-          scope: (it as any).share.scope,
-          expiresAt: (it as any).share.expiresAt,
-          accessCount: (it as any).share.accessCount,
-          lastAccessedAt: (it as any).share.lastAccessedAt,
-          allowedEmails: (it as any).share.allowedEmails?.map((email: any) => email.email) || [],
-        };
+      if (includeShare) {
+        if ((it as any).share) {
+          result.share = {
+            permission: (it as any).share.permission,
+            scope: (it as any).share.scope,
+            expiresAt: (it as any).share.expiresAt,
+            accessCount: (it as any).share.accessCount,
+            lastAccessedAt: (it as any).share.lastAccessedAt,
+            allowedEmails: (it as any).share.allowedEmails?.map((email: any) => email.email) || [],
+          };
+        } else {
+          // 共有設定が存在しない場合は明示的にnullを設定
+          result.share = null;
+        }
       }
 
       return result;
