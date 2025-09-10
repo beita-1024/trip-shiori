@@ -575,6 +575,12 @@ paths:
       description: |
         認証済みユーザーの旅程一覧を取得（ページネーション対応）
         
+        共有機能のクエリパラメータにより、以下の絞り込みが可能です：
+        - shareScope: 共有範囲での絞り込み（単一または複数指定可能）
+        - sharePermission: 共有権限での絞り込み（単一または複数指定可能）
+        - includeShare: 各旅程の共有設定情報を含めるか
+        - includeShared: 共有された旅程も含めるか
+        
         **使用ミドルウェア**:
         - auth: JWT検証（認証済みユーザーのみアクセス可能）
         - rateLimit: リクエスト頻度制限（60 req/min）
@@ -617,6 +623,46 @@ paths:
             type: string
             enum: [asc, desc]
             default: desc
+        - name: shareScope
+          in: query
+          description: 共有範囲での絞り込み（単一または複数指定可能）
+          required: false
+          schema:
+            oneOf:
+              - type: string
+                enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+              - type: array
+                items:
+                  type: string
+                  enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+          example: "PUBLIC_LINK"
+        - name: sharePermission
+          in: query
+          description: 共有権限での絞り込み（単一または複数指定可能）
+          required: false
+          schema:
+            oneOf:
+              - type: string
+                enum: [READ_ONLY, EDIT]
+              - type: array
+                items:
+                  type: string
+                  enum: [READ_ONLY, EDIT]
+          example: "READ_ONLY"
+        - name: includeShare
+          in: query
+          description: 各旅程の共有設定情報を含めるか
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: includeShared
+          in: query
+          description: 共有された旅程も含めるか
+          required: false
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: 旅程一覧とページネーション情報
@@ -640,6 +686,11 @@ paths:
       summary: 旅程作成
       description: |
         認証済みユーザーが新しい旅程を作成
+        
+        **自動設定**:
+        - 旅程作成時に自動的にデフォルト共有設定が作成されます
+        - デフォルト設定: READ_ONLY権限、PUBLIC_LINK公開範囲
+        - パスワード保護なし、有効期限なし（後で変更可能）
         
         **使用ミドルウェア**:
         - auth: JWT検証（認証済みユーザーのみアクセス可能）
@@ -688,11 +739,19 @@ paths:
       description: |
         認証済みユーザーが自分の旅程を取得、または共有設定によりアクセス可能な旅程を取得
         
-        共有設定がある場合は認証不要でアクセス可能です。公開範囲（scope）に応じて以下のアクセス制御が行われます：
-        - PUBLIC_LINK: リンクを知っている人全員（認証不要）
-        - AUTHENTICATED_USERS: 認証済みユーザーのみ
-        - RESTRICTED_EMAILS: 特定のメールアドレスのみ
-        - PUBLIC: 全体公開（認証不要）
+        **アクセス制御**:
+        1. **所有者**: 旅程の作成者は常にアクセス可能
+        2. **共有設定がある場合**: 公開範囲（scope）に応じて以下のアクセス制御が行われます：
+           - PUBLIC_LINK: リンクを知っている人全員（認証不要）
+           - AUTHENTICATED_USERS: 認証済みユーザーのみ
+           - RESTRICTED_EMAILS: 特定のメールアドレスのみ（認証必須）
+           - PUBLIC: 全体公開（認証不要）
+        3. **共有設定がない場合**: 所有者のみアクセス可能
+        
+        **セキュリティ機能**:
+        - 有効期限チェック: 期限切れの共有設定は自動的に無効化
+        - メールアドレス検証: RESTRICTED_EMAILSでは許可リストに基づく厳密なチェック
+        - パスワード保護: 共有設定でパスワードが設定されている場合は認証が必要
         
         **使用ミドルウェア**:
         - auth: JWT検証（共有設定がある場合は認証不要）
@@ -1322,6 +1381,41 @@ components:
           type: string
           format: date-time
           example: "2025-01-01T00:00:00Z"
+        share:
+          $ref: '#/components/schemas/ItineraryShareInfo'
+          description: 共有設定情報（includeShare=trueの場合のみ含まれる）
+
+    ItineraryShareInfo:
+      type: object
+      properties:
+        permission:
+          type: string
+          enum: [READ_ONLY, EDIT]
+          description: 共有権限レベル
+          example: "READ_ONLY"
+        hasPassword:
+          type: boolean
+          description: パスワード保護の有無
+          example: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 有効期限（nullの場合は無期限）
+          example: "2024-12-31T23:59:59Z"
+        scope:
+          type: string
+          enum: [PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+          description: 公開範囲
+          example: "PUBLIC_LINK"
+        allowedEmails:
+          type: array
+          items:
+            type: string
+            format: email
+          nullable: true
+          description: 許可されたメールアドレスリスト
+          example: ["user@example.com", "friend@example.com"]
 
     Pagination:
       type: object
@@ -1529,6 +1623,8 @@ tags:
     description: ユーザー管理
   - name: Itineraries
     description: 旅のしおり管理
+  - name: Itinerary Share
+    description: 旅程共有機能
   - name: Events
     description: イベント管理
   - name: Itinerary Edit
