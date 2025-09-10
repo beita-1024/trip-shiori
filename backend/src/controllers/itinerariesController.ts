@@ -99,8 +99,8 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
 /**
  * 指定されたIDの旅のしおりを取得する
  * 
- * @summary 認証済みユーザーが自分の旅程を取得（識別子ベース）
- * @auth Bearer JWT (Cookie: access_token)
+ * @summary 認証済みユーザーが自分の旅程を取得、または共有設定によりアクセス可能な旅程を取得
+ * @auth Bearer JWT (Cookie: access_token) - 共有設定がある場合は認証不要
  * @params
  *   - Path: { id: string }
  * @returns
@@ -115,13 +115,6 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const getItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'User not authenticated' 
-      });
-    }
-
     const { id } = req.params;
 
     const itinerary = await prisma.itinerary.findUnique({
@@ -132,6 +125,15 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
         userId: true,
         createdAt: true,
         updatedAt: true,
+        share: {
+          select: {
+            permission: true,
+            passwordHash: true,
+            expiresAt: true,
+            scope: true,
+            allowedEmails: true,
+          },
+        },
       },
     });
 
@@ -142,8 +144,83 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
       });
     }
 
-    // 所有者チェック（userIdがnullの場合は誰でもアクセス可能）
-    if (itinerary.userId && itinerary.userId !== req.user.id) {
+    // アクセス制御ロジック
+    const hasShareSettings = !!itinerary.share;
+    const isOwner = itinerary.userId && req.user && itinerary.userId === req.user.id;
+    const isAuthenticated = !!req.user;
+
+    // 所有者の場合は常にアクセス可能
+    if (isOwner) {
+      // 所有者の場合は共有設定の有無に関係なくアクセス可能
+    } else if (hasShareSettings) {
+      // 共有設定がある場合のアクセス制御
+      const share = itinerary.share!;
+      
+      // 有効期限チェック
+      if (share.expiresAt && share.expiresAt < new Date()) {
+        return res.status(403).json({ 
+          error: 'forbidden',
+          message: 'Share has expired' 
+        });
+      }
+
+      // 公開範囲チェック
+      switch (share.scope) {
+        case 'PUBLIC_LINK':
+          // リンクを知っている人全員（認証不要）
+          break;
+        case 'AUTHENTICATED_USERS':
+          // 認証済みユーザーのみ
+          if (!isAuthenticated) {
+            return res.status(401).json({ 
+              error: 'unauthorized',
+              message: 'Authentication required' 
+            });
+          }
+          break;
+        case 'RESTRICTED_EMAILS':
+          // 特定のメールアドレスのみ
+          if (!isAuthenticated) {
+            return res.status(401).json({ 
+              error: 'unauthorized',
+              message: 'Authentication required' 
+            });
+          }
+          if (share.allowedEmails) {
+            try {
+              const allowedEmails = JSON.parse(share.allowedEmails) as string[];
+              if (!allowedEmails.includes(req.user!.email)) {
+                return res.status(403).json({ 
+                  error: 'forbidden',
+                  message: 'Access denied' 
+                });
+              }
+            } catch (error) {
+              console.error('Failed to parse allowedEmails:', error);
+              return res.status(403).json({ 
+                error: 'forbidden',
+                message: 'Access denied' 
+              });
+            }
+          }
+          break;
+        case 'PUBLIC':
+          // 全体公開（認証不要）
+          break;
+        default:
+          return res.status(403).json({ 
+            error: 'forbidden',
+            message: 'Access denied' 
+          });
+      }
+    } else {
+      // 共有設定がなく、所有者でもない場合はアクセス拒否
+      if (!isAuthenticated) {
+        return res.status(401).json({ 
+          error: 'unauthorized',
+          message: 'User not authenticated' 
+        });
+      }
       return res.status(403).json({ 
         error: 'forbidden',
         message: 'Access denied' 
