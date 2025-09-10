@@ -38,6 +38,7 @@ export const createItineraryShare = async (req: Request, res: Response) => {
     const validatedBody = (req as any).validatedBody as CreateItineraryShareRequest;
 
     // 旅程の存在確認
+    // 存在しない旅程に対する共有設定作成を防ぎ、不正なIDによる攻撃を防ぐ
     const itinerary = await prisma.itinerary.findUnique({
       where: { id },
       select: { id: true },
@@ -51,6 +52,7 @@ export const createItineraryShare = async (req: Request, res: Response) => {
     }
 
     // 既存の共有設定確認
+    // 重複する共有設定の作成を防ぎ、データの整合性を保つ
     const existingShare = await prisma.itineraryShare.findUnique({
       where: { itineraryId: id },
     });
@@ -63,32 +65,33 @@ export const createItineraryShare = async (req: Request, res: Response) => {
     }
 
     // パスワードのハッシュ化
+    // 平文パスワードを保存せず、bcryptでハッシュ化してセキュリティを確保
     let passwordHash: string | null = null;
     if (validatedBody.password) {
-      passwordHash = await bcrypt.hash(validatedBody.password, 12);
+      passwordHash = await bcrypt.hash(validatedBody.password, 12); // ソルトラウンド12でハッシュ化
     }
 
     // 有効期限の変換
+    // 有効期限を適切にDate型に変換し、期限切れの共有設定を自動的に無効化
     let expiresAt: Date | null = null;
     if (validatedBody.expiresAt) {
       expiresAt = new Date(validatedBody.expiresAt);
     }
 
-    // 許可されたメールアドレスリストのJSON化
-    let allowedEmailsJson: string | null = null;
-    if (validatedBody.allowedEmails && validatedBody.allowedEmails.length > 0) {
-      allowedEmailsJson = JSON.stringify(validatedBody.allowedEmails);
-    }
-
-    // 共有設定の作成
+    // 共有設定の作成（メールアドレスも含む）
+    // トランザクション内で共有設定とメールアドレスを一括作成し、データ整合性を保つ
     await prisma.itineraryShare.create({
       data: {
         itineraryId: id,
         permission: validatedBody.permission as SharePermission,
-        passwordHash,
-        expiresAt,
+        passwordHash, // ハッシュ化済みパスワードを保存
+        expiresAt, // 有効期限を設定
         scope: validatedBody.scope as ShareScope,
-        allowedEmails: allowedEmailsJson,
+        allowedEmails: {
+          create: validatedBody.allowedEmails?.map((email: string) => ({
+            email: email, // 許可されたメールアドレスのみ保存
+          })) || [],
+        } as any,
       },
     });
 
@@ -134,7 +137,11 @@ export const getItineraryShare = async (req: Request, res: Response) => {
         passwordHash: true,
         expiresAt: true,
         scope: true,
-        allowedEmails: true,
+        allowedEmails: {
+          select: {
+            email: true,
+          },
+        } as any,
       },
     });
 
@@ -146,15 +153,7 @@ export const getItineraryShare = async (req: Request, res: Response) => {
     }
 
     // 許可されたメールアドレスリストの復元
-    let allowedEmails: string[] | null = null;
-    if (share.allowedEmails) {
-      try {
-        allowedEmails = JSON.parse(share.allowedEmails);
-      } catch (error) {
-        console.error('Failed to parse allowedEmails:', error);
-        allowedEmails = null;
-      }
-    }
+    const allowedEmails = (share.allowedEmails as any)?.map((email: any) => email.email) || [];
 
     return res.status(200).json({
       permission: share.permission,
@@ -196,6 +195,7 @@ export const updateItineraryShare = async (req: Request, res: Response) => {
     const validatedBody = (req as any).validatedBody as UpdateItineraryShareRequest;
 
     // 既存の共有設定確認
+    // 存在しない共有設定の更新を防ぎ、不正なIDによる攻撃を防ぐ
     const existingShare = await prisma.itineraryShare.findUnique({
       where: { itineraryId: id },
     });
@@ -214,19 +214,23 @@ export const updateItineraryShare = async (req: Request, res: Response) => {
       updateData.permission = validatedBody.permission as SharePermission;
     }
 
+    // パスワードの更新処理
+    // パスワードの設定・削除時に適切なハッシュ化・null化を実施
     if (validatedBody.password !== undefined) {
       if (validatedBody.password === null) {
-        updateData.passwordHash = null;
+        updateData.passwordHash = null; // パスワード削除
       } else {
-        updateData.passwordHash = await bcrypt.hash(validatedBody.password, 12);
+        updateData.passwordHash = await bcrypt.hash(validatedBody.password, 12); // ソルトラウンド12でハッシュ化
       }
     }
 
+    // 有効期限の更新処理
+    // 有効期限の設定・削除時に適切なDate型変換・null化を実施
     if (validatedBody.expiresAt !== undefined) {
       if (validatedBody.expiresAt === null) {
-        updateData.expiresAt = null;
+        updateData.expiresAt = null; // 有効期限削除（無期限）
       } else {
-        updateData.expiresAt = new Date(validatedBody.expiresAt);
+        updateData.expiresAt = new Date(validatedBody.expiresAt); // 有効期限設定
       }
     }
 
@@ -234,11 +238,22 @@ export const updateItineraryShare = async (req: Request, res: Response) => {
       updateData.scope = validatedBody.scope as ShareScope;
     }
 
+    // 許可されたメールアドレスリストの更新処理
+    // メールアドレスリストの設定・削除時に適切なデータ操作を実施
     if (validatedBody.allowedEmails !== undefined) {
       if (validatedBody.allowedEmails === null) {
-        updateData.allowedEmails = null;
+        // 既存のメールアドレスを削除（アクセス権限を完全に削除）
+        (updateData as any).allowedEmails = {
+          deleteMany: {},
+        };
       } else {
-        updateData.allowedEmails = JSON.stringify(validatedBody.allowedEmails);
+        // 既存のメールアドレスを削除して新しいものを追加（権限の完全な置き換え）
+        (updateData as any).allowedEmails = {
+          deleteMany: {},
+          create: validatedBody.allowedEmails.map((email: string) => ({
+            email: email, // 許可されたメールアドレスのみ保存
+          })),
+        };
       }
     }
 
@@ -280,6 +295,7 @@ export const deleteItineraryShare = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // 既存の共有設定確認
+    // 存在しない共有設定の削除を防ぎ、不正なIDによる攻撃を防ぐ
     const existingShare = await prisma.itineraryShare.findUnique({
       where: { itineraryId: id },
     });
@@ -292,6 +308,7 @@ export const deleteItineraryShare = async (req: Request, res: Response) => {
     }
 
     // 共有設定の削除
+    // 共有設定と関連するメールアドレスを完全に削除し、アクセス権限を無効化
     await prisma.itineraryShare.delete({
       where: { itineraryId: id },
     });

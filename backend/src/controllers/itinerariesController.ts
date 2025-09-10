@@ -32,6 +32,8 @@ const prisma = new PrismaClient();
  */
 export const createItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // 認証チェック
+    // 旅程作成は認証済みユーザーのみが実行可能で、不正な旅程作成を防ぐ
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -52,14 +54,37 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
       const candidateId = generateRandomId(20);
 
       try {
-        const created = await prisma.itinerary.create({
-          data: {
-            id: candidateId,
-            // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
-            // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
-            data: dataString,
-            userId: req.user.id, // 認証済みユーザーを所有者として設定
-          },
+        /**
+         * トランザクションによる原子性の担保
+         * 旅程と共有設定（Itinerary, ItineraryShare）は1対1のリレーションであり、
+         * どちらか一方の作成に失敗した場合にデータ不整合（片方だけ存在）が発生しないよう
+         * トランザクションでまとめて作成する。これにより原子性を担保し、セキュリティホールを防ぐ。
+         */
+        const created = await prisma.$transaction(async (tx) => {
+          // 旅程作成時に認証済みユーザーを所有者として設定
+          // 旅程の所有者を明確にし、不正な所有者設定を防ぐ
+          const itinerary = await tx.itinerary.create({
+            data: {
+              id: candidateId,
+              // Prisma のスキーマに応じて `data` が string/text か Json かに合わせる設計を想定。
+              // ここでは互換性のため文字列を保存する実装にしている（Rails と同等の扱い）。
+              data: dataString,
+              userId: req.user!.id, // 認証済みユーザーを所有者として設定
+            },
+          });
+
+          // デフォルト共有設定の作成
+          // すべての旅程に共有設定を付与し、アクセス制御の一貫性を保つ
+          await tx.itineraryShare.create({
+            data: {
+              itineraryId: candidateId,
+              permission: 'READ_ONLY' as const, // デフォルトは読み取り専用
+              scope: 'PUBLIC_LINK' as const, // デフォルトは公開リンク
+              // デフォルトではパスワードなし、有効期限なし（後で設定可能）
+            },
+          });
+
+          return itinerary;
         });
 
         console.debug("Created itinerary with ID:", created.id); // デバッグ用: 作成した旅のしおりのIDを表示
@@ -96,6 +121,8 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
   }
 };
 
+
+// TODO: 非常に大きな関数なので分割する。
 /**
  * 指定されたIDの旅のしおりを取得する
  * 
@@ -117,6 +144,11 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const { id } = req.params;
 
+    /**
+     * 旅程IDで1件取得。旅程本体＋共有設定（権限・公開範囲・有効期限・許可メールアドレス）を同時に取得する。
+     * - select: 必要なフィールドのみ取得し、余計なデータ転送・情報漏洩を防ぐため。
+     * - share.allowedEmails: 許可メールアドレス一覧（RESTRICTED_EMAILS用）も同時取得。
+     */
     const itinerary = await prisma.itinerary.findUnique({
       where: { id },
       select: {
@@ -131,7 +163,11 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
             passwordHash: true,
             expiresAt: true,
             scope: true,
-            allowedEmails: true,
+            allowedEmails: {
+              select: {
+                email: true,
+              },
+            } as any,
           },
         },
       },
@@ -145,18 +181,22 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
     }
 
     // アクセス制御ロジック
-    const hasShareSettings = !!itinerary.share;
+    // 旅程への不正アクセスを防ぐため、所有者・共有設定・認証状態を厳密にチェック
+    const hasShareSettings = !!(itinerary as any).share;
     const isOwner = itinerary.userId && req.user && itinerary.userId === req.user.id;
     const isAuthenticated = !!req.user;
 
     // 所有者の場合は常にアクセス可能
+    // 旅程の作成者は自分の旅程に常にアクセスできる必要がある
     if (isOwner) {
       // 所有者の場合は共有設定の有無に関係なくアクセス可能
     } else if (hasShareSettings) {
       // 共有設定がある場合のアクセス制御
-      const share = itinerary.share!;
+      // 他人の旅程にアクセスする場合は、共有設定に基づいた権限チェックが必要
+      const share = (itinerary as any).share;
       
       // 有効期限チェック
+      // 期限切れの共有設定は無効化し、不正アクセスを防ぐ
       if (share.expiresAt && share.expiresAt < new Date()) {
         return res.status(403).json({ 
           error: 'forbidden',
@@ -165,12 +205,15 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
       }
 
       // 公開範囲チェック
+      // 共有設定の公開範囲に応じて適切なアクセス制御を実施
       switch (share.scope) {
         case 'PUBLIC_LINK':
           // リンクを知っている人全員（認証不要）
+          // 公開リンクの場合は、リンクを知っていることが認証の代わり
           break;
         case 'AUTHENTICATED_USERS':
           // 認証済みユーザーのみ
+          // 認証済みユーザーのみがアクセス可能な設定
           if (!isAuthenticated) {
             return res.status(401).json({ 
               error: 'unauthorized',
@@ -180,23 +223,18 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
           break;
         case 'RESTRICTED_EMAILS':
           // 特定のメールアドレスのみ
+          // 許可されたメールアドレスのみがアクセス可能
           if (!isAuthenticated) {
             return res.status(401).json({ 
               error: 'unauthorized',
               message: 'Authentication required' 
             });
           }
-          if (share.allowedEmails) {
-            try {
-              const allowedEmails = JSON.parse(share.allowedEmails) as string[];
-              if (!allowedEmails.includes(req.user!.email)) {
-                return res.status(403).json({ 
-                  error: 'forbidden',
-                  message: 'Access denied' 
-                });
-              }
-            } catch (error) {
-              console.error('Failed to parse allowedEmails:', error);
+          if (share.allowedEmails && share.allowedEmails.length > 0) {
+            const allowedEmails = share.allowedEmails.map((email: any) => email.email);
+            // 自分のメールアドレスが許可リストに含まれているかチェック
+            // 許可されていないメールアドレスからのアクセスを防ぐ
+            if (!allowedEmails.includes(req.user!.email)) {
               return res.status(403).json({ 
                 error: 'forbidden',
                 message: 'Access denied' 
@@ -206,8 +244,11 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
           break;
         case 'PUBLIC':
           // 全体公開（認証不要）
+          // 全体公開の場合は誰でもアクセス可能
           break;
         default:
+          // 未知の公開範囲は拒否
+          // 予期しない公開範囲設定による不正アクセスを防ぐ
           return res.status(403).json({ 
             error: 'forbidden',
             message: 'Access denied' 
@@ -215,6 +256,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
       }
     } else {
       // 共有設定がなく、所有者でもない場合はアクセス拒否
+      // プライベートな旅程への不正アクセスを防ぐ
       if (!isAuthenticated) {
         return res.status(401).json({ 
           error: 'unauthorized',
@@ -251,22 +293,35 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
 };
 
 /**
- * ユーザーの旅程一覧を取得する（ページネーション対応）
- * 
- * @summary 認証済みユーザーが自分の旅程一覧を取得
+ * ユーザーの旅程一覧を取得する（ページネーション対応、共有設定フィルター対応）
+ *
+ * @summary 認証済みユーザーが自分の旅程一覧を取得、または共有された旅程も含めて取得
  * @auth Bearer JWT (Cookie: access_token)
  * @params
- *   - Query: { page?: number, limit?: number, sort?: string, order?: string }
+ *   - Query: 
+ *       - page?: number — ページ番号（デフォルト: 1）
+ *       - limit?: number — 1ページあたりの件数（デフォルト: 10, 最大: 100）
+ *       - sort?: string — ソート対象フィールド（createdAt/updatedAt、デフォルト: createdAt）
+ *       - order?: string — ソート順（asc/desc、デフォルト: desc）
+ *       - shareScope?: string | string[] — 共有範囲での絞り込み（PUBLIC_LINK/RESTRICTED_EMAILS/AUTHENTICATED_USERS/PUBLIC、単一または複数指定可能）
+ *       - sharePermission?: string | string[] — 共有権限での絞り込み（READ_ONLY/EDIT、単一または複数指定可能）
+ *       - includeShare?: boolean — 各旅程の共有設定情報を含めるか（デフォルト: false, オプション）
+ *       - includeShared?: boolean — 共有された旅程も含めるか（デフォルト: false, オプション）
  * @returns
- *   - 200: { itineraries: Array<{id: string, data: any, createdAt: string, updatedAt: string}>, pagination: {...} }
+ *   - 200: { itineraries: Array<{id: string, data: any, createdAt: string, updatedAt: string, share?: any}>, pagination: {...} }
  * @errors
  *   - 401: unauthorized
  * @example
- *   GET /api/itineraries?page=1&limit=10&sort=createdAt&order=desc
+ *   GET /api/itineraries?page=1&limit=10&sort=createdAt&order=desc&includeShare=true&includeShared=true
  *   200: { "itineraries": [...], "pagination": { "page": 1, "limit": 10, "total": 100, ... } }
+ * @options
+ *   - includeShare: true にすると各旅程の共有設定情報（share）がレスポンスに含まれる
+ *   - includeShared: true にすると自分が作成した旅程だけでなく、共有された旅程も一覧に含まれる
  */
 export const getUserItineraries = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // 認証チェック
+    // 旅程一覧取得は認証済みユーザーのみが実行可能で、他人の旅程情報の不正取得を防ぐ
     if (!req.user) {
       return res.status(401).json({ 
         error: 'unauthorized',
@@ -276,41 +331,161 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
 
     // Zodバリデーション済みクエリパラメータを取得
     const validatedQuery = (req as any).validatedQuery as GetItinerariesQuery;
-    const { page, limit, sort: sortField, order } = validatedQuery;
+    const { 
+      page, 
+      limit, 
+      sort: sortField, 
+      order, 
+      shareScope, 
+      sharePermission, 
+      includeShare, 
+      includeShared 
+    } = validatedQuery;
     const sortOrder = order === 'asc' ? 'asc' : 'desc';
 
     const skip = (page - 1) * limit;
 
-    // 旅程の取得（認証済みユーザーのもののみ）
+    // 基本的なWHERE条件を構築
+    const whereConditions: any[] = [];
+
+    if (includeShared) {
+      // 自分が作成したもの + 共有されたもののみアクセス可能
+      // 他人の旅程にアクセスする場合は、共有設定に基づいた厳密な権限チェックが必要
+      whereConditions.push({
+        OR: [
+          { userId: req.user.id }, // 自分が作成したものは常にアクセス可能
+          {
+            AND: [
+              { userId: { not: req.user.id } }, // 他人が作成したもののみ対象
+              {
+                share: {
+                  OR: [
+                    { scope: 'PUBLIC_LINK' }, // 公開リンク - リンクを知っている人全員がアクセス可能
+                    { scope: 'PUBLIC' }, // 全体公開 - 誰でもアクセス可能
+                    { scope: 'AUTHENTICATED_USERS' }, // 認証済みユーザー - 認証済みなら誰でもアクセス可能
+                    {
+                      AND: [
+                        { scope: 'RESTRICTED_EMAILS' }, // 特定メールアドレスのみ
+                        {
+                          allowedEmails: {
+                            some: {
+                              email: req.user.email // 自分のメールアドレスが許可リストに含まれている場合のみアクセス可能
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      });
+    } else {
+      // 自分が作成したもののみアクセス可能
+      // includeShared=falseの場合は、プライベートな旅程のみを取得
+      whereConditions.push({ userId: req.user.id });
+    }
+
+    // 共有設定フィルターを追加
+    if (shareScope || sharePermission) {
+      const shareFilter: any = {};
+      if (shareScope) {
+        // 単一の値または配列の値を処理
+        if (Array.isArray(shareScope)) {
+          shareFilter.scope = { in: shareScope };
+        } else {
+          shareFilter.scope = shareScope;
+        }
+      }
+      if (sharePermission) {
+        // 単一の値または配列の値を処理
+        if (Array.isArray(sharePermission)) {
+          shareFilter.permission = { in: sharePermission };
+        } else {
+          shareFilter.permission = sharePermission;
+        }
+      }
+      whereConditions.push({ share: shareFilter });
+    }
+
+    const whereClause = whereConditions.length > 1 ? { AND: whereConditions } : whereConditions[0];
+
+    // 取得するフィールドを決定
+    const selectFields: any = {
+      id: true,
+      data: true,
+      createdAt: true,
+      updatedAt: true,
+      userId: true,
+    };
+
+    if (includeShare) {
+      selectFields.share = {
+        select: {
+          permission: true,
+          scope: true,
+          expiresAt: true,
+          accessCount: true,
+          lastAccessedAt: true,
+          allowedEmails: {
+            select: {
+              email: true,
+            }
+          }
+        }
+      };
+    }
+
+    // 旅程の取得
     const [rawItineraries, total] = await Promise.all([
       prisma.itinerary.findMany({
-        where: { userId: req.user.id },
-        select: {
-          id: true,
-          data: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        where: whereClause,
+        select: selectFields,
         orderBy: { [sortField]: sortOrder },
         skip,
         take: limit,
       }),
       prisma.itinerary.count({
-        where: { userId: req.user.id },
+        where: whereClause,
       }),
     ]);
 
     // dataフィールドの型揺れを解決（string → object に正規化）
     const itineraries = rawItineraries.map((it) => {
       const d = (it as any).data;
+      let parsedData;
       if (typeof d === 'string') {
         try { 
-          return { ...it, data: JSON.parse(d) }; 
+          parsedData = JSON.parse(d); 
         } catch { 
-          return { ...it, data: d }; 
+          parsedData = d; 
         }
+      } else {
+        parsedData = d;
       }
-      return it;
+
+      const result: any = {
+        id: it.id,
+        data: parsedData,
+        createdAt: it.createdAt,
+        updatedAt: it.updatedAt,
+        userId: it.userId,
+      };
+
+      if (includeShare && (it as any).share) {
+        result.share = {
+          permission: (it as any).share.permission,
+          scope: (it as any).share.scope,
+          expiresAt: (it as any).share.expiresAt,
+          accessCount: (it as any).share.accessCount,
+          lastAccessedAt: (it as any).share.lastAccessedAt,
+          allowedEmails: (it as any).share.allowedEmails?.map((email: any) => email.email) || [],
+        };
+      }
+
+      return result;
     });
 
     const totalPages = Math.ceil(total / limit);
