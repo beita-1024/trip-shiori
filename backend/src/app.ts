@@ -5,6 +5,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { corsConfig } from './config/cors';
 import itinerariesRouter from './controllers/itinerariesRouter';
+import itineraryShareRouter from './controllers/itineraryShareRouter';
 import eventsRouter from './controllers/eventsRouter';
 import itineraryEditRouter from './controllers/itineraryEditRouter';
 import authRouter from './controllers/authRouter';
@@ -21,6 +22,7 @@ app.use(cookieParser());
 // ルートの設定
 app.get('/health', healthCheck);
 app.use('/api/itineraries', itinerariesRouter);
+app.use('/api/itineraries', itineraryShareRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/itinerary-edit', itineraryEditRouter);
 app.use('/api/users', usersRouter);
