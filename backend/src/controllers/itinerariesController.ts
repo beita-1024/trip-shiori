@@ -671,6 +671,7 @@ export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) 
     // ミドルウェアで所有権チェック済み
     const existingItinerary = (req as any).existingItinerary;
 
+    // 旅程削除（関連する共有設定はカスケード削除で自動的に削除される）
     await prisma.itinerary.delete({
       where: { id },
     });

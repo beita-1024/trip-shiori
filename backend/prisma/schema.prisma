@@ -199,7 +199,7 @@ model ItineraryShare {
   updatedAt    DateTime @updatedAt
 
   /** 共有対象の旅程 */
-  itinerary    Itinerary? @relation(fields: [itineraryId], references: [id])
+  itinerary    Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
 
   /** アクセス回数 */
   accessCount    Int      @default(0)
