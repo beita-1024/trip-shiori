@@ -5,11 +5,13 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { corsConfig } from './config/cors';
 import itinerariesRouter from './controllers/itinerariesRouter';
+import itineraryShareRouter from './controllers/itineraryShareRouter';
 import eventsRouter from './controllers/eventsRouter';
 import itineraryEditRouter from './controllers/itineraryEditRouter';
 import authRouter from './controllers/authRouter';
 import usersRouter from './controllers/usersRouter';
 import { healthCheck } from './controllers/healthController';
+import { startShareCleanupJob } from './jobs/shareCleanupJob';
 
 const app = express();
 
@@ -21,6 +23,7 @@ app.use(cookieParser());
 // ルートの設定
 app.get('/health', healthCheck);
 app.use('/api/itineraries', itinerariesRouter);
+app.use('/api/itineraries', itineraryShareRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/itinerary-edit', itineraryEditRouter);
 app.use('/api/users', usersRouter);
@@ -31,6 +34,9 @@ if (process.env.NODE_ENV !== 'test') {
   const PORT = 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
+    
+    // 共有設定のクリーンアップジョブを開始
+    startShareCleanupJob();
   });
 }
 

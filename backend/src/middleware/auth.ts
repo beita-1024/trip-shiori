@@ -146,3 +146,198 @@ export const optionalAuthenticate = (
     next();
   }
 };
+
+/**
+ * 旅程所有権チェックミドルウェア（共有設定用）
+ * 
+ * @summary 認証済みユーザーが指定された旅程の所有者かどうかをチェック
+ * @auth Bearer JWT (Cookie: access_token) - 必須
+ * @params
+ *   - Path: { id: string } - 旅程ID
+ * @returns
+ *   - Next: 所有者の場合
+ *   - 401: 認証失敗
+ *   - 403: 所有者以外
+ *   - 404: 旅程が見つからない
+ * @example
+ *   app.put('/api/itineraries/:id/share', authenticateToken, checkItineraryOwnership, updateShare);
+ */
+export const checkItineraryOwnership = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
+    if (!req.user) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'Authentication required' 
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    // 旅程の存在確認と所有者チェック
+    const itinerary = await prisma.itinerary.findUnique({
+      where: { id },
+      select: { id: true, userId: true },
+    });
+
+    if (!itinerary) {
+      res.status(404).json({
+        error: 'itinerary_not_found',
+        message: 'Itinerary not found'
+      });
+      return;
+    }
+
+    // 所有者チェック
+    if (itinerary.userId !== req.user.id) {
+      res.status(403).json({
+        error: 'forbidden',
+        message: 'Only the owner can access this itinerary'
+      });
+      return;
+    }
+
+    // リクエストに旅程情報を追加（後続のミドルウェアやコントローラーで使用可能）
+    (req as any).itinerary = itinerary;
+
+    next();
+  } catch (error) {
+    console.error('Itinerary ownership check error:', error);
+    res.status(500).json({
+      error: 'internal_server_error',
+      message: 'Failed to check itinerary ownership'
+    });
+  }
+};
+
+/**
+ * 旅程所有権チェックミドルウェア（編集・削除用）
+ * 
+ * @summary 認証済みユーザーが指定された旅程の所有者かどうかをチェック（編集・削除用）
+ * @auth Bearer JWT (Cookie: access_token) - 必須
+ * @params
+ *   - Path: { id: string } - 旅程ID
+ * @returns
+ *   - Next: 所有者の場合
+ *   - 401: 認証失敗
+ *   - 403: 所有者以外
+ *   - 404: 旅程が見つからない
+ * @example
+ *   app.put('/api/itineraries/:id', authenticateToken, checkItineraryOwnershipForEdit, updateItinerary);
+ */
+export const checkItineraryOwnershipForEdit = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
+    if (!req.user) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'User not authenticated' 
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    // 旅程の存在確認と所有者チェック
+    const existingItinerary = await prisma.itinerary.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!existingItinerary) {
+      res.status(404).json({ 
+        error: 'not_found',
+        message: 'Itinerary not found' 
+      });
+      return;
+    }
+
+    if (existingItinerary.userId !== req.user.id) {
+      res.status(403).json({ 
+        error: 'forbidden',
+        message: 'Access denied' 
+      });
+      return;
+    }
+
+    // リクエストに旅程情報を追加（後続のミドルウェアやコントローラーで使用可能）
+    (req as any).existingItinerary = existingItinerary;
+
+    next();
+  } catch (error) {
+    console.error('Itinerary ownership check for edit error:', error);
+    res.status(500).json({
+      error: 'internal_server_error',
+      message: 'Failed to check itinerary ownership'
+    });
+  }
+};
+
+/**
+ * ユーザー存在確認ミドルウェア
+ * 
+ * @summary 認証済みユーザーがデータベースに存在するかどうかをチェック
+ * @auth Bearer JWT (Cookie: access_token) - 必須
+ * @returns
+ *   - Next: ユーザーが存在する場合
+ *   - 401: 認証失敗またはユーザーが見つからない
+ * @example
+ *   app.get('/api/users/profile', authenticateToken, checkUserExists, getUserProfile);
+ */
+export const checkUserExists = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
+    if (!req.user) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'User not authenticated' 
+      });
+      return;
+    }
+
+    // ユーザーの存在確認
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'User not found' 
+      });
+      return;
+    }
+
+    // リクエストに完全なユーザー情報を追加（後続のミドルウェアやコントローラーで使用可能）
+    (req as any).userProfile = user;
+
+    next();
+  } catch (error) {
+    console.error('User existence check error:', error);
+    res.status(500).json({
+      error: 'internal_server_error',
+      message: 'Failed to check user existence'
+    });
+  }
+};

@@ -11,6 +11,39 @@ import {
   type DeleteAccountRequest
 } from '../validators/userValidators';
 
+
+// TODO: (req as any).validatedBody as UpdateUserProfileRequest;みたいになっているのは
+// とりあえずの苦肉の策、
+// (req: Combine<AuthenticatedRequest, UpdateUserProfileRequest>
+// みたいに書きたい
+// 以下のようにすれば可能？要検証
+// type Merge<A, B> = Omit<A, keyof B> & B;
+// type ConflictKeys<A, B> = keyof A & keyof B;
+// // 衝突が無い時だけ A & B、あるなら never（＝型エラーにしたいとき）
+// type NoConflict<A, B> =
+//   [ConflictKeys<A, B>] extends [never]
+//     ? A & B
+//     : never;
+
+// // --- main ---
+// // Mode: "merge" なら B で上書き / "strict" ならキー衝突でエラー
+// export type Combine<
+//   A,
+//   B,
+//   Mode extends "merge" | "strict" = "merge"
+// > = Mode extends "merge" ? Merge<A, B> : NoConflict<A, B>;
+// type A = { id: string; createdAt: string };
+// type B = { title: string };
+
+// // 1) 上書きマージ（デフォルト）: A と B を結合
+// type C1 = Combine<A, B>;                 // { id: string; createdAt: string; title: string }
+
+// // 2) 厳格（衝突でエラー）
+// type C2 = Combine<A, { id: number }, "strict">; // X id が衝突 → never（型エラー）
+
+// // 3) 上書き（B優先）
+// type C3 = Combine<A, { id: number }>;    // { createdAt: string; id: number }
+
 const prisma = new PrismaClient();
 
 /**
@@ -18,6 +51,12 @@ const prisma = new PrismaClient();
  * 
  * @summary 認証済みユーザーのプロフィール情報を取得
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - checkUserExists: ユーザー存在確認
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.userProfile: 完全なユーザープロフィール情報（DBから取得済み）
  * @returns
  *   - 200: { id: string, email: string, name: string | null, emailVerified: string | null, createdAt: string, updatedAt: string }
  * @errors
@@ -28,37 +67,8 @@ const prisma = new PrismaClient();
  */
 export const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // 認証ミドルウェア（例: authenticateToken）によって
-    // req.user に現在ログイン中のユーザー情報（id等）がセットされている
-    // ここで未認証なら401を返す
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'User not authenticated' 
-      });
-    }
-
-    // req.user.id を使ってDBからユーザー情報を取得
-    // selectで返すフィールドを限定（セキュリティ・パフォーマンスのため）
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        emailVerified: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    // ユーザーが見つからない場合（理論上は稀だが、削除済み等）は401
-    if (!user) {
-      return res.status(401).json({ 
-        error: 'unauthorized',
-        message: 'User not found' 
-      });
-    }
+    // ミドルウェアでユーザー存在確認済み
+    const user = (req as any).userProfile;
 
     // 日付型（Date）はISO文字列に変換して返す
     return res.status(200).json({
@@ -84,6 +94,12 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
  * 
  * @summary 認証済みユーザーのプロフィール情報を更新
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.validatedBody: バリデーション済みリクエストボディ
  * @params
  *   - Body: { name?: string }
  * @returns
@@ -105,6 +121,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
         message: 'User not authenticated' 
       });
     }
+    
 
     // バリデーション済みのリクエストボディを取得
     const validatedBody = (req as any).validatedBody as UpdateUserProfileRequest;
@@ -149,6 +166,12 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
  * 
  * @summary 認証済みユーザーのパスワードを変更
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.validatedBody: バリデーション済みリクエストボディ
  * @params
  *   - Body: { currentPassword: string, newPassword: string }
  * @returns
@@ -229,6 +252,12 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
  * 
  * @summary 認証済みユーザーのアカウントを削除（パスワード確認必須）
  * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ *   - validateBody: リクエストボディバリデーション
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ *   - req.validatedBody: バリデーション済みリクエストボディ
  * @params
  *   - Body: { password: string }
  * @returns

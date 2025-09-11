@@ -317,7 +317,9 @@ export function resetToEmptyItineraryImpl(setItinerary: (next: Itinerary) => voi
 /**
  * 旅のしおりを共有するための関数
  * 
- * 旅のしおりデータをサーバーに送信し、共有URLを生成します。
+ * 旅のしおりデータをサーバーに送信し、共有設定を作成して共有URLを生成します。
+ * 1. 旅程を作成（プライベート）
+ * 2. 共有設定を作成（公開リンク）
  * 
  * @param itinerary - 旅のしおりデータ
  * @returns 共有URLまたはnull（失敗時）
@@ -337,20 +339,42 @@ export async function shareItineraryImpl(itinerary: Itinerary): Promise<string |
         date: d?.date ? (d.date as Date).toISOString() : undefined,
       })),
     };
-    const resp = await fetch("http://localhost:4002/api/itineraries", {
+
+    // 1. 旅程を作成（プライベート）
+    const createResponse = await fetch("http://localhost:4002/api/itineraries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(text || `HTTP ${resp.status}`);
+
+    if (!createResponse.ok) {
+      const text = await createResponse.text();
+      throw new Error(`旅程作成に失敗しました: ${text || `HTTP ${createResponse.status}`}`);
     }
-    const data = await resp.json();
-    const id = data?.id;
-    if (!id) return null;
-    const url = `${window.location.origin}/edit/${id}`;
-    return url;
+
+    const { id } = await createResponse.json();
+    if (!id) {
+      throw new Error("旅程IDの取得に失敗しました");
+    }
+
+    // 2. 共有設定を作成（公開リンク）
+    const shareResponse = await fetch(`http://localhost:4002/api/itineraries/${id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        permission: 'READ_ONLY',
+        scope: 'PUBLIC_LINK'
+      }),
+    });
+
+    if (!shareResponse.ok) {
+      const text = await shareResponse.text();
+      throw new Error(`共有設定の作成に失敗しました: ${text || `HTTP ${shareResponse.status}`}`);
+    }
+
+    // 共有URLを生成
+    const shareUrl = `${window.location.origin}/shared/${id}`;
+    return shareUrl;
   } catch (e) {
     console.error("共有URL生成エラー:", e);
     return null;

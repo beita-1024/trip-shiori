@@ -70,11 +70,11 @@ export const register = async (req: Request, res: Response) => {
     
     const { email, password, name } = schema.parse(req.body);
 
-    // 重複チェック
+    // 重複チェック（メール認証済みユーザーのみ）
     const exists = await prisma.user.findUnique({ 
       where: { email: email.toLowerCase() } 
     });
-    if (exists) {
+    if (exists && exists.emailVerified) {
       return res.status(409).json({ 
         error: 'already_exists',
         message: 'User with this email already exists' 
@@ -84,17 +84,32 @@ export const register = async (req: Request, res: Response) => {
     // パスワードハッシュ化
     const passwordHash = await hashPassword(password);
 
-    // ユーザー作成
-    const user = await prisma.user.create({
-      data: { 
-        email: email.toLowerCase(), 
-        name: name || null, 
-        passwordHash, 
-        emailVerified: null 
+    // ユーザー作成または更新
+    const user = await prisma.user.upsert({
+      where: { email: email.toLowerCase() },
+      update: {
+        name: name || null,
+        passwordHash,
+        emailVerified: null,
+        updatedAt: new Date(),
+      },
+      create: {
+        email: email.toLowerCase(),
+        name: name || null,
+        passwordHash,
+        emailVerified: null,
       },
     });
 
-    // 検証トークン発行
+    // 既存の期限切れトークンを削除
+    await prisma.emailVerificationToken.deleteMany({
+      where: {
+        userId: user.id,
+        expiresAt: { lt: new Date() }
+      }
+    });
+
+    // 新しい検証トークン発行
     const raw = crypto.randomBytes(32).toString('hex');
     const tokenHash = await argon2.hash(raw, { type: argon2.argon2id });
     
@@ -107,7 +122,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     // 検証URLを生成
-    const verifyUrl = `${process.env.FRONTEND_URL}/auth/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
+    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?uid=${encodeURIComponent(user.id)}&token=${encodeURIComponent(raw)}`;
 
     // メール送信
     try {
@@ -145,13 +160,14 @@ export const register = async (req: Request, res: Response) => {
  *   - Query: { uid: string, token: string }
  *   - Validation: トークンの有効性・期限チェック
  * @returns
- *   - 302: 認証成功（ダッシュボードへリダイレクト、JWT Cookie設定）
- * @errors
+ *   - 200: 認証成功（JWT Cookie設定, JSON本文）
  *   - 400: invalid_token（無効・期限切れトークン）
+ *   - 400: user_not_found（ユーザー不存在）
  *   - 500: internal_error（サーバーエラー）
  * @example
  *   GET /auth/verify-email?uid=user123&token=abc123...
- *   302: Redirect to /dashboard
+ *   200: { "success": true, "message": "Email verification successful" }
+ *        + Set-Cookie: access_token=<JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
  */
 export const verifyEmail = async (req: Request, res: Response) => {
   try {
@@ -221,9 +237,11 @@ export const verifyEmail = async (req: Request, res: Response) => {
       maxAge: COOKIE_MAX_AGE,
     });
 
-    // ダッシュボード等へ遷移
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    return res.redirect(`${frontendUrl}/dashboard`);
+    // 認証成功レスポンス（フロントエンドでリダイレクト処理）
+    return res.status(200).json({
+      success: true,
+      message: 'Email verification successful'
+    });
 
   } catch (error) {
     if (error instanceof z.ZodError) {

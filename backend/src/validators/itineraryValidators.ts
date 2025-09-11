@@ -8,6 +8,19 @@ export const getItinerariesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
   sort: z.enum(['createdAt', 'updatedAt']).default('createdAt'),
   order: z.enum(['asc', 'desc']).default('desc'),
+  // 共有設定フィルター
+  shareScope: z.union([
+    z.enum(['PUBLIC_LINK', 'RESTRICTED_EMAILS', 'AUTHENTICATED_USERS', 'PUBLIC']),
+    z.array(z.enum(['PUBLIC_LINK', 'RESTRICTED_EMAILS', 'AUTHENTICATED_USERS', 'PUBLIC']))
+  ]).optional(),
+  sharePermission: z.union([
+    z.enum(['READ_ONLY', 'EDIT']),
+    z.array(z.enum(['READ_ONLY', 'EDIT']))
+  ]).optional(),
+  // オプトイン機能
+  includeShare: z.coerce.boolean().default(false),
+  // 自分が作成したもののみか、共有されたものも含むか
+  includeShared: z.coerce.boolean().default(false),
 });
 
 /**
