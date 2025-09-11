@@ -8,7 +8,7 @@ export const SharePermissionSchema = z.enum(['READ_ONLY', 'EDIT']);
 /**
  * 公開範囲の列挙型
  */
-export const ShareScopeSchema = z.enum(['PUBLIC_LINK', 'RESTRICTED_EMAILS', 'AUTHENTICATED_USERS', 'PUBLIC']);
+export const ShareScopeSchema = z.enum(['PRIVATE', 'PUBLIC_LINK', 'RESTRICTED_EMAILS', 'AUTHENTICATED_USERS', 'PUBLIC']);
 
 /**
  * 共有設定作成のバリデーションスキーマ

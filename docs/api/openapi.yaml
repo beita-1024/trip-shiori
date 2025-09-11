@@ -160,17 +160,24 @@ paths:
             type: string
           description: 認証トークン
       responses:
-        '302':
-          description: 認証成功（ダッシュボードへリダイレクト、JWT Cookie設定）
+        '200':
+          description: 認証成功（JWT Cookie設定、JSON本文）
           headers:
-            Location:
-              description: リダイレクト先URL
-              schema:
-                type: string
             Set-Cookie:
               description: JWT Cookie
               schema:
                 type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Email verification successful"
         '400':
           description: 無効・期限切れトークン
           content:
@@ -694,7 +701,7 @@ paths:
         
         **自動設定**:
         - 旅程作成時に自動的にデフォルト共有設定が作成されます
-        - デフォルト設定: READ_ONLY権限、PRIVATE公開範囲
+        - デフォルト設定: EDIT権限、PRIVATE公開範囲
         - パスワード保護なし、有効期限なし（後で変更可能）
         
         **使用ミドルウェア**:
@@ -1670,4 +1677,6 @@ tags:
   - name: Events
     description: イベント管理
   - name: Itinerary Edit
+    description: 旅程編集
+
     description: 旅程編集

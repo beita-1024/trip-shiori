@@ -160,13 +160,14 @@ export const register = async (req: Request, res: Response) => {
  *   - Query: { uid: string, token: string }
  *   - Validation: トークンの有効性・期限チェック
  * @returns
- *   - 200: 認証成功（JWT Cookie設定）
+ *   - 200: 認証成功（JWT Cookie設定, JSON本文）
  *   - 400: invalid_token（無効・期限切れトークン）
  *   - 400: user_not_found（ユーザー不存在）
  *   - 500: internal_error（サーバーエラー）
  * @example
  *   GET /auth/verify-email?uid=user123&token=abc123...
- *   200: No Content + Set-Cookie: access_token=<JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+ *   200: { "success": true, "message": "Email verification successful" }
+ *        + Set-Cookie: access_token=<JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
  */
 export const verifyEmail = async (req: Request, res: Response) => {
   try {
