@@ -9,7 +9,7 @@ import {
   type SharePermission,
   type ShareScope
 } from '../validators/itineraryShareValidators';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../utils/password';
 
 const prisma = new PrismaClient();
 
@@ -66,10 +66,10 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
     }
 
     // パスワードのハッシュ化
-    // 平文パスワードを保存せず、bcryptでハッシュ化してセキュリティを確保
+    // 平文パスワードを保存せず、argon2でハッシュ化してセキュリティを確保
     let passwordHash: string | null = null;
     if (validatedBody.password) {
-      passwordHash = await bcrypt.hash(validatedBody.password, 12); // ソルトラウンド12でハッシュ化
+      passwordHash = await hashPassword(validatedBody.password); // argon2でハッシュ化
     }
 
     // 有効期限の変換
@@ -240,7 +240,7 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
       if (validatedBody.password === null) {
         updateData.passwordHash = null; // パスワード削除
       } else {
-        updateData.passwordHash = await bcrypt.hash(validatedBody.password, 12); // ソルトラウンド12でハッシュ化
+        updateData.passwordHash = await hashPassword(validatedBody.password); // argon2でハッシュ化
       }
     }
 
