@@ -100,6 +100,13 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
     setSaveStatus('idle');
   };
 
+  // props のタイトル更新に追従（編集中は上書きしない）
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitle(itinerary.data.title);
+    }
+  }, [itinerary.data.title, isEditingTitle]);
+
   // キーボードイベントハンドラー
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -199,7 +206,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
                 onClick={onView}
                 className="text-base sm:text-lg font-semibold text-body cursor-pointer hover:text-accent transition-colors line-clamp-2"
               >
-                {itinerary.data.title}
+                {title}
               </h3>
             )}
           </div>

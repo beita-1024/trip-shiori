@@ -14,6 +14,7 @@ import { useEffect, useState, useRef } from "react";
 import type { Itinerary } from "@/types";
 import defaultItinerary from "@/lib/defaultItinerary";
 import { attachUids, parseWithUids, serializeWithUids, generateUid, stripUids, stripEventUid } from "./uiUid";
+import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
 
 /** TODO: LocalStorageは遅いので、別の保存方法を検討する。*/
 /** TODO: Undo/Redoにもデバウンス処理を入れる。 */
@@ -115,9 +116,10 @@ export async function aiEditItineraryImpl(
     console.debug("送信するリクエストボディ:", requestBody);
     console.debug("=== デバッグ情報終了 ===");
 
-    const response = await fetch("http://localhost:4002/api/itinerary-edit", {
+    const response = await fetch(buildApiUrl("/api/itinerary-edit"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: 'include',
       body: JSON.stringify(requestBody),
     });
 
@@ -207,9 +209,10 @@ export async function aiCompleteEventImpl(
     console.debug("=== デバッグ情報終了 ===");
 
     const tryRequest = async (useDummy: boolean) => {
-      const resp = await fetch("http://localhost:4002/api/events/complete", {
+      const resp = await fetch(buildApiUrl("/api/events/complete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(
           useDummy ? { event1: cleanEvent1, event2: cleanEvent2, dummy: true } : { event1: cleanEvent1, event2: cleanEvent2 }
         ),
@@ -340,7 +343,7 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
       })),
     };
 
-    const response = await fetch(`http://localhost:4002/api/itineraries/${id}`, {
+    const response = await fetch(buildApiUrl(ITINERARY_ENDPOINTS.UPDATE(id)), {
       method: "PUT",
       headers: { 
         "Content-Type": "application/json",
@@ -388,9 +391,10 @@ export async function shareItineraryImpl(itinerary: Itinerary): Promise<string |
     };
 
     // 1. 旅程を作成（プライベート）
-    const createResponse = await fetch("http://localhost:4002/api/itineraries", {
+    const createResponse = await fetch(buildApiUrl(ITINERARY_ENDPOINTS.CREATE), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(payload),
     });
 
@@ -405,9 +409,10 @@ export async function shareItineraryImpl(itinerary: Itinerary): Promise<string |
     }
 
     // 2. 共有設定を作成（公開リンク）
-    const shareResponse = await fetch(`http://localhost:4002/api/itineraries/${id}/share`, {
+    const shareResponse = await fetch(buildApiUrl(`/api/itineraries/${id}/share`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         permission: 'READ_ONLY',
         scope: 'PUBLIC_LINK'

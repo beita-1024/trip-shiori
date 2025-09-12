@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Card, Button, Spinner } from '@/components/Primitives';
 
 interface SharedItinerary {
   id: string;
   title: string;
+  // TODO: 旅程の構造が決定したらanyを削除する
   data: any;
   createdAt: string;
   updatedAt: string;
@@ -20,23 +21,17 @@ interface SharedItinerary {
   };
 }
 
-interface SharedPageProps {
-  params: Promise<{ id: string }>;
-}
-
 /**
  * 共有URL経由で旅程を表示するページ
  * 
- * @param params - ルートパラメータ（旅程ID）
  * @returns 共有された旅程の表示ページ
  */
-export default function SharedPage({ params }: SharedPageProps) {
+export default function SharedPage() {
   const router = useRouter();
+  const { id } = useParams() as { id: string };
   const [itinerary, setItinerary] = React.useState<SharedItinerary | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-
-  const { id } = React.use(params);
 
   React.useEffect(() => {
     const fetchSharedItinerary = async () => {
@@ -104,7 +99,7 @@ export default function SharedPage({ params }: SharedPageProps) {
             <h1 className="text-xl font-semibold text-gray-900 mb-2">アクセスできません</h1>
             <p className="text-gray-600">{error}</p>
           </div>
-          <Button onClick={handleBackToHome} variant="primary">
+          <Button onClick={handleBackToHome} kind="primary">
             ホームに戻る
           </Button>
         </Card>
@@ -125,7 +120,7 @@ export default function SharedPage({ params }: SharedPageProps) {
             <h1 className="text-xl font-semibold text-gray-900 mb-2">旅程が見つかりません</h1>
             <p className="text-gray-600">共有された旅程のデータを取得できませんでした。</p>
           </div>
-          <Button onClick={handleBackToHome} variant="primary">
+          <Button onClick={handleBackToHome} kind="primary">
             ホームに戻る
           </Button>
         </Card>
@@ -145,7 +140,7 @@ export default function SharedPage({ params }: SharedPageProps) {
                 共有された旅程 • {new Date(itinerary.updatedAt).toLocaleDateString('ja-JP')}
               </p>
             </div>
-            <Button onClick={handleBackToHome} variant="ghost">
+            <Button onClick={handleBackToHome} kind="ghost">
               ホームに戻る
             </Button>
           </div>

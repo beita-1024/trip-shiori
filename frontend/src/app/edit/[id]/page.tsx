@@ -3,6 +3,7 @@
 import React from "react";
 import EditFeature from "../EditFeature";
 import { parseWithUids, serializeWithUids } from "@/components/uiUid";
+import { buildApiUrl } from "@/lib/api";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -20,7 +21,7 @@ export default function EditByIdPage({ params }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const resp = await fetch(`http://localhost:4002/api/itineraries/${id}`, {
+        const resp = await fetch(buildApiUrl(`/api/itineraries/${id}`), {
           method: "GET",
           headers: { 
             "Content-Type": "application/json",

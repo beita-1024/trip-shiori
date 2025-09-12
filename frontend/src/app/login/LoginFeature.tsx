@@ -131,7 +131,7 @@ export default function LoginFeature() {
 
       if (response.status === 204) {
         // ログイン成功 - リダイレクト先または旅程一覧ページへ遷移
-        const destination = redirectTo ? decodeURIComponent(redirectTo) : "/itineraries";
+        const destination = isSafeInternalPath(redirectTo) ? redirectTo! : "/itineraries";
         router.push(destination);
       } else {
         // エラーレスポンスの処理
@@ -264,4 +264,20 @@ export default function LoginFeature() {
       </Card>
     </section>
   );
+}
+
+/**
+ * 内部パスかどうかを安全にチェックする関数
+ * 
+ * オープンリダイレクト攻撃を防ぐため、内部パスのみを許可します。
+ * 
+ * @param path - チェックするパス
+ * @returns 内部パスの場合はtrue、そうでなければfalse
+ */
+function isSafeInternalPath(path: string | null): boolean {
+  if (!path) return false;
+  // 内部のみ（先頭が単一の `/` で `//` やプロトコル、スキームは不許可）
+  if (!path.startsWith("/") || path.startsWith("//")) return false;
+  const lower = path.toLowerCase();
+  return !(lower.startsWith("/http:") || lower.startsWith("/https:") || lower.startsWith("/javascript:"));
 }
