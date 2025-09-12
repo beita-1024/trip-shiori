@@ -10,7 +10,7 @@
 
 import React, { useRef } from "react";
 import type { Itinerary } from "@/types";
-import { Button } from "./Primitives";
+import { Button } from "@/components/Primitives";
 import TriFoldItinerary from "./TriFoldItinerary";
 import styles from "./TriFoldPrintPreview.module.css";
 

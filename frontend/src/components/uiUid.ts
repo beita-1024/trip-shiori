@@ -39,6 +39,7 @@ export function attachUids(it: Itinerary): Itinerary {
     subtitle: it.subtitle,
     description: it.description,
     days: it.days.map(d => ({
+      // TODO: _uidを追加した型を定義してanyを取り除く
       // @ts-ignore
       _uid: (d as any)._uid || generateUid(),
       date: d.date ? new Date(d.date) : undefined,
@@ -65,6 +66,7 @@ export function attachUids(it: Itinerary): Itinerary {
  * await fetch('/api/itineraries', { body: JSON.stringify(cleanData) });
  */
 export function stripUids(it: Itinerary): Itinerary {
+  // TODO: _uidを追加した型を定義してanyを取り除く
   return {
     title: it.title,
     subtitle: it.subtitle,
@@ -91,6 +93,7 @@ export function stripUids(it: Itinerary): Itinerary {
  * const cleanEvent = stripEventUid(eventWithUid);
  */
 export function stripEventUid(event: any): any {
+  // TODO: _uidを追加した型を定義してanyを取り除く
   const { _uid, ...rest } = event;
   return rest;
 }
@@ -133,6 +136,7 @@ export function serializeWithUids(it: Itinerary): any {
  * const itinerary = parseWithUids(parsed);
  */
 export function parseWithUids(data: any): Itinerary {
+  // TODO: _uidを追加した型を定義してanyを取り除く
   return {
     title: data.title,
     subtitle: data.subtitle,

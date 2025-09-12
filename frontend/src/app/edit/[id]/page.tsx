@@ -3,13 +3,14 @@
 import React from "react";
 import EditFeature from "../EditFeature";
 import { parseWithUids, serializeWithUids } from "@/components/uiUid";
+import { buildApiUrl } from "@/lib/api";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function EditByIdPage({ params }: Props) {
-  const { id } = params;
+  const { id } = React.use(params);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [ready, setReady] = React.useState(false);
@@ -20,15 +21,18 @@ export default function EditByIdPage({ params }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const resp = await fetch(`http://localhost:4002/api/itineraries/${id}`, {
+        const resp = await fetch(buildApiUrl(`/api/itineraries/${id}`), {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+          },
+          credentials: 'include',
         });
         if (!resp.ok) {
           const text = await resp.text();
           throw new Error(text || `HTTP ${resp.status}`);
         }
-        let data: any = await resp.json();
+        let data: unknown = await resp.json();
         if (typeof data === "string") {
           try { data = JSON.parse(data); } catch {}
         }
@@ -41,8 +45,8 @@ export default function EditByIdPage({ params }: Props) {
           } catch {}
           setReady(true);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "読み込みに失敗しました");
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "読み込みに失敗しました");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -63,7 +67,7 @@ export default function EditByIdPage({ params }: Props) {
       </div>
 
       {!loading && !error && ready && (
-        <EditFeature />
+        <EditFeature itineraryId={id} />
       )}
     </main>
   );
