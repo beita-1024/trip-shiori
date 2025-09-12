@@ -53,13 +53,14 @@ function normalizeTimeValue(timeStr: string): string {
  * @param event - 正規化するイベント
  * @returns 正規化されたイベント
  */
-function normalizeEventTimes(event: any): any {
-  if (!event) return event;
+function normalizeEventTimes(event: unknown): unknown {
+  if (!event || typeof event !== 'object') return event;
   
+  const eventObj = event as Record<string, unknown>;
   return {
-    ...event,
-    time: normalizeTimeValue(event.time || ""),
-    end_time: normalizeTimeValue(event.end_time || ""),
+    ...eventObj,
+    time: normalizeTimeValue((eventObj.time as string) || ""),
+    end_time: normalizeTimeValue((eventObj.end_time as string) || ""),
   };
 }
 
@@ -315,6 +316,52 @@ export function resetToEmptyItineraryImpl(setItinerary: (next: Itinerary) => voi
 }
 
 /**
+ * 旅のしおりを保存する関数
+ * 
+ * 指定されたIDの旅のしおりデータをサーバーに送信して更新します。
+ * 
+ * @param itinerary - 旅のしおりデータ
+ * @param id - 保存先の旅程ID
+ * @returns 成功した場合はtrue、失敗した場合はfalse
+ * @example
+ * const success = await saveItineraryImpl(itinerary, "ITRLObo59BXiar1oBgsy");
+ * if (!success) {
+ *   alert("保存に失敗しました");
+ * }
+ */
+export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promise<boolean> {
+  try {
+    const stripped = stripUids(itinerary as any) as Itinerary;
+    const payload = {
+      ...stripped,
+      days: (stripped.days || []).map((d: any) => ({
+        ...d,
+        date: d?.date ? (d.date as Date).toISOString() : undefined,
+      })),
+    };
+
+    const response = await fetch(`http://localhost:4002/api/itineraries/${id}`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`保存に失敗しました: ${text || `HTTP ${response.status}`}`);
+    }
+
+    return true;
+  } catch (e) {
+    console.error("旅程保存エラー:", e);
+    return false;
+  }
+}
+
+/**
  * 旅のしおりを共有するための関数
  * 
  * 旅のしおりデータをサーバーに送信し、共有設定を作成して共有URLを生成します。
@@ -445,6 +492,7 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  *   resetItinerary - 旅のしおりをリセットする関数,
  *   shareItinerary - 旅のしおりを共有するための関数,
  *   loadSharedItinerary - 共有された旅のしおりを読み込む関数,
+ *   saveItinerary - 旅のしおりを保存する関数,
  *   undo - 直前の変更を取り消す関数,
  *   redo - 取り消しをやり直す関数,
  *   canUndo - Undo可能かどうか,
@@ -459,6 +507,7 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  *   resetItinerary,
  *   shareItinerary,
  *   loadSharedItinerary,
+ *   saveItinerary,
  *   undo,
  *   redo,
  *   canUndo,
@@ -472,6 +521,7 @@ export default function useItineraryStore(): [
   (editPrompt: string) => Promise<{success: boolean, changeDescription?: string, error?: string}>,
   () => void,
   () => Promise<string | null>,
+  (id: string) => Promise<boolean>,
   (id: string) => Promise<boolean>,
   () => void,
   () => void,
@@ -562,10 +612,12 @@ export default function useItineraryStore(): [
 
   const loadSharedItinerary = async (id: string) => await loadSharedItineraryImpl(id, setItineraryWithHistory);
 
+  const saveItinerary = async (id: string) => await saveItineraryImpl(itinerary, id);
+
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
-  const undo = () => {
+  const undo: () => void = () => {
     if (!canUndo) return;
     setPast((prevPast) => {
       const prev = [...prevPast];
@@ -576,7 +628,7 @@ export default function useItineraryStore(): [
     });
   };
 
-  const redo = () => {
+  const redo: () => void = () => {
     if (!canRedo) return;
     setFuture((prevFuture) => {
       const nextFuture = [...prevFuture];
@@ -595,6 +647,7 @@ export default function useItineraryStore(): [
     resetItinerary,
     shareItinerary,
     loadSharedItinerary,
+    saveItinerary,
     undo,
     redo,
     canUndo,
