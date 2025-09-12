@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
 
 /**
@@ -16,19 +16,20 @@ interface LoginFormData {
  * ユーザーログイン機能のメインコンポーネント
  * 
  * メールアドレスとパスワードでログインを行い、サーバーからのHttpOnly Cookieを受け取って
- * ダッシュボードページへ遷移する機能を提供します。
+ * 旅程一覧ページへ遷移する機能を提供します。
  * 
  * 主な機能：
  * - フォームバリデーション（クライアント側）
  * - API連携（POST /auth/login）
  * - エラーハンドリング（400/401/403エラー）
- * - 成功時のUXフロー（ダッシュボードページ遷移）
+ * - 成功時のUXフロー（リダイレクト先または旅程一覧ページ遷移）
  * - 二重送信防止（送信中はボタン無効化）
  * 
  * @returns レンダリングされたLoginFeatureコンポーネント
  */
 export default function LoginFeature() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // フォーム状態
   const [formData, setFormData] = useState<LoginFormData>({
@@ -40,6 +41,9 @@ export default function LoginFeature() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
   const [apiError, setApiError] = useState<string>("");
+  
+  // リダイレクト先の取得
+  const redirectTo = searchParams.get('redirect');
 
   /**
    * フォームフィールドの値を更新する
@@ -126,8 +130,9 @@ export default function LoginFeature() {
       });
 
       if (response.status === 204) {
-        // ログイン成功 - ダッシュボードページへ遷移
-        router.push("/dashboard");
+        // ログイン成功 - リダイレクト先または旅程一覧ページへ遷移
+        const destination = redirectTo ? decodeURIComponent(redirectTo) : "/itineraries";
+        router.push(destination);
       } else {
         // エラーレスポンスの処理
         switch (response.status) {
