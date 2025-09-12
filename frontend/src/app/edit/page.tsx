@@ -3,13 +3,13 @@ import React from "react";
 import EditFeature from "./EditFeature";
 
 /**
- * 新規旅程編集ページ
+ * 非ログインユーザー用の旅程編集ページ
  * 
- * 新しい旅程を作成・編集するためのページコンポーネントです。
- * EditFeatureコンポーネントをラップして、ページレベルの機能を提供します。
+ * ログインしていないユーザーが旅程を編集するためのページです。
+ * ローカルストレージに保存され、サーバーには保存されません。
  * 
- * @returns 新規編集ページのレンダリング結果
+ * @returns 非ログインユーザー用編集ページのレンダリング結果
  */
-export default function NewEditPage() {
+export default function GuestEditPage() {
   return <EditFeature />;
 }

@@ -1,0 +1,309 @@
+"use client";
+
+import React from "react";
+import { Card, Button, InputWithPlaceholder, TextareaWithPlaceholder, DateInputWithWeekday, Spinner, IconRadioGroup } from "@/components/Primitives";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import SortableEvent from "../SortableEvent";
+import type { Day, Event, Itinerary } from "@/types";
+import { PlusIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/solid";
+import iconItems from "@/components/iconItems";
+
+/**
+ * 日別イベント編集セクション
+ * 
+ * 日別のイベント管理機能を提供します。
+ * ドラッグ&ドロップによる並べ替え、イベントの追加・削除・編集が可能です。
+ * 
+ * @param props.itinerary - 旅程データ
+ * @param props.onItineraryChange - 旅程データ変更ハンドラー
+ * @param props.onAiCompleteEvent - AI補完ハンドラー
+ * @param props.loadingKeys - ローディング状態のキーセット
+ * @param props.setLoadingKeys - ローディング状態セッター
+ * @returns レンダリングされたDayEditorコンポーネント
+ */
+interface DayEditorProps {
+  itinerary: Itinerary;
+  onItineraryChange: (itinerary: Itinerary) => void;
+  onAiCompleteEvent: (dayIndex: number, eventIndex: number) => Promise<void>;
+  loadingKeys: Set<string>;
+  setLoadingKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+export default function DayEditor({ 
+  itinerary, 
+  onItineraryChange, 
+  onAiCompleteEvent,
+  loadingKeys,
+  setLoadingKeys
+}: DayEditorProps) {
+  // ドラッグアンドドロップ用のセンサー
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  /**
+   * ドラッグイベントの終了を処理し、同じ日のイベントを並べ替えます
+   */
+  const handleDragEnd = (event: DragEndEvent) => {
+    const activeId = event.active.id as string;
+    const overId = (event.over && (event.over.id as string)) || null;
+    if (!overId) return;
+
+    // イベントアイテムのドラッグのみを処理
+    if (!(activeId.startsWith("event-") && overId.startsWith("event-"))) return;
+
+    const [_a, aDayStr, aIndexStr] = activeId.split("-");
+    const [_b, bDayStr, bIndexStr] = overId.split("-");
+    const aDay = parseInt(aDayStr, 10);
+    const aIndex = parseInt(aIndexStr, 10);
+    const bDay = parseInt(bDayStr, 10);
+    const bIndex = parseInt(bIndexStr, 10);
+
+    // 禁止: 日をまたいだ移動はさせない
+    if (aDay !== bDay) return;
+
+    const newDays = [...itinerary.days];
+    const activeEvent = newDays[aDay].events[aIndex];
+    // 元の位置から削除
+    newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
+    // 目標位置に挿入
+    const targetEvents = [...newDays[bDay].events];
+    const insertIndex = aDay === bDay && aIndex < bIndex ? bIndex : bIndex;
+    targetEvents.splice(insertIndex, 0, activeEvent);
+    newDays[bDay] = { ...newDays[bDay], events: targetEvents };
+    onItineraryChange({ ...itinerary, days: newDays });
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      {itinerary.days.map((day: Day, dayIndex: number) => (
+        <Card key={(day as any)._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4">
+          <section className="mb-4">
+            <DateInputWithWeekday
+              id={`day-${dayIndex}-date`}
+              valueDate={day.date ? new Date(day.date) : undefined}
+              onChangeDate={(next) => {
+                const newDays = [...itinerary.days];
+                newDays[dayIndex] = { ...newDays[dayIndex], date: next };
+                onItineraryChange({ ...itinerary, days: newDays });
+              }}
+              className="my-2"
+            />
+            
+            {/* イベントの並べ替え可能なリスト */}
+            <SortableContext items={day.events.map((_, ei) => `event-${dayIndex}-${ei}`)} strategy={rectSortingStrategy}>
+              {day.events.map((event: Event, eventIndex: number) => (
+                <SortableEvent id={`event-${dayIndex}-${eventIndex}`} key={(event as any)._uid || `event-${dayIndex}-${eventIndex}`}>
+                  {({ attributes, listeners }) => {
+                    const loadingKey = `event-${dayIndex}-${eventIndex}`;
+                    const isLoading = loadingKeys.has(loadingKey);
+                    
+                    return (
+                      <div className="border border-ui rounded-md p-3 bg-surface my-2 elevation-1">
+                        <div className="flex">
+                          {/* ドラッグハンドル */}
+                          <div className="flex-none w-10 flex items-center justify-center">
+                            <div
+                              {...attributes}
+                              {...listeners}
+                              className="text-muted cursor-grab select-none touch-none"
+                              aria-label="ドラッグハンドル"
+                              role="button"
+                            >
+                              <svg className="h-10 w-4" viewBox="0 0 6 24" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                                <rect x="0" y="1" width="1.5" height="20" rx="0.75" fill="currentColor" />
+                                <rect x="2" y="1" width="1.5" height="20" rx="0.75" fill="currentColor" />
+                                <rect x="4" y="1" width="1.5" height="20" rx="0.75" fill="currentColor" />
+                              </svg>
+                            </div>
+                          </div>
+                          
+                          {/* イベント編集フォーム */}
+                          <div className="flex-1">
+                            <div className="grid grid-cols-4 gap-2 items-center mb-3">
+                              <InputWithPlaceholder
+                                id={`day-${dayIndex}-event-${eventIndex}-title`}
+                                value={event.title}
+                                onChange={(e) => {
+                                  const newDays = [...itinerary.days];
+                                  const newEvents = [...newDays[dayIndex].events];
+                                  newEvents[eventIndex] = { ...newEvents[eventIndex], title: e.target.value };
+                                  newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                  onItineraryChange({ ...itinerary, days: newDays });
+                                }}
+                                placeholder="イベント名"
+                                className="col-span-4 sm:col-span-2"
+                              />
+                              <InputWithPlaceholder
+                                id={`day-${dayIndex}-event-${eventIndex}-time`}
+                                type="time"
+                                value={event.time}
+                                onChange={(e) => {
+                                  const newDays = [...itinerary.days];
+                                  const newEvents = [...newDays[dayIndex].events];
+                                  newEvents[eventIndex] = { ...newEvents[eventIndex], time: e.target.value };
+                                  newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                  onItineraryChange({ ...itinerary, days: newDays });
+                                }}
+                                placeholder="開始時刻"
+                                className="col-span-2 sm:col-span-1"
+                              />
+                              <InputWithPlaceholder
+                                id={`day-${dayIndex}-event-${eventIndex}-end_time`}
+                                type="time"
+                                value={event.end_time}
+                                onChange={(e) => {
+                                  const newDays = [...itinerary.days];
+                                  const newEvents = [...newDays[dayIndex].events];
+                                  newEvents[eventIndex] = { ...newEvents[eventIndex], end_time: e.target.value };
+                                  newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                  onItineraryChange({ ...itinerary, days: newDays });
+                                }}
+                                placeholder="終了時刻"
+                                className="col-span-2 sm:col-span-1"
+                              />
+                            </div>
+                            
+                            <TextareaWithPlaceholder
+                              id={`day-${dayIndex}-event-${eventIndex}-description`}
+                              rows={3}
+                              value={event.description}
+                              onChange={(e) => {
+                                const newDays = [...itinerary.days];
+                                const newEvents = [...newDays[dayIndex].events];
+                                newEvents[eventIndex] = { ...newEvents[eventIndex], description: e.target.value };
+                                newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                onItineraryChange({ ...itinerary, days: newDays });
+                              }}
+                              placeholder="イベントの説明"
+                            />
+                            
+                            {/* アイコン選択 */}
+                            <IconRadioGroup
+                              value={event.icon}
+                              items={iconItems}
+                              onChange={(next) => {
+                                const newDays = [...itinerary.days];
+                                const newEvents = [...newDays[dayIndex].events];
+                                newEvents[eventIndex] = { ...newEvents[eventIndex], icon: next };
+                                newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                onItineraryChange({ ...itinerary, days: newDays });
+                              }}
+                              className="mb-2"
+                            />
+                            
+                            {/* イベント操作ボタン */}
+                            <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+                              <Button
+                                kind="destructive"
+                                type="button"
+                                disabled={day.events.length <= 1}
+                                onClick={() => {
+                                  const newDays = [...itinerary.days];
+                                  const newEvents = [...newDays[dayIndex].events];
+                                  if (newEvents.length <= 1) return;
+                                  newEvents.splice(eventIndex, 1);
+                                  newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                  onItineraryChange({ ...itinerary, days: newDays });
+                                }}
+                                elevation={0}
+                              >
+                                <TrashIcon className="w-4 h-4 sm:mr-2" aria-hidden />
+                                <span className="hidden sm:inline">削除</span>
+                                <span className="sm:hidden">削除</span>
+                              </Button>
+                              <Button
+                                kind="ghost"
+                                type="button"
+                                disabled={isLoading || day.events.length === 0 || eventIndex >= day.events.length - 1}
+                                onClick={async () => {
+                                  setLoadingKeys((prev) => {
+                                    const next = new Set(prev);
+                                    next.add(loadingKey);
+                                    return next;
+                                  });
+                                  try {
+                                    await onAiCompleteEvent(dayIndex, eventIndex);
+                                  } finally {
+                                    setLoadingKeys((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(loadingKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                              >
+                                {isLoading ? (
+                                  <Spinner size="sm" className="sm:mr-2" />
+                                ) : (
+                                  <SparklesIcon className="w-4 h-4 sm:mr-2" aria-hidden />
+                                )}
+                                <span className="hidden sm:inline">AIで下に補完</span>
+                                <span className="sm:hidden">AI補完</span>
+                              </Button>
+                              <Button
+                                kind="ghost"
+                                type="button"
+                                onClick={() => {
+                                  const newDays = [...itinerary.days];
+                                  const newEvents = [...newDays[dayIndex].events];
+                                  const newEvent: Event = { title: "", time: "", end_time: "", description: "", icon: "" };
+                                  newEvents.splice(eventIndex + 1, 0, newEvent);
+                                  newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
+                                  onItineraryChange({ ...itinerary, days: newDays });
+                                }}
+                              >
+                                <PlusIcon className="w-4 h-4 sm:mr-2" aria-hidden />
+                                <span className="hidden sm:inline">この下にイベントを追加</span>
+                                <span className="sm:hidden">追加</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </SortableEvent>
+              ))}
+            </SortableContext>
+            
+            {/* 日操作ボタン */}
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                kind="ghost"
+                type="button"
+                onClick={() => {
+                  const newDays = [...itinerary.days];
+                  const newDay: Day = { date: undefined, events: [{ title: "", time: "", end_time: "", description: "", icon: "" }] };
+                  newDays.splice(dayIndex + 1, 0, newDay);
+                  onItineraryChange({ ...itinerary, days: newDays });
+                }}
+              >
+                この下に日を追加
+              </Button>
+              <Button
+                kind="destructive"
+                type="button"
+                disabled={itinerary.days.length <= 1}
+                onClick={() => {
+                  const newDays = [...itinerary.days];
+                  if (newDays.length <= 1) return;
+                  newDays.splice(dayIndex, 1);
+                  onItineraryChange({ ...itinerary, days: newDays });
+                }}
+              >
+                削除
+              </Button>
+            </div>
+          </section>
+        </Card>
+      ))}
+    </DndContext>
+  );
+}
