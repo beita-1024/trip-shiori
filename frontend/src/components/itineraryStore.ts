@@ -334,6 +334,9 @@ export function resetToEmptyItineraryImpl(setItinerary: (next: Itinerary) => voi
  */
 export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promise<boolean> {
   try {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 15000);
+    
     const stripped = stripUids(itinerary as any) as Itinerary;
     const payload = {
       ...stripped,
@@ -350,7 +353,9 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
       },
       credentials: 'include',
       body: JSON.stringify(payload),
+      signal: ac.signal,
     });
+    clearTimeout(t);
 
     if (!response.ok) {
       const text = await response.text();
