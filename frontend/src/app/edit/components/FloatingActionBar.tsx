@@ -7,6 +7,7 @@ import { ActionIconButton } from "@/components/Primitives";
  * フローティングアクションバー（FCAB）
  * 
  * 画面下部に固定表示されるクイックアクションボタン群を提供します。
+ * ゲストモードではAI機能と共有機能は無効化されます。
  * 
  * @param props.onBackToList - 旅程一覧に戻るハンドラー
  * @param props.onUndo - Undoハンドラー
@@ -19,6 +20,7 @@ import { ActionIconButton } from "@/components/Primitives";
  * @param props.canRedo - Redo可能フラグ
  * @param props.saving - 保存中フラグ
  * @param props.itineraryId - 旅程ID（保存機能の表示制御用）
+ * @param props.isGuestMode - ゲストモード（非ログイン）かどうか
  * @returns レンダリングされたFloatingActionBarコンポーネント
  */
 interface FloatingActionBarProps {
@@ -33,6 +35,7 @@ interface FloatingActionBarProps {
   canRedo: boolean;
   saving: boolean;
   itineraryId?: string;
+  isGuestMode?: boolean;
 }
 
 export default function FloatingActionBar({
@@ -46,7 +49,8 @@ export default function FloatingActionBar({
   canUndo,
   canRedo,
   saving,
-  itineraryId
+  itineraryId,
+  isGuestMode = false
 }: FloatingActionBarProps) {
   return (
     <div className="fcab" role="toolbar" aria-label="クイックアクション">
@@ -73,6 +77,7 @@ export default function FloatingActionBar({
         onClick={onRedo} 
         disabled={!canRedo} 
       />
+      {/* 自動保存機能により手動保存ボタンは不要
       {itineraryId && (
         <ActionIconButton 
           icon="mdi-content-save" 
@@ -83,6 +88,7 @@ export default function FloatingActionBar({
           disabled={saving}
         />
       )}
+      */}
       <ActionIconButton 
         icon="mdi-printer" 
         kind="ghost"
@@ -94,15 +100,19 @@ export default function FloatingActionBar({
         icon="mdi-link-variant"
         kind="ghost"
         elevation={2}
-        dataTip="共有URLを生成 Ctrl+Alt+S"
+        dataTip={isGuestMode ? "共有機能はログイン後にご利用いただけます" : "共有URLを生成 Ctrl+Alt+S"}
         onClick={onShare}
+        disabled={isGuestMode}
+        className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
       />
       <ActionIconButton 
         icon="mdi-robot" 
         kind="ghost"
         elevation={2}
-        dataTip="AI対話形式で編集 Ctrl+Alt+L" 
+        dataTip={isGuestMode ? "AI機能はログイン後にご利用いただけます" : "AI対話形式で編集 Ctrl+Alt+L"}
         onClick={onAiDialog}
+        disabled={isGuestMode}
+        className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
       />
     </div>
   );

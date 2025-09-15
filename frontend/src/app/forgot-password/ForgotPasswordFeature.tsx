@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
+import { buildApiUrl } from "@/lib/api";
 
 /**
  * パスワードリセット要求フォームのデータ型
@@ -99,14 +100,7 @@ export default function ForgotPasswordFeature() {
     try {
       timeoutId = window.setTimeout(() => controller.abort(), 10000); // 10秒で中断
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      
-      // デバッグ情報（開発環境のみ）
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('API URL:', apiUrl);
-      }
-      
-      const response = await fetch(`${apiUrl}/auth/password-reset/request`, {
+      const response = await fetch(buildApiUrl('/auth/password-reset/request'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

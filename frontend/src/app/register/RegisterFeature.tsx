@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
+import { buildApiUrl } from "@/lib/api";
 
 /**
  * 登録フォームのデータ型
@@ -51,6 +52,8 @@ export default function RegisterFeature() {
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
   const [apiError, setApiError] = useState<string>("");
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<{ success: number; failed: number } | null>(null);
 
   /**
    * フォームフィールドの値を更新する
@@ -98,6 +101,54 @@ export default function RegisterFeature() {
   };
 
   /**
+   * ローカルストレージの旅程をマイグレーション
+   */
+  const migrateLocalItineraries = async () => {
+    try {
+      setMigrating(true);
+      const localItineraries = JSON.parse(localStorage.getItem('localItineraries') || '[]');
+      
+      if (localItineraries.length === 0) {
+        return;
+      }
+
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (const itinerary of localItineraries) {
+        try {
+          const response = await fetch(buildApiUrl('/api/itineraries/migrate'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(itinerary.data),
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (error) {
+          console.error('Failed to migrate itinerary:', error);
+          failedCount++;
+        }
+      }
+
+      setMigrationResult({ success: successCount, failed: failedCount });
+      
+      // マイグレーション完了後、ローカルストレージをクリア
+      localStorage.removeItem('localItineraries');
+    } catch (error) {
+      console.error('Migration failed:', error);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  /**
    * フォーム送信処理
    */
   const handleSubmit = async () => {
@@ -112,14 +163,7 @@ export default function RegisterFeature() {
     setApiError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      
-      // デバッグ情報（開発環境のみ）
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('API URL:', apiUrl);
-      }
-      
-      const response = await fetch(`${apiUrl}/auth/register`, {
+      const response = await fetch(buildApiUrl('/auth/register'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -134,6 +178,10 @@ export default function RegisterFeature() {
       if (response.status === 204) {
         // 登録成功
         setShowSuccessMessage(true);
+        
+        // ローカルストレージの旅程をマイグレーション
+        await migrateLocalItineraries();
+        
         // 3秒後にログインページへ遷移
         setTimeout(() => {
           router.push("/login");
@@ -196,6 +244,23 @@ export default function RegisterFeature() {
           <p className="text-muted text-sm">
             3秒後にログインページに移動します...
           </p>
+          
+          {/* マイグレーション状況表示 */}
+          {migrating && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-700">
+                ローカルストレージの旅程を移行中...
+              </p>
+            </div>
+          )}
+          
+          {migrationResult && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-700">
+                旅程の移行が完了しました: 成功 {migrationResult.success}件、失敗 {migrationResult.failed}件
+              </p>
+            </div>
+          )}
         </Card>
       </section>
     );

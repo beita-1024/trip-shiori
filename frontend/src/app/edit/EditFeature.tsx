@@ -23,23 +23,26 @@ import Dialogs from "./components/Dialogs";
  * 主な機能：
  * - 旅程の基本情報編集（タイトル、サブタイトル、概要）
  * - 日別イベントの管理（追加、削除、並べ替え）
- * - AI補完機能
+ * - AI補完機能（ログイン時のみ）
  * - 印刷プレビュー
- * - 共有URL生成
+ * - 共有URL生成（ログイン時のみ）
  * - Undo/Redo機能
  * 
  * @param props.itineraryId - 旅程ID（オプション）
+ * @param props.isGuestMode - ゲストモード（非ログイン）かどうか
  * @returns レンダリングされたEditFeatureコンポーネント
  */
 interface EditFeatureProps {
   itineraryId?: string;
+  isGuestMode?: boolean;
 }
 
-export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps = {}) {
+export default function EditFeatureRefactored({ itineraryId, isGuestMode = false }: EditFeatureProps = {}) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuthRedirect();
+  const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(!isGuestMode);
   
   // useItineraryStore によって LocalStorage からのロードと自動保存が行われます
+  // itineraryIdが提供されている場合、WebAPI自動保存も有効になります
   const [
     itinerary,
     setItinerary,
@@ -52,8 +55,9 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
     undo,
     redo,
     canUndo,
-    canRedo
-  ] = useItineraryStore();
+    canRedo,
+    hasUnsavedChanges
+  ] = useItineraryStore(itineraryId);
 
   // 状態管理
   const [sharedUrl, setSharedUrl] = React.useState<string>("");
@@ -73,8 +77,7 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
   // AI補完ボタンのローディング状態を管理（イベント単位）
   const [loadingKeys, setLoadingKeys] = React.useState<Set<string>>(new Set());
 
-  // 離脱ガード（履歴がある場合に確認）
-  const hasHistory = canUndo || canRedo;
+  // 離脱ガード（未保存の変更がある場合に確認）
 
   // AI対話ダイアログのテキストエリアの参照
   const aiTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -247,12 +250,12 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
    * 旅程一覧に戻る関数
    */
   const handleBackToList = useCallback(() => {
-    if (hasHistory) {
+    if (hasUnsavedChanges) {
       setShowExitDialog(true);
     } else {
       router.push('/itineraries');
     }
-  }, [hasHistory, router]);
+  }, [hasUnsavedChanges, router]);
 
   /**
    * 保存して戻る関数
@@ -282,9 +285,9 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
    * ページ離脱時の確認ダイアログを設定
    */
   useEffect(() => {
-    if (!hasHistory) return;
+    if (!hasUnsavedChanges) return;
     
-    const confirmMessage = "編集内容は保存済みですが、操作履歴（Undo/Redo）は失われます。ページを移動してもよろしいですか？";
+    const confirmMessage = "旅程に未保存の変更があります。保存してから戻るか、変更を破棄して戻るかを選択してください。";
 
     // ブラウザのリロード/タブ閉じなど
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -295,7 +298,7 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
 
     // リンククリックでのページ遷移を捕捉してカスタム確認
     const handleDocumentClick = (ev: MouseEvent) => {
-      if (!hasHistory) return;
+      if (!hasUnsavedChanges) return;
       if (ev.defaultPrevented || ev.button !== 0) return;
       if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
       
@@ -325,10 +328,10 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("click", handleDocumentClick, true);
     };
-  }, [canUndo, canRedo, hasHistory]);
+  }, [hasUnsavedChanges]);
 
-  // 認証チェック中
-  if (authLoading || isAuthenticated === null) {
+  // 認証チェック中（ゲストモードでない場合のみ）
+  if (!isGuestMode && (authLoading || isAuthenticated === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-app">
         <div className="text-center">
@@ -339,8 +342,8 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
     );
   }
 
-  // 認証されていない場合は自動的にログイン画面にリダイレクトされる
-  if (isAuthenticated === false) {
+  // 認証されていない場合は自動的にログイン画面にリダイレクトされる（ゲストモードでない場合のみ）
+  if (!isGuestMode && isAuthenticated === false) {
     return null;
   }
 
@@ -373,6 +376,7 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
           onAiCompleteEvent={aiCompleteEvent}
           loadingKeys={loadingKeys}
           setLoadingKeys={setLoadingKeys}
+          isGuestMode={isGuestMode}
         />
 
         {/* 操作パネル */}
@@ -402,6 +406,7 @@ export default function EditFeatureRefactored({ itineraryId }: EditFeatureProps 
         canRedo={canRedo}
         saving={saving}
         itineraryId={itineraryId}
+        isGuestMode={isGuestMode}
       />
 
       {/* ダイアログ群 */}

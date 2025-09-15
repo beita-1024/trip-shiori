@@ -6,6 +6,7 @@ import { Card, Heading, Button, Spinner } from "@/components/Primitives";
 import { ItineraryCard } from "./components/ItineraryCard";
 import { ItineraryFilters } from "./components/ItineraryFilters";
 import { Pagination } from "./components/Pagination";
+import { ShareSettingsDialog } from "./components/ShareSettingsDialog";
 import { ItineraryListItem, PaginationInfo } from "@/types";
 import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
@@ -29,7 +30,9 @@ export default function ItinerariesFeature() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const { isAuthenticated } = useAuthRedirect();
+  const [shareSettingsItinerary, setShareSettingsItinerary] = useState<ItineraryListItem | null>(null);
+  const [showShareSettings, setShowShareSettings] = useState(false);
+  const { isAuthenticated, isLoading: authLoading } = useAuthRedirect();
   
   // フィルター・ソート状態
   const [filters, setFilters] = useState({
@@ -52,6 +55,7 @@ export default function ItinerariesFeature() {
         limit: filters.limit.toString(),
         sort: filters.sort,
         order: filters.order,
+        includeShare: 'true', // 共有設定を含める
       });
       
       
@@ -222,6 +226,29 @@ export default function ItinerariesFeature() {
   };
 
   /**
+   * 共有設定ハンドラー
+   */
+  const handleShareSettings = (itinerary: ItineraryListItem) => {
+    setShareSettingsItinerary(itinerary);
+    setShowShareSettings(true);
+  };
+
+  /**
+   * 共有設定ダイアログを閉じる
+   */
+  const handleCloseShareSettings = () => {
+    setShowShareSettings(false);
+    setShareSettingsItinerary(null);
+  };
+
+  /**
+   * 共有設定更新後の処理
+   */
+  const handleShareSettingsUpdate = () => {
+    fetchItineraries();
+  };
+
+  /**
    * 新しい旅程作成ハンドラー
    */
   const handleCreateNewItinerary = async () => {
@@ -266,6 +293,30 @@ export default function ItinerariesFeature() {
     }
   };
 
+  // 認証チェック中
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-app">
+        <div className="text-center">
+          <Spinner size="lg" className="mb-4" />
+          <p className="text-muted">認証状態を確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 認証されていない場合は自動的にログイン画面にリダイレクトされる
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-app">
+        <div className="text-center">
+          <Spinner size="lg" className="mb-4" />
+          <p className="text-muted">ログインページにリダイレクト中...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading && itineraries.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-app">
@@ -275,11 +326,6 @@ export default function ItinerariesFeature() {
         </div>
       </div>
     );
-  }
-
-  // 認証されていない場合は自動的にログイン画面にリダイレクトされる
-  if (isAuthenticated === false) {
-    return null;
   }
 
   return (
@@ -421,6 +467,7 @@ export default function ItinerariesFeature() {
                   onEdit={() => router.push(`/edit/${itinerary.id}`)}
                   onView={() => router.push(`/edit/${itinerary.id}`)}
                   onDuplicate={handleDuplicate}
+                  onShareSettings={handleShareSettings}
                 />
               ))}
             </div>
@@ -436,6 +483,13 @@ export default function ItinerariesFeature() {
         )}
       </div>
 
+      {/* 共有設定ダイアログ */}
+      <ShareSettingsDialog
+        itinerary={shareSettingsItinerary}
+        isOpen={showShareSettings}
+        onClose={handleCloseShareSettings}
+        onUpdate={handleShareSettingsUpdate}
+      />
     </div>
   );
 }

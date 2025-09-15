@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeToggle from "@/components/ThemeToggle";
+import AuthButtons from "@/components/AuthButtons";
 
 // INFO: components.jsonで以下の設定をしない代わりに、ここで読む
 // "tailwind": {
@@ -43,8 +44,9 @@ export default function RootLayout({
           <header className="w-full border-b border-ui bg-surface/70 backdrop-blur-sm mb-4">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
               <div className="text-lg font-medium accent">{String(metadata.title ?? "デフォルトタイトル")}</div>
-              {/* ThemeToggle を右上に表示 */}
-              <div>
+              {/* 認証ボタンとテーマトグルを右側に配置 */}
+              <div className="flex items-center gap-3">
+                <AuthButtons />
                 <ThemeToggle />
               </div>
             </div>

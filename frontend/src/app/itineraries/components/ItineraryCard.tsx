@@ -13,6 +13,7 @@ interface ItineraryCardProps {
   onEdit: () => void;
   onView: () => void;
   onDuplicate: (itinerary: ItineraryListItem) => void;
+  onShareSettings: (itinerary: ItineraryListItem) => void;
 }
 
 /**
@@ -37,12 +38,14 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
   onEdit,
   onView,
   onDuplicate,
+  onShareSettings,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(itinerary.data.title);
   const [showMenu, setShowMenu] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -141,6 +144,38 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
   }, [showMenu]);
 
 
+  /**
+   * 共有リンクをクリップボードにコピーする
+   */
+  const handleCopyLink = async () => {
+    if (!itinerary.share || (itinerary.share.scope !== 'PUBLIC_LINK' && itinerary.share.scope !== 'PUBLIC')) {
+      return;
+    }
+
+    try {
+      setCopyStatus('copying');
+      
+      // 共有URLを生成（スコープによってURLが異なる）
+      const shareUrl = itinerary.share.scope === 'PUBLIC' 
+        ? `${window.location.origin}/public/${itinerary.id}`
+        : `${window.location.origin}/shared/${itinerary.id}`;
+      
+      // クリップボードにコピー
+      await navigator.clipboard.writeText(shareUrl);
+      
+      setCopyStatus('copied');
+      
+      // 2秒後にステータスをリセット
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      setCopyStatus('error');
+      
+      // 3秒後にステータスをリセット
+      setTimeout(() => setCopyStatus('idle'), 3000);
+    }
+  };
+
   // 相対時間フォーマット
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -235,16 +270,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
             {showMenu && (
               <div className="absolute right-0 top-10 w-48 bg-surface border border-ui rounded-lg shadow-lg elevation-3 z-20">
                 <div className="py-1">
-                  <button
-                    onClick={() => {
-                      onView();
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-body hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors"
-                  >
-                    <i className="mdi mdi-eye" aria-hidden />
-                    開く
-                  </button>
+
                   <button
                     onClick={() => {
                       onEdit();
@@ -254,6 +280,16 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
                   >
                     <i className="mdi mdi-pencil" aria-hidden />
                     編集
+                  </button>
+                  <button
+                    onClick={() => {
+                      onShareSettings(itinerary);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-body hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                  >
+                    <i className="mdi mdi-share-variant" aria-hidden />
+                    共有設定
                   </button>
                   <button
                     onClick={() => {
@@ -282,7 +318,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
           </div>
         </div>
 
-        {/* 2行目: 更新日 */}
+        {/* 2行目: 更新日と共有状態 */}
         <div className="flex items-center gap-3 text-sm">
           
           {/* 更新日 */}
@@ -291,6 +327,51 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
             <span>{formatRelativeTime(itinerary.updatedAt)}に更新</span>
           </div>
           
+          {/* 共有状態ピルとコピーボタン */}
+          <div className="flex items-center gap-2">
+            {itinerary.share ? (
+              <div className="flex items-center gap-1">
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  itinerary.share.scope === 'PRIVATE' 
+                    ? 'bg-gray-100 text-gray-800' 
+                    : itinerary.share.scope === 'PUBLIC_LINK'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {itinerary.share.scope === 'PRIVATE' && '非公開'}
+                  {itinerary.share.scope === 'PUBLIC_LINK' && 'リンク共有'}
+                  {itinerary.share.scope === 'PUBLIC' && '全体公開'}
+                </span>
+                
+                {/* コピーボタン（リンク共有・全体公開の場合のみ表示） */}
+                {(itinerary.share.scope === 'PUBLIC_LINK' || itinerary.share.scope === 'PUBLIC') && (
+                  <button
+                    onClick={handleCopyLink}
+                    disabled={copyStatus === 'copying'}
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-ui/50 transition-colors group"
+                    title="リンクをコピー"
+                  >
+                    {copyStatus === 'copying' && (
+                      <i className="mdi mdi-loading animate-spin text-xs text-muted" aria-hidden />
+                    )}
+                    {copyStatus === 'copied' && (
+                      <i className="mdi mdi-check text-xs text-green-600" aria-hidden />
+                    )}
+                    {copyStatus === 'error' && (
+                      <i className="mdi mdi-alert-circle text-xs text-red-600" aria-hidden />
+                    )}
+                    {copyStatus === 'idle' && (
+                      <i className="mdi mdi-content-copy text-xs text-muted group-hover:text-body" aria-hidden />
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                非公開
+              </span>
+            )}
+          </div>
           
           {/* 保存ステータス表示 */}
           {saveStatus === 'saved' && (

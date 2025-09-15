@@ -25,6 +25,9 @@ const STORAGE_KEY = "itinerary";
 /** LocalStorageへの自動保存遅延時間（ミリ秒） */
 const AUTO_SAVE_DELAY_MS = 800;
 
+/** WebAPIへの自動保存遅延時間（ミリ秒） */
+const API_SAVE_DELAY_MS = 3000;
+
 /**
  * 時間値を正規化する関数
  * 
@@ -487,6 +490,9 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
   }
 }
 
+
+// TODO: 戻り値の型がかなり大きいタプルになってしまっているので、
+//       type UseItineraryStoreReturn を定義して、それを返すようにする。
 /**
  * 旅のしおりデータ管理カスタムフック
  * 
@@ -494,6 +500,7 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  * 破損または未保存時には渡された defaultItinerary を利用します。
  * Undo/Redo機能も含まれています。
  * 
+ * @param itineraryId - 旅程ID（提供された場合、WebAPI自動保存が有効になります）
  * @returns [
  *   itinerary - 旅のしおりデータ,
  *   setItinerary - 旅のしおりデータを更新する関数,
@@ -506,7 +513,8 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  *   undo - 直前の変更を取り消す関数,
  *   redo - 取り消しをやり直す関数,
  *   canUndo - Undo可能かどうか,
- *   canRedo - Redo可能かどうか
+ *   canRedo - Redo可能かどうか,
+ *   hasUnsavedChanges - 未保存の変更があるかどうか
  * ]
  * @example
  * const [
@@ -522,9 +530,9 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  *   redo,
  *   canUndo,
  *   canRedo
- * ] = useItineraryStore();
+ * ] = useItineraryStore("itinerary-id");
  */
-export default function useItineraryStore(): [
+export default function useItineraryStore(itineraryId?: string): [
   Itinerary,
   (next: Itinerary) => void,
   (dayIndex: number, eventIndex: number) => Promise<void>,
@@ -536,11 +544,13 @@ export default function useItineraryStore(): [
   () => void,
   () => void,
   boolean,
+  boolean,
   boolean
 ] {
   const [itinerary, setItinerary] = useState<Itinerary>(attachUids(defaultItinerary));
   const [past, setPast] = useState<Itinerary[]>([]);
   const [future, setFuture] = useState<Itinerary[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const HISTORY_LIMIT = 50;
 
   const setItineraryWithHistory = (next: Itinerary) => {
@@ -550,6 +560,7 @@ export default function useItineraryStore(): [
     });
     setItinerary(next);
     setFuture([]);
+    setHasUnsavedChanges(true);
   };
 
   useEffect(() => {
@@ -580,7 +591,10 @@ export default function useItineraryStore(): [
   }, []);
 
   const saveTimeoutRef = useRef<number | null>(null);
+  const apiSaveTimeoutRef = useRef<number | null>(null);
   const isFirstSaveRef = useRef(true);
+  
+  // LocalStorage自動保存
   useEffect(() => {
     if (isFirstSaveRef.current) {
       isFirstSaveRef.current = false;
@@ -595,6 +609,7 @@ export default function useItineraryStore(): [
         const normalized = normalizeItineraryTimes(itinerary);
         const serialized = JSON.stringify(serializeWithUids(normalized));
         localStorage.setItem(STORAGE_KEY, serialized);
+        setHasUnsavedChanges(false);
       } catch (e) {
         console.error("LocalStorage に旅のしおりを保存する際に失敗しました:", e);
       }
@@ -608,6 +623,34 @@ export default function useItineraryStore(): [
       }
     };
   }, [itinerary]);
+
+  // WebAPI自動保存（itineraryIdが提供されている場合のみ）
+  useEffect(() => {
+    if (!itineraryId || isFirstSaveRef.current) {
+      return;
+    }
+
+    if (apiSaveTimeoutRef.current) {
+      window.clearTimeout(apiSaveTimeoutRef.current);
+    }
+    apiSaveTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        await saveItineraryImpl(itinerary, itineraryId);
+        console.debug("WebAPI自動保存完了:", itineraryId);
+        setHasUnsavedChanges(false);
+      } catch (e) {
+        console.error("WebAPI自動保存に失敗しました:", e);
+      }
+      apiSaveTimeoutRef.current = null;
+    }, API_SAVE_DELAY_MS) as unknown as number;
+
+    return () => {
+      if (apiSaveTimeoutRef.current) {
+        window.clearTimeout(apiSaveTimeoutRef.current);
+        apiSaveTimeoutRef.current = null;
+      }
+    };
+  }, [itinerary, itineraryId]);
 
   // フック内で itinerary / setItinerary を束縛したラッパーを返します
   const aiCompleteEvent = async (dayIndex: number, eventIndex: number) =>
@@ -662,5 +705,6 @@ export default function useItineraryStore(): [
     redo,
     canUndo,
     canRedo,
+    hasUnsavedChanges,
   ];
 }

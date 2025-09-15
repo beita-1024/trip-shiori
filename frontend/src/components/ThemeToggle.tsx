@@ -113,22 +113,6 @@ export default function ThemeToggle(): React.JSX.Element {
       >
         <MoonIcon className="h-5 w-5 text-body" aria-hidden />
       </button>
-
-      {/* <button
-        aria-label="Business skin"
-        onClick={() => toggleSkin("business")}
-        className={`px-2 py-1 rounded border ${skin === "business" ? "ring-1" : ""}`}
-      >
-        <BriefcaseIcon className="h-5 w-5 text-body" aria-hidden />
-      </button>
-
-      <button
-        aria-label="Yumekawa skin"
-        onClick={() => toggleSkin("yumekawa")}
-        className={`px-2 py-1 rounded border ${skin === "yumekawa" ? "ring-1" : ""}`}
-      >
-        <SparklesIcon className="h-5 w-5 text-body" aria-hidden />
-      </button> */}
     </div>
   );
 }

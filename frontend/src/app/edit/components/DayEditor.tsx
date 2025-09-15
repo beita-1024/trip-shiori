@@ -21,12 +21,14 @@ import iconItems from "@/components/iconItems";
  * 
  * 日別のイベント管理機能を提供します。
  * ドラッグ&ドロップによる並べ替え、イベントの追加・削除・編集が可能です。
+ * ゲストモードではAI補完機能は無効化されます。
  * 
  * @param props.itinerary - 旅程データ
  * @param props.onItineraryChange - 旅程データ変更ハンドラー
  * @param props.onAiCompleteEvent - AI補完ハンドラー
  * @param props.loadingKeys - ローディング状態のキーセット
  * @param props.setLoadingKeys - ローディング状態セッター
+ * @param props.isGuestMode - ゲストモード（非ログイン）かどうか
  * @returns レンダリングされたDayEditorコンポーネント
  */
 interface DayEditorProps {
@@ -35,6 +37,7 @@ interface DayEditorProps {
   onAiCompleteEvent: (dayIndex: number, eventIndex: number) => Promise<void>;
   loadingKeys: Set<string>;
   setLoadingKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+  isGuestMode?: boolean;
 }
 
 export default function DayEditor({ 
@@ -42,7 +45,8 @@ export default function DayEditor({
   onItineraryChange, 
   onAiCompleteEvent,
   loadingKeys,
-  setLoadingKeys
+  setLoadingKeys,
+  isGuestMode = false
 }: DayEditorProps) {
   // ドラッグアンドドロップ用のセンサー
   const sensors = useSensors(useSensor(PointerSensor));
@@ -221,8 +225,9 @@ export default function DayEditor({
                               <Button
                                 kind="ghost"
                                 type="button"
-                                disabled={isLoading || day.events.length === 0 || eventIndex >= day.events.length - 1}
+                                disabled={isLoading || day.events.length === 0 || eventIndex >= day.events.length - 1 || isGuestMode}
                                 onClick={async () => {
+                                  if (isGuestMode) return;
                                   setLoadingKeys((prev) => {
                                     const next = new Set(prev);
                                     next.add(loadingKey);
@@ -238,6 +243,8 @@ export default function DayEditor({
                                     });
                                   }
                                 }}
+                                title={isGuestMode ? "AI機能はログイン後にご利用いただけます" : undefined}
+                                className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
                               >
                                 {isLoading ? (
                                   <Spinner size="sm" className="sm:mr-2" />
