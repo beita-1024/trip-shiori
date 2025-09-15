@@ -185,12 +185,6 @@ model ItineraryShare {
 
   /** 公開範囲 */
   scope        ShareScope @default(PRIVATE)
-  // /** 許可されたメールアドレスリスト（JSON配列、RESTRICTED_EMAILS時のみ使用） */
-  // // INFO: Prismaでは、配列型を直接サポートしていないデータベース（PostgreSQL以外）との互換性を保つため、配列をJSON文字列として保存する設計が一般的とのこと
-  // allowedEmails String?   @db.Text
-
-  /** 許可されたメールアドレスとのリレーション */
-  allowedEmails ItineraryShareEmail[]
  
   /** 共有開始日時 */
   createdAt    DateTime @default(now())
@@ -212,31 +206,6 @@ model ItineraryShare {
   @@index([scope])
 }
 
-/**
- * 共有設定の許可されたメールアドレスを管理するモデル
- * 
- * 各共有設定に対して許可されたメールアドレスを正規化して管理します。
- * 同一の共有設定に対して同じメールアドレスは重複登録できません。
- */
-model ItineraryShareEmail {
-  /** メールアドレスの一意識別子 */
-  id        String   @id @default(cuid())
-
-  /** 共有設定ID */
-  shareId   String
-
-  /** 許可されたメールアドレス */
-  email     String
-
-  /** 作成日時 */
-  createdAt DateTime @default(now())
-  
-  /** 共有設定とのリレーション */
-  share     ItineraryShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
-  
-  @@unique([shareId, email])
-  @@index([email])
-}
 
 /**
  * 共有権限の列挙型
@@ -256,11 +225,6 @@ enum ShareScope {
   PRIVATE
   /** リンクを知っている人全員（現在の仕様） */
   PUBLIC_LINK
-  /** 特定のメールアドレスリストのみ */
-  RESTRICTED_EMAILS
-  /** 認証済みユーザーのみ */
-  AUTHENTICATED_USERS
-  /** 全体公開（検索エンジンにインデックスされ、誰でもアクセス可能） */
-  // PUBLIC設定に関しては実装はしても、しばらくWebUI設定できないように隠すようにする。
+  /** 全体公開（SNS公開用OGPが作成され、検索エンジンに登録される） */
   PUBLIC
 }
