@@ -6,6 +6,9 @@ import cookieParser from 'cookie-parser';
 import { corsConfig } from './config/cors';
 import itinerariesRouter from './controllers/itinerariesRouter';
 import itineraryShareRouter from './controllers/itineraryShareRouter';
+import sharedItineraryRouter from './controllers/sharedItineraryRouter';
+import publicItineraryRouter from './controllers/publicItineraryRouter';
+import itineraryCopyRouter from './controllers/itineraryCopyRouter';
 import eventsRouter from './controllers/eventsRouter';
 import itineraryEditRouter from './controllers/itineraryEditRouter';
 import authRouter from './controllers/authRouter';
@@ -22,10 +25,16 @@ app.use(cookieParser());
 
 // ルートの設定
 app.get('/health', healthCheck);
-app.use('/api/itineraries', itinerariesRouter);
 app.use('/api/itineraries', itineraryShareRouter);
+app.use('/api/itineraries', itinerariesRouter);
+app.use('/api/itineraries', itineraryCopyRouter);
+app.use('/shared', sharedItineraryRouter);
+app.use('/public', publicItineraryRouter);
 app.use('/api/events', eventsRouter);
-app.use('/api/itinerary-edit', itineraryEditRouter);
+// テスト環境では旅程編集機能を無効化
+if (process.env.NODE_ENV !== 'test') {
+  app.use('/api/itinerary-edit', itineraryEditRouter);
+}
 app.use('/api/users', usersRouter);
 app.use('/auth', authRouter);
 

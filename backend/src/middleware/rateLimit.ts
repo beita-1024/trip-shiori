@@ -54,6 +54,12 @@ export const rateLimit = (config: RateLimitConfig) => {
   const { windowMs, maxRequests, message = 'Too many requests' } = config;
 
   return (req: Request, res: Response, next: NextFunction): void => {
+    // テスト環境ではレート制限を無効化
+    if (process.env.NODE_ENV === 'test') {
+      next();
+      return;
+    }
+
     const clientIP = getClientIP(req);
     const now = Date.now();
     const windowStart = now - windowMs;

@@ -4,7 +4,8 @@ import {
   getItinerary, 
   getUserItineraries,
   updateItinerary,
-  deleteItinerary 
+  deleteItinerary,
+  checkItineraryOwnership
 } from './itinerariesController';
 import { authenticateToken, checkItineraryOwnershipForEdit } from '../middleware/auth';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation';
@@ -40,6 +41,7 @@ router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 router.post('/', validateBody(createItinerarySchema), createItinerary);           // 旅程作成
 router.get('/', validateQuery(getItinerariesQuerySchema), getUserItineraries);    // ユーザーの旅程一覧取得（ページネーション）
 router.get('/:id', validateParams(idParamSchema), getItinerary);                  // 旅程詳細取得
+router.get('/:id/ownership', validateParams(idParamSchema), checkItineraryOwnership); // 旅程所有者確認
 router.put('/:id', validateParams(idParamSchema), validateBody(updateItinerarySchema), checkItineraryOwnershipForEdit, updateItinerary); // 旅程更新
 router.delete('/:id', validateParams(idParamSchema), checkItineraryOwnershipForEdit, deleteItinerary);            // 旅程削除
 
