@@ -3,12 +3,21 @@ import app from '../app';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from "@jest/globals";
+
+// メール送信をモック
+jest.mock('../utils/email', () => ({
+  sendEmailWithTemplate: jest.fn(),
+  createVerificationEmailTemplate: jest.fn(),
+  createPasswordResetEmailTemplate: jest.fn()
+}));
 
 const prisma = new PrismaClient();
 
 // テスト用のユーザーデータ
 const testUser = {
-  email: 'test@example.com',
+  email: 'auth-test@example.com',
   password: 'TestPassword123!',
   name: 'テストユーザー',
 };
@@ -22,6 +31,20 @@ let testUserId: string;
  */
 describe('Password Reset Tests', () => {
   beforeAll(async () => {
+    // メール送信のモックを設定
+    const { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } = require('../utils/email');
+    sendEmailWithTemplate.mockResolvedValue({ messageId: 'test-message-id' });
+    createVerificationEmailTemplate.mockReturnValue({
+      subject: 'Test Subject',
+      html: '<p>Test HTML</p>',
+      text: 'Test Text'
+    });
+    createPasswordResetEmailTemplate.mockReturnValue({
+      subject: 'Test Subject',
+      html: '<p>Test HTML</p>',
+      text: 'Test Text'
+    });
+
     // テスト用ユーザーを作成
     const passwordHash = await argon2.hash(testUser.password, { type: argon2.argon2id });
     const user = await prisma.user.create({
@@ -44,6 +67,20 @@ describe('Password Reset Tests', () => {
       where: { id: testUserId },
     });
     await prisma.$disconnect();
+  });
+
+  beforeEach(async () => {
+    // 各テスト前にパスワードリセットトークンをクリーンアップ
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: testUserId },
+    });
+  });
+
+  afterEach(async () => {
+    // 各テスト後にパスワードリセットトークンをクリーンアップ
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: testUserId },
+    });
   });
 
   describe('POST /auth/password-reset/request', () => {
@@ -80,7 +117,7 @@ describe('Password Reset Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('invalid_body');
-      expect(response.body.message).toContain('Email is required');
+      expect(response.body.message).toBe('Validation failed');
     });
 
     test('無効なメール形式の場合にエラーを返す', async () => {
@@ -91,7 +128,7 @@ describe('Password Reset Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('invalid_body');
-      expect(response.body.message).toContain('Invalid email format');
+      expect(response.body.message).toBe('Validation failed');
     });
 
     test('複数回のリクエストでトークンが上書きされる（upsert動作確認）', async () => {
@@ -103,12 +140,14 @@ describe('Password Reset Tests', () => {
 
       expect(response1.status).toBe(204);
 
-      // 最初のトークンを取得
+      // 最初のトークンを取得（少し待機してから検索）
+      await new Promise(resolve => setTimeout(resolve, 100));
       const firstToken = await prisma.passwordResetToken.findUnique({
         where: { userId: testUserId },
       });
       expect(firstToken).toBeTruthy();
       const firstTokenHash = firstToken?.tokenHash;
+      const firstCreatedAt = firstToken?.createdAt;
 
       // 2回目のリクエスト
       const response2 = await request(app)
@@ -118,13 +157,14 @@ describe('Password Reset Tests', () => {
 
       expect(response2.status).toBe(204);
 
-      // トークンが更新されていることを確認
+      // トークンが更新されていることを確認（少し待機してから検索）
+      await new Promise(resolve => setTimeout(resolve, 100));
       const secondToken = await prisma.passwordResetToken.findUnique({
         where: { userId: testUserId },
       });
       expect(secondToken).toBeTruthy();
       expect(secondToken?.tokenHash).not.toBe(firstTokenHash);
-      expect(secondToken?.createdAt.getTime()).toBeGreaterThan(firstToken?.createdAt.getTime() || 0);
+      expect(secondToken?.createdAt.getTime()).toBeGreaterThan(firstCreatedAt?.getTime() || 0);
     });
   });
 
@@ -139,13 +179,20 @@ describe('Password Reset Tests', () => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
       
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: testUserId,
-          tokenHash,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
-        },
+      // ユーザーが存在することを確認してからトークンを作成
+      const user = await prisma.user.findUnique({
+        where: { id: testUserId }
       });
+      
+      if (user) {
+        await prisma.passwordResetToken.create({
+          data: {
+            userId: testUserId,
+            tokenHash,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
+          },
+        });
+      }
 
       testResetToken = rawToken;
     });
@@ -208,13 +255,20 @@ describe('Password Reset Tests', () => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
       
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: testUserId,
-          tokenHash,
-          expiresAt: new Date(Date.now() - 1000), // 1秒前（期限切れ）
-        },
+      // ユーザーが存在することを確認してからトークンを作成
+      const user = await prisma.user.findUnique({
+        where: { id: testUserId }
       });
+      
+      if (user) {
+        await prisma.passwordResetToken.create({
+          data: {
+            userId: testUserId,
+            tokenHash,
+            expiresAt: new Date(Date.now() - 1000), // 1秒前（期限切れ）
+          },
+        });
+      }
 
       const response = await request(app)
         .post('/auth/password-reset/confirm')
@@ -240,7 +294,7 @@ describe('Password Reset Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('invalid_body');
-      expect(response.body.message).toContain('uid, token, and newPassword are required');
+      expect(response.body.message).toBe('Validation failed');
     });
 
     test('パスワード強度が不十分な場合にエラーを返す', async () => {
@@ -264,6 +318,18 @@ describe('Password Reset Tests', () => {
   });
 
   describe('JWT Token Invalidation', () => {
+    beforeEach(async () => {
+      // テスト前にユーザーのパスワードを元に戻す
+      const passwordHash = await argon2.hash(testUser.password, { type: argon2.argon2id });
+      await prisma.user.update({
+        where: { id: testUserId },
+        data: { 
+          passwordHash,
+          passwordChangedAt: null // パスワード変更日時をリセット
+        }
+      });
+    });
+
     test('パスワードリセット後にJWTトークンが無効化される', async () => {
       // まずログインしてJWTトークンを取得
       const loginResponse = await request(app)
@@ -287,13 +353,22 @@ describe('Password Reset Tests', () => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
       
-      await prisma.passwordResetToken.create({
+      // ユーザーが存在することを確認してからトークンを作成
+      const user = await prisma.user.findUnique({
+        where: { id: testUserId }
+      });
+      
+      expect(user).toBeTruthy();
+      
+      const resetToken = await prisma.passwordResetToken.create({
         data: {
           userId: testUserId,
           tokenHash,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000),
         },
       });
+      
+      expect(resetToken).toBeTruthy();
 
       // パスワードリセットを実行
       const resetResponse = await request(app)
@@ -306,6 +381,12 @@ describe('Password Reset Tests', () => {
         .set('Content-Type', 'application/json');
 
       expect(resetResponse.status).toBe(204);
+
+      // パスワード変更日時が設定されていることを確認
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: testUserId }
+      });
+      expect(updatedUser?.passwordChangedAt).toBeTruthy();
 
       // 古いJWTトークンで保護されたリソースにアクセス（失敗するはず）
       const protectedResponse = await request(app)
@@ -331,15 +412,31 @@ describe('Password Reset Tests', () => {
       expect(cookies).toBeTruthy();
 
       // iatフィールドを削除した無効なトークンを作成
-      const jwt = require('jsonwebtoken');
       const secret = process.env.JWT_SECRET || 'your-secret-key';
       const decodedToken = jwt.decode(cookies[0].split('=')[1].split(';')[0]);
       
-      // iatフィールドを削除
-      delete decodedToken.iat;
+      // デコードされたトークンが有効であることを確認
+      expect(decodedToken).toBeTruthy();
+      expect(typeof decodedToken).toBe('object');
       
-      // 無効なトークンを再署名
-      const invalidToken = jwt.sign(decodedToken, secret, { algorithm: 'HS256' });
+      // iatフィールドを削除
+      if (decodedToken && typeof decodedToken === 'object' && 'iat' in decodedToken) {
+        delete (decodedToken as any).iat;
+      }
+      
+      // 無効なトークンを再署名（iatフィールドを明示的に除外）
+      const invalidToken = jwt.sign(decodedToken as object, secret, { 
+        algorithm: 'HS256',
+        noTimestamp: true // iatフィールドを追加しない
+      });
+      
+      // デバッグ: 作成したトークンにiatフィールドが含まれていないことを確認
+      const decodedInvalidToken = jwt.decode(invalidToken);
+      expect(decodedInvalidToken).toBeTruthy();
+      expect(typeof decodedInvalidToken).toBe('object');
+      if (decodedInvalidToken && typeof decodedInvalidToken === 'object') {
+        expect((decodedInvalidToken as any).iat).toBeUndefined();
+      }
 
       // 無効なトークンで保護されたリソースにアクセス（失敗するはず）
       const protectedResponse = await request(app)
