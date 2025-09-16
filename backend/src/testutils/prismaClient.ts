@@ -38,17 +38,27 @@ if (!testExitHandlerRegistered) {
   
   // テスト終了時のクリーンアップ
   process.on('beforeExit', async () => {
-    await testPrisma.$disconnect();
+    try {
+      await testPrisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
   
-  // テスト環境でのシグナルハンドリング
-  process.on('SIGINT', async () => {
-    await testPrisma.$disconnect();
-    process.exit(0);
+  // テスト環境でのシグナルハンドリング（一度きり登録）
+  process.once('SIGINT', async () => {
+    try {
+      await testPrisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
   
-  process.on('SIGTERM', async () => {
-    await testPrisma.$disconnect();
-    process.exit(0);
+  process.once('SIGTERM', async () => {
+    try {
+      await testPrisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
 }

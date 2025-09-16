@@ -33,16 +33,27 @@ if (!productionExitHandlerRegistered) {
   
   // アプリケーション終了時のクリーンアップ
   process.on('beforeExit', async () => {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
 
-  process.on('SIGINT', async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+  // 本番環境でのシグナルハンドリング（一度きり登録）
+  process.once('SIGINT', async () => {
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
 
-  process.on('SIGTERM', async () => {
-    await prisma.$disconnect();
-    process.exit(0);
+  process.once('SIGTERM', async () => {
+    try {
+      await prisma.$disconnect();
+    } catch {
+      // 例外は握りつぶして安全終了
+    }
   });
 }
