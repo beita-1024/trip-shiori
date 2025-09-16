@@ -23,12 +23,18 @@ jest.mock('../utils/email', () => ({
 
 import { testPrisma as prisma } from '../config/prisma.test';
 
-// テスト用のユーザーデータ
-const testUser = {
-  email: 'auth-test@example.com',
-  password: 'TestPassword123!',
-  name: 'テストユーザー',
+// テスト用のユーザーデータ（ユニークなメールアドレスを生成）
+const generateTestUser = () => {
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  return {
+    email: `auth-test-${timestamp}-${randomSuffix}@example.com`,
+    password: 'TestPassword123!',
+    name: 'テストユーザー',
+  };
 };
+
+const testUser = generateTestUser();
 
 // テスト用のパスワードリセットトークン
 let testResetToken: string;
@@ -57,6 +63,15 @@ describe('Password Reset Tests', () => {
       text: 'Test Text',
     });
 
+    // 既存のテストユーザーを削除（重複を防ぐため）
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          startsWith: 'auth-test-',
+        },
+      },
+    });
+
     // テスト用ユーザーを作成
     const passwordHash = await argon2.hash(testUser.password, {
       type: argon2.argon2id,
@@ -74,12 +89,24 @@ describe('Password Reset Tests', () => {
 
   afterAll(async () => {
     // テストデータをクリーンアップ
-    await prisma.passwordResetToken.deleteMany({
-      where: { userId: testUserId },
+    if (testUserId) {
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: testUserId },
+      });
+      await prisma.user.delete({
+        where: { id: testUserId },
+      });
+    }
+
+    // 念のため、テスト用メールアドレスで始まるユーザーをすべて削除
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          startsWith: 'auth-test-',
+        },
+      },
     });
-    await prisma.user.delete({
-      where: { id: testUserId },
-    });
+
     await prisma.$disconnect();
   });
 
@@ -329,7 +356,7 @@ describe('Password Reset Tests', () => {
       expect(response.body.details).toBeDefined();
       expect(
         response.body.details.some(
-          (detail: any) =>
+          (detail: { field: string; message: string }) =>
             detail.field === 'newPassword' &&
             detail.message.includes('8文字以上')
         )
@@ -449,7 +476,7 @@ describe('Password Reset Tests', () => {
         typeof decodedToken === 'object' &&
         'iat' in decodedToken
       ) {
-        delete (decodedToken as any).iat;
+        delete (decodedToken as Record<string, unknown>).iat;
       }
 
       // 無効なトークンを再署名（iatフィールドを明示的に除外）
@@ -463,7 +490,9 @@ describe('Password Reset Tests', () => {
       expect(decodedInvalidToken).toBeTruthy();
       expect(typeof decodedInvalidToken).toBe('object');
       if (decodedInvalidToken && typeof decodedInvalidToken === 'object') {
-        expect((decodedInvalidToken as any).iat).toBeUndefined();
+        expect(
+          (decodedInvalidToken as Record<string, unknown>).iat
+        ).toBeUndefined();
       }
 
       // 無効なトークンで保護されたリソースにアクセス（失敗するはず）
