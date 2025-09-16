@@ -100,50 +100,52 @@ sh-backend: ## backendのシェル
 sh-frontend: ## frontendのシェル
 	$(COMPOSE) exec frontend sh
 
+# NOTE: $(if $(CI),,|| true) はCI環境では失敗検知を潰さないため
+
 lint: ## まとめてlint
-	$(COMPOSE) exec backend npm run lint || true
-	$(COMPOSE) exec frontend npm run lint || true
+	$(COMPOSE) exec backend npm run lint $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm run lint $(if $(CI),,|| true)
 
 test: ## 全テスト実行（backend + frontend）
-	$(COMPOSE) exec backend npm test -- --watch=false || true
-	$(COMPOSE) exec frontend npm test -- --watch=false || true
+	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
 
 test-backend: ## backendの全テスト実行
-	$(COMPOSE) exec backend npm test -- --watch=false || true
+	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
 
 test-frontend: ## frontendの全テスト実行
-	$(COMPOSE) exec frontend npm test -- --watch=false || true
+	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
 
 test-main: ## メインE2Eテスト実行（全API統合テスト）
-	$(COMPOSE) exec backend npm test src/app.test.ts -- --watch=false || true
+	$(COMPOSE) exec backend npm test src/app.test.ts -- --watch=false $(if $(CI),,|| true)
 
 test-auth: ## 認証・ユーザー管理APIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/auth.test.ts -- --watch=false || true
+	$(COMPOSE) exec backend npm test src/controllers/auth.test.ts -- --watch=false $(if $(CI),,|| true)
 
 test-shared: ## 共有旅程アクセスAPIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/sharedItineraryController.test.ts -- --watch=false || true
+	$(COMPOSE) exec backend npm test src/controllers/sharedItineraryController.test.ts -- --watch=false $(if $(CI),,|| true)
 
 test-copy: ## 旅程複製・マイグレーションAPIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/itineraryCopyController.test.ts -- --watch=false || true
+	$(COMPOSE) exec backend npm test src/controllers/itineraryCopyController.test.ts -- --watch=false $(if $(CI),,|| true)
 
 test-password-reset: ## パスワードリセット機能テスト実行
-	$(COMPOSE) exec backend npm test src/controllers/authController.test.ts -- --watch=false || true
+	$(COMPOSE) exec backend npm test src/controllers/authController.test.ts -- --watch=false $(if $(CI),,|| true)
 
 # テスト実行オプション（詳細ログ付き）
 test-verbose: ## 全テスト実行（詳細ログ付き）
-	$(COMPOSE) exec backend npm test -- --watch=false --verbose || true
-	$(COMPOSE) exec frontend npm test -- --watch=false --verbose || true
+	$(COMPOSE) exec backend npm test -- --watch=false --verbose $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false --verbose $(if $(CI),,|| true)
 
 test-coverage: ## 全テスト実行（カバレッジ付き）
-	$(COMPOSE) exec backend npm test -- --watch=false --coverage || true
-	$(COMPOSE) exec frontend npm test -- --watch=false --coverage || true
+	$(COMPOSE) exec backend npm test -- --watch=false --coverage $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false --coverage $(if $(CI),,|| true)
 
 # 特定のテストスイート実行
 test-itinerary: ## 旅程関連APIテスト実行
-	$(COMPOSE) exec backend npm test -- --testNamePattern="旅程管理API|旅程共有機能API|公開旅程アクセスAPI|旅程複製・マイグレーションAPI" --watch=false || true
+	$(COMPOSE) exec backend npm test -- --testNamePattern="旅程管理API|旅程共有機能API|公開旅程アクセスAPI|旅程複製・マイグレーションAPI" --watch=false $(if $(CI),,|| true)
 
 test-user: ## ユーザー関連APIテスト実行
-	$(COMPOSE) exec backend npm test -- --testNamePattern="ユーザー管理API|認証エンドポイント" --watch=false || true
+	$(COMPOSE) exec backend npm test -- --testNamePattern="ユーザー管理API|認証エンドポイント" --watch=false $(if $(CI),,|| true)
 
 # テスト実行例:
 # make test                    # 全テスト実行
@@ -163,7 +165,7 @@ db-seed: ## 初期データ投入
 
 db-reset-seed: ## データベースリセット + 初期データ投入
 	@echo "データベースをリセットして初期データを投入します..."
-	$(COMPOSE) exec backend npx prisma migrate reset --force
+	$(COMPOSE) exec backend npx prisma migrate reset --force --skip-seed
 	$(COMPOSE) exec backend npm run db:seed
 	@echo "データベースリセットとシードが完了しました"
 
