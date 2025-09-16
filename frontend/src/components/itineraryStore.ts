@@ -11,7 +11,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import type { Itinerary, ItineraryWithUid } from "@/types";
+import type { Itinerary, ItineraryWithUid, Event, EventWithUid } from "@/types";
 import defaultItinerary from "@/lib/defaultItinerary";
 import { attachUids, parseWithUids, serializeWithUids, generateUid, stripUids, stripEventUid } from "./uiUid";
 import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
@@ -57,36 +57,32 @@ function normalizeTimeValue(timeStr: string): string {
  * @param event - 正規化するイベント
  * @returns 正規化されたイベント
  */
-function normalizeEventTimes(event: unknown): unknown {
+function normalizeEventTimes(event: Event | EventWithUid): Event | EventWithUid {
   if (!event || typeof event !== 'object') return event;
   
-  const eventObj = event as Record<string, unknown>;
   return {
-    ...eventObj,
-    time: normalizeTimeValue((eventObj.time as string) || ""),
-    end_time: normalizeTimeValue((eventObj.end_time as string) || ""),
+    ...event,
+    time: normalizeTimeValue(event.time || ""),
+    end_time: normalizeTimeValue(event.end_time || ""),
   };
 }
 
-// TODO: unknownをItineraryもしくはItineraryWithUidに変更する。
 /**
  * 旅程データの時間値を正規化する関数
  * 
  * @param itinerary - 正規化する旅程データ
  * @returns 正規化された旅程データ
  */
-function normalizeItineraryTimes(itinerary: unknown): unknown {
+function normalizeItineraryTimes(itinerary: Itinerary | ItineraryWithUid): Itinerary | ItineraryWithUid {
   if (!itinerary || typeof itinerary !== 'object' || !('days' in itinerary)) return itinerary;
   
-  const itineraryObj = itinerary as { days: unknown[] };
   return {
     ...itinerary,
-    days: itineraryObj.days.map((day: unknown) => {
+    days: itinerary.days.map((day) => {
       if (typeof day !== 'object' || !day) return day;
-      const dayObj = day as { events?: unknown[] };
       return {
         ...day,
-        events: (dayObj.events || []).map(normalizeEventTimes),
+        events: (day.events || []).map(normalizeEventTimes),
       };
     }),
   };
