@@ -47,6 +47,40 @@ export function useAuth(): UseAuthReturn {
   const router = useRouter();
 
   /**
+   * pendingマイグレーションを実行する
+   */
+  const handlePendingMigration = useCallback(async (): Promise<void> => {
+    try {
+      const pendingItinerary = sessionStorage.getItem('pendingLocalItinerary');
+      if (!pendingItinerary) {
+        return;
+      }
+
+      const itineraryData = JSON.parse(pendingItinerary);
+      const payload = {
+        itineraries: [{ id: `local_${Date.now()}`, data: itineraryData }],
+      };
+
+      const response = await fetch(buildApiUrl('/api/itineraries/migrate'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        // マイグレーション成功時はsessionStorageから削除
+        sessionStorage.removeItem('pendingLocalItinerary');
+        console.log('Local itinerary migrated successfully');
+      } else {
+        console.error('Migration failed with status:', response.status);
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+    }
+  }, []);
+
+  /**
    * 認証状態をチェックし、ユーザー情報を取得する
    */
   const checkAuthStatus = useCallback(async (): Promise<void> => {
@@ -69,6 +103,9 @@ export function useAuth(): UseAuthReturn {
             createdAt: authData.user.createdAt || new Date().toISOString(),
           });
           setIsAuthenticated(true);
+          
+          // 認証成功時にpendingマイグレーションを実行
+          await handlePendingMigration();
         } else {
           setUser(null);
           setIsAuthenticated(false);

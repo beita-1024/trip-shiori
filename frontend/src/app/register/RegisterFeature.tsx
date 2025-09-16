@@ -52,8 +52,6 @@ export default function RegisterFeature() {
   const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
   const [apiError, setApiError] = useState<string>("");
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [migrating, setMigrating] = useState(false);
-  const [migrationResult, setMigrationResult] = useState<{ success: number; failed: number } | null>(null);
 
   /**
    * フォームフィールドの値を更新する
@@ -100,53 +98,6 @@ export default function RegisterFeature() {
     return newErrors;
   };
 
-  /**
-   * ローカルストレージの旅程をマイグレーション
-   */
-  const migrateLocalItineraries = async () => {
-    try {
-      setMigrating(true);
-      const localItineraries = JSON.parse(localStorage.getItem('localItineraries') || '[]');
-      
-      if (localItineraries.length === 0) {
-        return;
-      }
-
-      let successCount = 0;
-      let failedCount = 0;
-
-      for (const itinerary of localItineraries) {
-        try {
-          const response = await fetch(buildApiUrl('/api/itineraries/migrate'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(itinerary.data),
-          });
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            failedCount++;
-          }
-        } catch (error) {
-          console.error('Failed to migrate itinerary:', error);
-          failedCount++;
-        }
-      }
-
-      setMigrationResult({ success: successCount, failed: failedCount });
-      
-      // マイグレーション完了後、ローカルストレージをクリア
-      localStorage.removeItem('localItineraries');
-    } catch (error) {
-      console.error('Migration failed:', error);
-    } finally {
-      setMigrating(false);
-    }
-  };
 
   /**
    * フォーム送信処理
@@ -179,8 +130,11 @@ export default function RegisterFeature() {
         // 登録成功
         setShowSuccessMessage(true);
         
-        // ローカルストレージの旅程をマイグレーション
-        await migrateLocalItineraries();
+        // NOTE: ログイン後に移行する（登録直後は未認証のため）
+        const localItinerary = localStorage.getItem('itinerary');
+        if (localItinerary) {
+          sessionStorage.setItem('pendingLocalItinerary', localItinerary);
+        }
         
         // 3秒後にログインページへ遷移
         setTimeout(() => {
@@ -245,22 +199,6 @@ export default function RegisterFeature() {
             3秒後にログインページに移動します...
           </p>
           
-          {/* マイグレーション状況表示 */}
-          {migrating && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-700">
-                ローカルストレージの旅程を移行中...
-              </p>
-            </div>
-          )}
-          
-          {migrationResult && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-sm text-green-700">
-                旅程の移行が完了しました: 成功 {migrationResult.success}件、失敗 {migrationResult.failed}件
-              </p>
-            </div>
-          )}
         </Card>
       </section>
     );
