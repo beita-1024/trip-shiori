@@ -16,15 +16,15 @@ import {
   createItinerarySchema,
   updateItinerarySchema
 } from '../validators/itineraryValidators';
+import { pathParamsSchema } from '../validators/commonSchemas';
 
 const router = Router();
 
 /**
  * パスパラメータのバリデーションスキーマ
+ * 共通の厳格なバリデーションを使用
  */
-const idParamSchema = z.object({ 
-  id: z.string().min(1, 'ID is required') 
-});
+const idParamSchema = pathParamsSchema;
 
 /**
  * 旅のしおり関連のルート

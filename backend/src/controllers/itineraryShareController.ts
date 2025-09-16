@@ -45,6 +45,7 @@ import { hashPassword } from '../utils/password';
  */
 export const createItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as CreateItineraryShareRequest;
 
@@ -126,6 +127,7 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
  */
 export const getItineraryShare = async (req: Request, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     const share = await prisma.itineraryShare.findUnique({
@@ -192,6 +194,7 @@ export const getItineraryShare = async (req: Request, res: Response) => {
  */
 export const updateItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as UpdateItineraryShareRequest;
 
@@ -287,6 +290,7 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
  */
 export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み

@@ -32,6 +32,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
       });
     }
 
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // 複製元の旅程を取得

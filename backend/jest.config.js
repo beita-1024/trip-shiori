@@ -10,13 +10,17 @@ module.exports = {
     'src/**/*.ts',
     '!src/**/*.d.ts'
   ],
-  extensionsToTreatAsEsm: ['.ts'],
   transform: {
-    '^.+\\.ts$': ['ts-jest', {
-      useESM: true
-    }]
+    '^.+\\.ts$': 'ts-jest'
   },
   transformIgnorePatterns: [
     'node_modules/(?!(jsondiffpatch)/)'
-  ]
+  ],
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        types: ['node', 'jest']
+      }
+    }
+  }
 };

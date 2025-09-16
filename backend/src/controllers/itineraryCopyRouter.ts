@@ -4,15 +4,15 @@ import { authenticateToken } from '../middleware/auth';
 import { validateParams, validateBody } from '../middleware/validation';
 import { rateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
+import { pathParamsSchema } from '../validators/commonSchemas';
 
 const router = Router();
 
 /**
  * パスパラメータのバリデーションスキーマ
+ * 共通の厳格なバリデーションを使用
  */
-const idParamSchema = z.object({ 
-  id: z.string().min(1, 'ID is required') 
-});
+const idParamSchema = pathParamsSchema;
 
 /**
  * 旅程複製・マイグレーション用のバリデーションスキーマ

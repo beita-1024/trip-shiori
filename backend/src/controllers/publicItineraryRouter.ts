@@ -3,15 +3,15 @@ import { getPublicItinerary } from './publicItineraryController';
 import { validateParams } from '../middleware/validation';
 import { rateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
+import { pathParamsSchema } from '../validators/commonSchemas';
 
 const router = Router();
 
 /**
  * パスパラメータのバリデーションスキーマ
+ * 共通の厳格なバリデーションを使用
  */
-const idParamSchema = z.object({ 
-  id: z.string().min(1, 'ID is required') 
-});
+const idParamSchema = pathParamsSchema;
 
 /**
  * 公開旅程アクセス用のルート

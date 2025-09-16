@@ -138,6 +138,7 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  * @returns
  *   - 200: 旅程データ（JSON形式）
  * @errors
+ *   - 400: validation_error
  *   - 401: unauthorized
  *   - 403: forbidden
  *   - 404: not_found
@@ -147,6 +148,7 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const getItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     /**
@@ -553,6 +555,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
  */
 export const updateItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     // Zodバリデーション済みデータを取得
     const validatedBody = (req as any).validatedBody as UpdateItineraryRequest;
@@ -608,6 +611,7 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み
@@ -658,6 +662,7 @@ export const checkItineraryOwnership = async (req: AuthenticatedRequest, res: Re
       });
     }
 
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // 旅程の存在確認と所有者チェック

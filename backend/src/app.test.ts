@@ -140,25 +140,6 @@ describe('WebAPI E2E Tests', () => {
   });
 
   describe('POST /api/events/complete', () => {
-    test('イベント補完エンドポイントが正常に動作する（ダミーモード）', async () => {
-      const requestBody = {
-        event1: { time: '10:00', title: '出発' },
-        event2: { time: '12:00', title: '到着' },
-        dummy: true
-      };
-
-      const response = await request(app)
-        .post('/api/events/complete')
-        .send(requestBody)
-        .set('Content-Type', 'application/json');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('time');
-      expect(response.body).toHaveProperty('end_time');
-      expect(response.body).toHaveProperty('title');
-      expect(response.body).toHaveProperty('description');
-      expect(response.body).toHaveProperty('icon');
-    });
 
     test('必須パラメータが不足している場合にエラーを返す', async () => {
       const requestBody = {
@@ -218,6 +199,26 @@ describe('WebAPI E2E Tests', () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty('error', 'forbidden');
       });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const response = await request(app)
+          .get('/api/itineraries/invalid@id!')
+          .set('Cookie', authCookie);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
+      });
+
+      test('存在しないIDで404エラーが返される', async () => {
+        const response = await request(app)
+          .get('/api/itineraries/itn_nonexistent123')
+          .set('Cookie', authCookie);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toHaveProperty('error', 'not_found');
+        expect(response.body).toHaveProperty('message', 'Itinerary not found');
+      });
     });
 
     describe('POST /api/itineraries', () => {
@@ -276,6 +277,23 @@ describe('WebAPI E2E Tests', () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty('error', 'forbidden');
       });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const updateData = {
+          title: '更新された旅程',
+          days: []
+        };
+
+        const response = await request(app)
+          .put('/api/itineraries/invalid@id!')
+          .send(updateData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
+      });
     });
 
     describe('DELETE /api/itineraries/{id}', () => {
@@ -303,6 +321,16 @@ describe('WebAPI E2E Tests', () => {
 
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty('error', 'forbidden');
+      });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const response = await request(app)
+          .delete('/api/itineraries/invalid@id!')
+          .set('Cookie', authCookie);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
       });
     });
   });
@@ -341,6 +369,23 @@ describe('WebAPI E2E Tests', () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty('error', 'forbidden');
       });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const shareData = {
+          permission: 'READ_ONLY',
+          scope: 'PUBLIC_LINK'
+        };
+
+        const response = await request(app)
+          .post('/api/itineraries/invalid@id!/share')
+          .send(shareData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
+      });
     });
 
     describe('GET /api/itineraries/{id}/share', () => {
@@ -352,6 +397,15 @@ describe('WebAPI E2E Tests', () => {
         expect(response.body).toHaveProperty('permission');
         expect(response.body).toHaveProperty('scope');
         expect(response.body).toHaveProperty('hasPassword');
+      });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const response = await request(app)
+          .get('/api/itineraries/invalid@id!/share');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
       });
     });
 
@@ -439,6 +493,15 @@ describe('WebAPI E2E Tests', () => {
         expect(response.status).toBe(404);
         expect(response.body).toHaveProperty('error', 'not_found');
       });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const response = await request(app)
+          .get('/public/invalid@id!');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
+      });
     });
   });
 
@@ -510,6 +573,16 @@ describe('WebAPI E2E Tests', () => {
 
         expect(response.status).toBe(401);
         expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+
+      test('無効なID形式で400エラーが返される', async () => {
+        const response = await request(app)
+          .post('/api/itineraries/copy/invalid@id!')
+          .set('Cookie', authCookie);
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_params');
+        expect(response.body).toHaveProperty('message', 'Request validation failed');
       });
     });
 

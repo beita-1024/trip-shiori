@@ -21,6 +21,7 @@ import { prisma } from '../config/prisma';
  */
 export const getSharedItinerary = async (req: Request, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // 旅程と共有設定を同時に取得
@@ -137,6 +138,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
  */
 export const getPublicItinerary = async (req: Request, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // 旅程と共有設定を同時に取得
