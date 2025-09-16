@@ -31,7 +31,24 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.__testPrisma = testPrisma;
 }
 
-// テスト終了時のクリーンアップ
-process.on('beforeExit', async () => {
-  await testPrisma.$disconnect();
-});
+// テスト専用の終了ハンドラ（本番用とは分離）
+let testExitHandlerRegistered = false;
+if (!testExitHandlerRegistered) {
+  testExitHandlerRegistered = true;
+  
+  // テスト終了時のクリーンアップ
+  process.on('beforeExit', async () => {
+    await testPrisma.$disconnect();
+  });
+  
+  // テスト環境でのシグナルハンドリング
+  process.on('SIGINT', async () => {
+    await testPrisma.$disconnect();
+    process.exit(0);
+  });
+  
+  process.on('SIGTERM', async () => {
+    await testPrisma.$disconnect();
+    process.exit(0);
+  });
+}

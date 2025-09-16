@@ -26,17 +26,23 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.__prisma = prisma;
 }
 
-// アプリケーション終了時のクリーンアップ
-process.on('beforeExit', async () => {
-  await prisma.$disconnect();
-});
+// 本番用の終了ハンドラ（テスト用とは分離）
+let productionExitHandlerRegistered = false;
+if (!productionExitHandlerRegistered) {
+  productionExitHandlerRegistered = true;
+  
+  // アプリケーション終了時のクリーンアップ
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect();
+  });
 
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+  process.on('SIGINT', async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
 
-process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
+  process.on('SIGTERM', async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+}
