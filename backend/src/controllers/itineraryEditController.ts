@@ -1,6 +1,6 @@
 /**
  * 旅程編集コントローラー
- * 
+ *
  * 旅程編集機能のHTTPリクエストを処理するコントローラーです。
  */
 import { Request, Response } from 'express';
@@ -14,25 +14,28 @@ const itineraryEditService = new ItineraryEditService();
 
 /**
  * 旅程を編集する
- * 
+ *
  * @param req - Expressリクエスト
  * @param res - Expressレスポンス
  */
-export async function editItinerary(req: Request, res: Response): Promise<void> {
+export async function editItinerary(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     // リクエストボディの検証
     const { originalItinerary, editPrompt } = req.body as ItineraryEditRequest;
 
     if (!originalItinerary) {
       res.status(400).json({
-        error: 'originalItinerary is required'
+        error: 'originalItinerary is required',
       });
       return;
     }
 
     if (!editPrompt || typeof editPrompt !== 'string') {
       res.status(400).json({
-        error: 'editPrompt is required and must be a string'
+        error: 'editPrompt is required and must be a string',
       });
       return;
     }
@@ -40,7 +43,7 @@ export async function editItinerary(req: Request, res: Response): Promise<void> 
     // 旅程データの基本検証
     if (!Array.isArray(originalItinerary.days)) {
       res.status(400).json({
-        error: 'Invalid itinerary format: days array is required'
+        error: 'Invalid itinerary format: days array is required',
       });
       return;
     }
@@ -62,20 +65,20 @@ export async function editItinerary(req: Request, res: Response): Promise<void> 
       days: originalItinerary.days.map((day, index) => ({
         dayNumber: index + 1,
         eventsCount: day.events?.length || 0,
-        events: day.events?.map(event => ({
+        events: day.events?.map((event) => ({
           title: event.title,
           time: event.time,
           end_time: event.end_time,
-          description: event.description
-        }))
-      }))
+          description: event.description,
+        })),
+      })),
     });
     console.log('==============================');
 
     // 旅程編集サービスの呼び出し
     const result = await itineraryEditService.editItinerary({
       originalItinerary,
-      editPrompt
+      editPrompt,
     });
 
     // レスポンスの詳細デバッグログ
@@ -83,28 +86,36 @@ export async function editItinerary(req: Request, res: Response): Promise<void> 
     console.log('変更後の旅程タイトル:', result.modifiedItinerary.title);
     console.log('変更説明:', result.changeDescription);
     console.log('差分パッチ:', JSON.stringify(result.diffPatch, null, 2));
-    console.log('変更後の旅程データ構造:', JSON.stringify(result.modifiedItinerary, null, 2));
+    console.log(
+      '変更後の旅程データ構造:',
+      JSON.stringify(result.modifiedItinerary, null, 2)
+    );
     console.log('==============================');
 
     // 成功レスポンス
     res.status(200).json({
       success: true,
-      data: result
+      data: result,
     });
-
   } catch (error) {
     // エラーの詳細デバッグログ
     console.error('=== 旅程編集エラー詳細 ===');
     console.error('エラータイプ:', error?.constructor?.name);
-    console.error('エラーメッセージ:', error instanceof Error ? error.message : 'Unknown error');
-    console.error('エラースタック:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error(
+      'エラーメッセージ:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    console.error(
+      'エラースタック:',
+      error instanceof Error ? error.stack : 'No stack trace'
+    );
     console.error('リクエストボディ:', JSON.stringify(req.body, null, 2));
     console.error('==============================');
 
     // エラーレスポンス
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error',
     });
   }
 }

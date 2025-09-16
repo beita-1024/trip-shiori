@@ -1,9 +1,9 @@
 /**
  * OpenAIモデルタイプの定義
- * 
+ *
  * サポートされているOpenAIのモデルを定数として定義し、
  * 型安全性を提供します。
- * 
+ *
  * @example
  * const model = ModelType.GPT_4O_MINI;
  * if (isValidModel(model)) {
@@ -27,7 +27,7 @@ export const VALID_MODELS = Object.values(ModelType);
 
 /**
  * 指定された文字列が有効なモデルタイプかどうかを判定する
- * 
+ *
  * @param m - 判定する文字列
  * @returns 有効なモデルタイプの場合true
  * @example

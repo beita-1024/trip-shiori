@@ -1,19 +1,27 @@
 /**
  * CORS設定
- * 
+ *
  * 固定オリジンとCORS設定を管理
  * TODO: CORSのコードは後々整理する。
  */
 export const corsConfig = {
   options: {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev';
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
+      const isDevelopment =
+        process.env.NODE_ENV === 'development' ||
+        process.env.NODE_ENV === 'dev';
       const clientOrigin = process.env.CLIENT_ORIGIN;
       if (!isDevelopment && !clientOrigin) {
         // 起動時に落とすのがより安全だが、ここでは拒否しておく
-        return callback(new Error('CORS misconfiguration: CLIENT_ORIGIN is not set'), false);
+        return callback(
+          new Error('CORS misconfiguration: CLIENT_ORIGIN is not set'),
+          false
+        );
       }
-      
+
       // 本番環境では CLIENT_ORIGIN のみを許可
       if (!isDevelopment) {
         // オリジンが未定義の場合（Postman等のツール）は許可
@@ -51,7 +59,10 @@ export const corsConfig = {
       }
 
       // 開発環境では localhost の任意のポートを許可
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      if (
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
         return callback(null, true);
       }
 
@@ -60,7 +71,12 @@ export const corsConfig = {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-User-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-User-Id',
+    ],
     exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
-  }
+  },
 };

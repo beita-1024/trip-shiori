@@ -19,7 +19,9 @@ export async function hashPassword(password: string): Promise<string> {
       hashLength: argon2Config.hashLength,
     });
   } catch (error) {
-    throw new Error(`Password hashing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Password hashing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -32,11 +34,16 @@ export async function hashPassword(password: string): Promise<string> {
  * @example
  * const isValid = await verifyPassword(hashedPassword, 'myPassword123');
  */
-export async function verifyPassword(hashedPassword: string, plainPassword: string): Promise<boolean> {
+export async function verifyPassword(
+  hashedPassword: string,
+  plainPassword: string
+): Promise<boolean> {
   try {
     return await argon2.verify(hashedPassword, plainPassword);
   } catch (error) {
-    throw new Error(`Password verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Password verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -55,7 +62,7 @@ export function validatePasswordStrength(password: string): boolean {
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-  
+
   return (
     password.length >= minLength &&
     hasUpperCase &&
@@ -80,42 +87,42 @@ export function getPasswordStrength(password: string): {
 } {
   const feedback: string[] = [];
   let score = 0;
-  
+
   // 長さチェック
   if (password.length >= 8) {
     score += 1;
   } else {
     feedback.push('パスワードは8文字以上である必要があります');
   }
-  
+
   // 大文字チェック
   if (/[A-Z]/.test(password)) {
     score += 1;
   } else {
     feedback.push('大文字を含める必要があります');
   }
-  
+
   // 小文字チェック
   if (/[a-z]/.test(password)) {
     score += 1;
   } else {
     feedback.push('小文字を含める必要があります');
   }
-  
+
   // 数字チェック
   if (/\d/.test(password)) {
     score += 1;
   } else {
     feedback.push('数字を含める必要があります');
   }
-  
+
   // 特殊文字チェック
   if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
     score += 1;
   } else {
     feedback.push('特殊文字を含めることを推奨します');
   }
-  
+
   return {
     score,
     feedback,

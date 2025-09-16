@@ -1,4 +1,3 @@
-
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { JWTPayload } from '../config/jwt';
@@ -19,7 +18,7 @@ export interface AuthenticatedRequest extends Request {
 
 /**
  * JWT認証ミドルウェア
- * 
+ *
  * @summary CookieからJWTトークンを検証し、認証済みユーザー情報をリクエストに追加
  * @auth Cookie: access_token (JWT)
  * @params
@@ -38,23 +37,23 @@ export const authenticateToken = async (
   try {
     // CookieからJWTトークンを取得
     const token = req.cookies[COOKIE_NAME];
-    
+
     if (!token) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'Access token required' 
+        message: 'Access token required',
       });
       return;
     }
 
     // JWTトークンを検証
     const payload: JWTPayload = verifyToken(token);
-    
+
     // アクセストークンかチェック
     if (payload.type !== 'access') {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'Invalid token type' 
+        message: 'Invalid token type',
       });
       return;
     }
@@ -66,27 +65,30 @@ export const authenticateToken = async (
     });
 
     if (!user) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'User not found' 
+        message: 'User not found',
       });
       return;
     }
 
     // iatフィールドが存在しない場合は無効
     if (!payload.iat) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'Invalid token (missing iat)' 
+        message: 'Invalid token (missing iat)',
       });
       return;
     }
 
     // パスワード変更日時がJWT発行日時より後の場合は無効
-    if (user.passwordChangedAt && user.passwordChangedAt.getTime() > payload.iat * 1000) {
-      res.status(401).json({ 
+    if (
+      user.passwordChangedAt &&
+      user.passwordChangedAt.getTime() > payload.iat * 1000
+    ) {
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'Token invalidated due to password change' 
+        message: 'Token invalidated due to password change',
       });
       return;
     }
@@ -100,16 +102,16 @@ export const authenticateToken = async (
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(401).json({ 
+    res.status(401).json({
       error: 'unauthorized',
-      message: 'Invalid or expired token' 
+      message: 'Invalid or expired token',
     });
   }
 };
 
 /**
  * オプショナル認証ミドルウェア
- * 
+ *
  * @summary 認証トークンがあれば検証し、なければそのまま通す
  * @auth オプショナル（Cookie: access_token）
  * @params
@@ -126,10 +128,10 @@ export const optionalAuthenticate = (
 ): void => {
   try {
     const token = req.cookies[COOKIE_NAME];
-    
+
     if (token) {
       const payload: JWTPayload = verifyToken(token);
-      
+
       if (payload.type === 'access') {
         req.user = {
           id: payload.userId,
@@ -137,7 +139,7 @@ export const optionalAuthenticate = (
         };
       }
     }
-    
+
     next();
   } catch (error) {
     // エラーが発生してもそのまま通す（オプショナル認証のため）
@@ -148,7 +150,7 @@ export const optionalAuthenticate = (
 
 /**
  * 旅程所有権チェックミドルウェア（共有設定用）
- * 
+ *
  * @summary 認証済みユーザーが指定された旅程の所有者かどうかをチェック
  * @auth Bearer JWT (Cookie: access_token) - 必須
  * @params
@@ -169,9 +171,9 @@ export const checkItineraryOwnership = async (
   try {
     // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
     if (!req.user) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
       return;
     }
@@ -187,7 +189,7 @@ export const checkItineraryOwnership = async (
     if (!itinerary) {
       res.status(404).json({
         error: 'itinerary_not_found',
-        message: 'Itinerary not found'
+        message: 'Itinerary not found',
       });
       return;
     }
@@ -196,7 +198,7 @@ export const checkItineraryOwnership = async (
     if (itinerary.userId !== req.user.id) {
       res.status(403).json({
         error: 'forbidden',
-        message: 'Only the owner can access this itinerary'
+        message: 'Only the owner can access this itinerary',
       });
       return;
     }
@@ -209,14 +211,14 @@ export const checkItineraryOwnership = async (
     console.error('Itinerary ownership check error:', error);
     res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to check itinerary ownership'
+      message: 'Failed to check itinerary ownership',
     });
   }
 };
 
 /**
  * 旅程所有権チェックミドルウェア（編集・削除用）
- * 
+ *
  * @summary 認証済みユーザーが指定された旅程の所有者かどうかをチェック（編集・削除用）
  * @auth Bearer JWT (Cookie: access_token) - 必須
  * @params
@@ -237,9 +239,9 @@ export const checkItineraryOwnershipForEdit = async (
   try {
     // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
     if (!req.user) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
       return;
     }
@@ -253,17 +255,17 @@ export const checkItineraryOwnershipForEdit = async (
     });
 
     if (!existingItinerary) {
-      res.status(404).json({ 
+      res.status(404).json({
         error: 'not_found',
-        message: 'Itinerary not found' 
+        message: 'Itinerary not found',
       });
       return;
     }
 
     if (existingItinerary.userId !== req.user.id) {
-      res.status(403).json({ 
+      res.status(403).json({
         error: 'forbidden',
-        message: 'Access denied' 
+        message: 'Access denied',
       });
       return;
     }
@@ -276,14 +278,14 @@ export const checkItineraryOwnershipForEdit = async (
     console.error('Itinerary ownership check for edit error:', error);
     res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to check itinerary ownership'
+      message: 'Failed to check itinerary ownership',
     });
   }
 };
 
 /**
  * ユーザー存在確認ミドルウェア
- * 
+ *
  * @summary 認証済みユーザーがデータベースに存在するかどうかをチェック
  * @auth Bearer JWT (Cookie: access_token) - 必須
  * @returns
@@ -300,9 +302,9 @@ export const checkUserExists = async (
   try {
     // 認証チェック（authenticateTokenミドルウェアが先に実行されている前提）
     if (!req.user) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
       return;
     }
@@ -321,9 +323,9 @@ export const checkUserExists = async (
     });
 
     if (!user) {
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'unauthorized',
-        message: 'User not found' 
+        message: 'User not found',
       });
       return;
     }
@@ -336,7 +338,7 @@ export const checkUserExists = async (
     console.error('User existence check error:', error);
     res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to check user existence'
+      message: 'Failed to check user existence',
     });
   }
 };

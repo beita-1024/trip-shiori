@@ -27,7 +27,7 @@ const rateLimitStore = new Map<string, RateLimitEntry>();
 
 /**
  * クライアントのIPアドレスを取得
- * 
+ *
  * @param req Expressリクエストオブジェクト
  * @returns クライアントのIPアドレス
  */
@@ -43,7 +43,7 @@ const getClientIP = (req: Request): string => {
 
 /**
  * レート制限ミドルウェア
- * 
+ *
  * @summary IPアドレスベースでリクエスト頻度を制限
  * @param config レート制限の設定
  * @returns Expressミドルウェア関数
@@ -62,7 +62,7 @@ export const rateLimit = (config: RateLimitConfig) => {
 
     const clientIP = getClientIP(req);
     const now = Date.now();
-    const windowStart = now - windowMs;
+    // const windowStart = now - windowMs;
 
     // 古いエントリをクリーンアップ
     for (const [ip, entry] of rateLimitStore.entries()) {
@@ -73,7 +73,7 @@ export const rateLimit = (config: RateLimitConfig) => {
 
     // 現在のIPのエントリを取得または作成
     let entry = rateLimitStore.get(clientIP);
-    
+
     if (!entry || entry.resetTime < now) {
       // 新しい時間窓を開始
       entry = {
@@ -89,7 +89,7 @@ export const rateLimit = (config: RateLimitConfig) => {
     // レート制限をチェック
     if (entry.count > maxRequests) {
       const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-      
+
       res.status(429).json({
         error: 'rate_limit_exceeded',
         message,
@@ -101,7 +101,10 @@ export const rateLimit = (config: RateLimitConfig) => {
     // レスポンスヘッダーにレート制限情報を追加
     res.set({
       'X-RateLimit-Limit': maxRequests.toString(),
-      'X-RateLimit-Remaining': Math.max(0, maxRequests - entry.count).toString(),
+      'X-RateLimit-Remaining': Math.max(
+        0,
+        maxRequests - entry.count
+      ).toString(),
       'X-RateLimit-Reset': new Date(entry.resetTime).toISOString(),
     });
 
@@ -124,5 +127,6 @@ export const passwordResetRateLimit = rateLimit({
 export const passwordResetConfirmRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
   maxRequests: 5, // 最大5回
-  message: 'Too many password reset confirmation attempts. Please try again later.',
+  message:
+    'Too many password reset confirmation attempts. Please try again later.',
 });

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 
 /**
  * ヘルスチェックエンドポイント
- * 
+ *
  * @param req - Expressリクエストオブジェクト
  * @param res - Expressレスポンスオブジェクト
  * @example

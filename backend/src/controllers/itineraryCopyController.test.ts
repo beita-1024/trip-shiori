@@ -1,8 +1,7 @@
 import request from 'supertest';
 import app from '../app';
-import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
-import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 
 import { testPrisma as prisma } from '../config/prisma.test';
 
@@ -24,7 +23,7 @@ let testUserId2: string;
 let testItineraryId1: string;
 let testItineraryId2: string;
 let authCookie1: string;
-let authCookie2: string;
+// let authCookie2: string;
 
 /**
  * 旅程複製・マイグレーションAPIのテスト
@@ -32,7 +31,9 @@ let authCookie2: string;
 describe('Itinerary Copy & Migration API Tests', () => {
   beforeAll(async () => {
     // テスト用ユーザーを作成
-    const passwordHash1 = await argon2.hash(testUser1.password, { type: argon2.argon2id });
+    const passwordHash1 = await argon2.hash(testUser1.password, {
+      type: argon2.argon2id,
+    });
     const user1 = await prisma.user.create({
       data: {
         email: testUser1.email,
@@ -43,7 +44,9 @@ describe('Itinerary Copy & Migration API Tests', () => {
     });
     testUserId1 = user1.id;
 
-    const passwordHash2 = await argon2.hash(testUser2.password, { type: argon2.argon2id });
+    const passwordHash2 = await argon2.hash(testUser2.password, {
+      type: argon2.argon2id,
+    });
     const user2 = await prisma.user.create({
       data: {
         email: testUser2.email,
@@ -59,19 +62,19 @@ describe('Itinerary Copy & Migration API Tests', () => {
       .post('/auth/login')
       .send({
         email: testUser1.email,
-        password: testUser1.password
+        password: testUser1.password,
       })
       .set('Content-Type', 'application/json');
     authCookie1 = loginResponse1.headers['set-cookie']?.[0] || '';
 
-    const loginResponse2 = await request(app)
+    await request(app)
       .post('/auth/login')
       .send({
         email: testUser2.email,
-        password: testUser2.password
+        password: testUser2.password,
       })
       .set('Content-Type', 'application/json');
-    authCookie2 = loginResponse2.headers['set-cookie']?.[0] || '';
+    // authCookie2 = loginResponse2.headers['set-cookie']?.[0] || '';
 
     // テスト用の旅程を作成
     const itinerary1 = await prisma.itinerary.create({
@@ -79,7 +82,7 @@ describe('Itinerary Copy & Migration API Tests', () => {
         id: 'copy_test_itinerary_1',
         data: JSON.stringify({
           title: '複製テスト旅程1',
-          days: []
+          days: [],
         }),
         userId: testUserId1,
       },
@@ -91,7 +94,7 @@ describe('Itinerary Copy & Migration API Tests', () => {
         id: 'copy_test_itinerary_2',
         data: JSON.stringify({
           title: '複製テスト旅程2',
-          days: []
+          days: [],
         }),
         userId: testUserId2,
       },
@@ -104,27 +107,26 @@ describe('Itinerary Copy & Migration API Tests', () => {
     await prisma.itineraryShare.deleteMany({
       where: {
         itineraryId: {
-          in: [testItineraryId1, testItineraryId2]
-        }
-      }
+          in: [testItineraryId1, testItineraryId2],
+        },
+      },
     });
     await prisma.itinerary.deleteMany({
       where: {
         id: {
-          in: [testItineraryId1, testItineraryId2]
-        }
-      }
+          in: [testItineraryId1, testItineraryId2],
+        },
+      },
     });
     await prisma.user.deleteMany({
       where: {
         id: {
-          in: [testUserId1, testUserId2]
-        }
-      }
+          in: [testUserId1, testUserId2],
+        },
+      },
     });
     await prisma.$disconnect();
   });
-
 
   describe('POST /api/itineraries/copy/{id}', () => {
     test('認証済みユーザーがPUBLIC_LINK旅程を複製できる', async () => {
@@ -143,11 +145,14 @@ describe('Itinerary Copy & Migration API Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('id');
-      expect(response.body).toHaveProperty('message', 'Itinerary copied successfully');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Itinerary copied successfully'
+      );
 
       // 複製された旅程をクリーンアップ
       await prisma.itinerary.delete({
-        where: { id: response.body.id }
+        where: { id: response.body.id },
       });
     });
 
@@ -155,7 +160,7 @@ describe('Itinerary Copy & Migration API Tests', () => {
       // PUBLIC共有設定に変更
       await prisma.itineraryShare.update({
         where: { itineraryId: testItineraryId2 },
-        data: { scope: 'PUBLIC' }
+        data: { scope: 'PUBLIC' },
       });
 
       const response = await request(app)
@@ -164,11 +169,14 @@ describe('Itinerary Copy & Migration API Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('id');
-      expect(response.body).toHaveProperty('message', 'Itinerary copied successfully');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Itinerary copied successfully'
+      );
 
       // 複製された旅程をクリーンアップ
       await prisma.itinerary.delete({
-        where: { id: response.body.id }
+        where: { id: response.body.id },
       });
     });
 
@@ -185,7 +193,7 @@ describe('Itinerary Copy & Migration API Tests', () => {
       // PRIVATE共有設定に変更
       await prisma.itineraryShare.update({
         where: { itineraryId: testItineraryId2 },
-        data: { scope: 'PRIVATE' }
+        data: { scope: 'PRIVATE' },
       });
 
       const response = await request(app)
@@ -197,8 +205,9 @@ describe('Itinerary Copy & Migration API Tests', () => {
     });
 
     test('認証されていない場合にエラーを返す', async () => {
-      const response = await request(app)
-        .post(`/api/itineraries/copy/${testItineraryId2}`);
+      const response = await request(app).post(
+        `/api/itineraries/copy/${testItineraryId2}`
+      );
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'unauthorized');
@@ -220,7 +229,7 @@ describe('Itinerary Copy & Migration API Tests', () => {
         data: {
           scope: 'PUBLIC_LINK',
           expiresAt: new Date(Date.now() - 1000), // 1秒前（期限切れ）
-        }
+        },
       });
 
       const response = await request(app)
@@ -240,17 +249,17 @@ describe('Itinerary Copy & Migration API Tests', () => {
             id: 'local_migrate_1',
             data: {
               title: '移行テスト旅程1',
-              days: []
-            }
+              days: [],
+            },
           },
           {
             id: 'local_migrate_2',
             data: {
               title: '移行テスト旅程2',
-              days: []
-            }
-          }
-        ]
+              days: [],
+            },
+          },
+        ],
       };
 
       const response = await request(app)
@@ -269,22 +278,22 @@ describe('Itinerary Copy & Migration API Tests', () => {
         where: {
           userId: testUserId1,
           data: {
-            contains: '移行テスト旅程'
-          }
-        }
+            contains: '移行テスト旅程',
+          },
+        },
       });
       await prisma.itinerary.deleteMany({
         where: {
           id: {
-            in: itineraries.map(i => i.id)
-          }
-        }
+            in: itineraries.map((i) => i.id),
+          },
+        },
       });
     });
 
     test('空の配列で移行できない', async () => {
       const migrateData = {
-        itineraries: []
+        itineraries: [],
       };
 
       const response = await request(app)
@@ -303,8 +312,8 @@ describe('Itinerary Copy & Migration API Tests', () => {
         id: `local_max_${i}`,
         data: {
           title: `最大件数テスト${i}`,
-          days: []
-        }
+          days: [],
+        },
       }));
 
       const migrateData = { itineraries };
@@ -317,7 +326,9 @@ describe('Itinerary Copy & Migration API Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'bad_request');
-      expect(response.body.message).toBe('Too many itineraries. Maximum 50 allowed');
+      expect(response.body.message).toBe(
+        'Too many itineraries. Maximum 50 allowed'
+      );
     });
 
     test('認証されていない場合にエラーを返す', async () => {
@@ -325,9 +336,9 @@ describe('Itinerary Copy & Migration API Tests', () => {
         itineraries: [
           {
             id: 'local_123',
-            data: { title: 'テスト', days: [] }
-          }
-        ]
+            data: { title: 'テスト', days: [] },
+          },
+        ],
       };
 
       const response = await request(app)
@@ -344,9 +355,9 @@ describe('Itinerary Copy & Migration API Tests', () => {
         itineraries: [
           {
             // idが不足
-            data: { title: 'テスト', days: [] }
-          }
-        ]
+            data: { title: 'テスト', days: [] },
+          },
+        ],
       };
 
       const response = await request(app)

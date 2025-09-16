@@ -2,19 +2,17 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
-import { 
-  createItineraryShareSchema,
-  updateItineraryShareSchema,
+import {
   type CreateItineraryShareRequest,
   type UpdateItineraryShareRequest,
   type SharePermission,
-  type ShareScope
+  type ShareScope,
 } from '../validators/itineraryShareValidators';
 import { hashPassword } from '../utils/password';
 
 /**
  * 共有設定を作成する
- * 
+ *
  * @summary 旅程の所有者が共有設定を作成
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -43,14 +41,18 @@ import { hashPassword } from '../utils/password';
  *   Body: { "permission": "READ_ONLY", "scope": "PUBLIC_LINK" }
  *   201: { "shareUrl": "https://example.com/shared/abc123", "message": "Share settings created successfully" }
  */
-export const createItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
+export const createItineraryShare = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
-    const validatedBody = (req as any).validatedBody as CreateItineraryShareRequest;
+    const validatedBody = (req as any)
+      .validatedBody as CreateItineraryShareRequest;
 
     // ミドルウェアで所有権チェック済み
-    const itinerary = (req as any).itinerary;
+    // const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 重複する共有設定の作成を防ぎ、データの整合性を保つ
@@ -61,7 +63,7 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
     if (existingShare) {
       return res.status(409).json({
         error: 'share_already_exists',
-        message: 'Share settings already exist for this itinerary'
+        message: 'Share settings already exist for this itinerary',
       });
     }
 
@@ -91,7 +93,10 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
         },
       });
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         return res.status(409).json({
           error: 'share_already_exists',
           message: 'Share settings already exist for this itinerary',
@@ -105,20 +110,20 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
 
     return res.status(201).json({
       shareUrl,
-      message: 'Share settings created successfully'
+      message: 'Share settings created successfully',
     });
   } catch (error) {
     console.error('Create itinerary share error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: 'Failed to create share settings'
+      message: 'Failed to create share settings',
     });
   }
 };
 
 /**
  * 共有設定を取得する
- * 
+ *
  * @summary 旅程の共有設定を取得（認証不要）
  * @auth なし（共有リンク機能のため）
  * @middleware
@@ -153,7 +158,7 @@ export const getItineraryShare = async (req: Request, res: Response) => {
     if (!share) {
       return res.status(404).json({
         error: 'share_not_found',
-        message: 'Share settings not found'
+        message: 'Share settings not found',
       });
     }
 
@@ -167,14 +172,14 @@ export const getItineraryShare = async (req: Request, res: Response) => {
     console.error('Get itinerary share error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: 'Failed to get share settings'
+      message: 'Failed to get share settings',
     });
   }
 };
 
 /**
  * 共有設定を更新する
- * 
+ *
  * @summary 旅程の所有者が共有設定を更新（部分更新対応）
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -202,14 +207,18 @@ export const getItineraryShare = async (req: Request, res: Response) => {
  *   Body: { "permission": "EDIT" }
  *   200: { "message": "Share settings updated successfully" }
  */
-export const updateItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
+export const updateItineraryShare = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
-    const validatedBody = (req as any).validatedBody as UpdateItineraryShareRequest;
+    const validatedBody = (req as any)
+      .validatedBody as UpdateItineraryShareRequest;
 
     // ミドルウェアで所有権チェック済み
-    const itinerary = (req as any).itinerary;
+    // const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 存在しない共有設定の更新を防ぎ、不正なIDによる攻撃を防ぐ
@@ -220,7 +229,7 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
     if (!existingShare) {
       return res.status(404).json({
         error: 'share_not_found',
-        message: 'Share settings not found'
+        message: 'Share settings not found',
       });
     }
 
@@ -262,20 +271,20 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
     });
 
     return res.status(200).json({
-      message: 'Share settings updated successfully'
+      message: 'Share settings updated successfully',
     });
   } catch (error) {
     console.error('Update itinerary share error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: 'Failed to update share settings'
+      message: 'Failed to update share settings',
     });
   }
 };
 
 /**
  * 共有設定を削除する
- * 
+ *
  * @summary 旅程の所有者が共有設定を削除
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -298,13 +307,16 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
  *   DELETE /api/itineraries/abc123/share
  *   204: No Content
  */
-export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteItineraryShare = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み
-    const itinerary = (req as any).itinerary;
+    // const itinerary = (req as any).itinerary;
 
     // 既存の共有設定確認
     // 存在しない共有設定の削除を防ぎ、不正なIDによる攻撃を防ぐ
@@ -315,7 +327,7 @@ export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Respo
     if (!existingShare) {
       return res.status(404).json({
         error: 'share_not_found',
-        message: 'Share settings not found'
+        message: 'Share settings not found',
       });
     }
 
@@ -329,7 +341,7 @@ export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Respo
     console.error('Delete itinerary share error:', error);
     return res.status(500).json({
       error: 'internal_error',
-      message: 'Failed to delete share settings'
+      message: 'Failed to delete share settings',
     });
   }
 };

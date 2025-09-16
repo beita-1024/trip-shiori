@@ -1,11 +1,15 @@
 /**
  * 旅程編集サービス
- * 
+ *
  * AIを使用して旅程を編集し、差分を生成するサービスです。
  */
 import { ChatGptClient } from '../adapters/chatGptClient';
 import { ModelType } from '../types/modelType';
-import { Itinerary, ItineraryEditRequest, ItineraryEditResponse } from '../types/itineraryTypes';
+import {
+  Itinerary,
+  ItineraryEditRequest,
+  ItineraryEditResponse,
+} from '../types/itineraryTypes';
 
 // jsondiffpatch は ES6 モジュール形式なので、動的インポートを使用
 
@@ -54,7 +58,7 @@ export class ItineraryEditService {
 - "mdi-car"
 `,
       temperature: 0.7,
-      timeoutMs: 60000
+      timeoutMs: 60000,
     });
 
     // JSON差分パッチャーの初期化（動的インポート）
@@ -74,17 +78,17 @@ export class ItineraryEditService {
 
       // 動的インポートでjsondiffpatchを読み込み
       const jsondiffpatch = await import('jsondiffpatch');
-      
+
       // デフォルトエクスポートまたは名前付きエクスポートを確認
       const diffPatcherModule = jsondiffpatch.default || jsondiffpatch;
-      
+
       this.diffPatcher = diffPatcherModule.create({
         arrays: {
           detectMove: false,
-          includeValueOnMove: false
-        }
+          includeValueOnMove: false,
+        },
       });
-      
+
       console.log('jsondiffpatch の初期化が完了しました');
     } catch (error) {
       console.error('jsondiffpatch の初期化に失敗しました:', error);
@@ -94,11 +98,13 @@ export class ItineraryEditService {
 
   /**
    * 旅程を編集する
-   * 
+   *
    * @param request - 編集リクエスト
    * @returns 編集結果
    */
-  async editItinerary(request: ItineraryEditRequest): Promise<ItineraryEditResponse> {
+  async editItinerary(
+    request: ItineraryEditRequest
+  ): Promise<ItineraryEditResponse> {
     try {
       // 差分パッチャーが初期化されていない場合は初期化
       if (!this.diffPatcher) {
@@ -109,29 +115,39 @@ export class ItineraryEditService {
       const modifiedItinerary = await this.editItineraryWithAI(request);
 
       // 2. 差分を生成
-      const diffPatch = this.generateDiff(request.originalItinerary, modifiedItinerary);
+      const diffPatch = this.generateDiff(
+        request.originalItinerary,
+        modifiedItinerary
+      );
 
       // 3. 差分を自然言語に変換
-      const changeDescription = await this.generateChangeDescription(diffPatch, request.editPrompt);
+      const changeDescription = await this.generateChangeDescription(
+        diffPatch,
+        request.editPrompt
+      );
 
       return {
         modifiedItinerary,
         diffPatch,
-        changeDescription
+        changeDescription,
       };
     } catch (error) {
       console.error('旅程編集エラー:', error);
-      throw new Error(`旅程の編集に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `旅程の編集に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   /**
    * AIを使用して旅程を編集する
-   * 
+   *
    * @param request - 編集リクエスト
    * @returns 編集された旅程
    */
-  private async editItineraryWithAI(request: ItineraryEditRequest): Promise<Itinerary> {
+  private async editItineraryWithAI(
+    request: ItineraryEditRequest
+  ): Promise<Itinerary> {
     const prompt = `以下の旅程データを、ユーザーの要求に従って編集してください。
 
 元の旅程データ：
@@ -152,7 +168,7 @@ ${request.editPrompt}
 
     const response = await this.chatGptClient.callChat({
       userContent: prompt,
-      maxTokens: 4000
+      maxTokens: 4000,
     });
 
     try {
@@ -163,7 +179,7 @@ ${request.editPrompt}
       }
 
       const modifiedItinerary = JSON.parse(jsonMatch[0]);
-      
+
       // 型チェック
       if (!this.isValidItinerary(modifiedItinerary)) {
         throw new Error('AIが生成した旅程データの形式が無効です');
@@ -179,17 +195,19 @@ ${request.editPrompt}
 
   /**
    * 旅程の差分を生成する
-   * 
+   *
    * @param original - 元の旅程
    * @param modified - 変更後の旅程
    * @returns 差分パッチ
    */
   private generateDiff(original: Itinerary, modified: Itinerary): any {
     if (!this.diffPatcher) {
-      console.warn('差分パッチャーが初期化されていません。空の差分を返します。');
+      console.warn(
+        '差分パッチャーが初期化されていません。空の差分を返します。'
+      );
       return {};
     }
-    
+
     try {
       return this.diffPatcher.diff(original, modified);
     } catch (error) {
@@ -200,12 +218,15 @@ ${request.editPrompt}
 
   /**
    * 差分を自然言語に変換する
-   * 
+   *
    * @param diffPatch - 差分パッチ
    * @param originalPrompt - 元のユーザープロンプト
    * @returns 変更内容の説明
    */
-  private async generateChangeDescription(diffPatch: any, originalPrompt: string): Promise<string> {
+  private async generateChangeDescription(
+    diffPatch: any,
+    originalPrompt: string
+  ): Promise<string> {
     if (!diffPatch) {
       return '変更はありませんでした。';
     }
@@ -223,7 +244,7 @@ ${JSON.stringify(diffPatch, null, 2)}
     try {
       const description = await this.chatGptClient.callChat({
         userContent: prompt,
-        maxTokens: 200
+        maxTokens: 200,
       });
 
       return description.trim();
@@ -235,7 +256,7 @@ ${JSON.stringify(diffPatch, null, 2)}
 
   /**
    * 旅程データの妥当性をチェックする
-   * 
+   *
    * @param data - チェックするデータ
    * @returns 妥当性
    */
@@ -246,20 +267,22 @@ ${JSON.stringify(diffPatch, null, 2)}
       typeof data.title === 'string' &&
       Array.isArray(data.days) &&
       data.days.length > 0 &&
-      data.days.every((day: any) => 
-        typeof day === 'object' &&
-        day !== null &&
-        Array.isArray(day.events) &&
-        day.events.length > 0 &&
-        day.events.every((event: any) =>
-          typeof event === 'object' &&
-          event !== null &&
-          typeof event.time === 'string' &&
-          typeof event.end_time === 'string' &&
-          typeof event.title === 'string' &&
-          typeof event.description === 'string' &&
-          typeof event.icon === 'string'
-        )
+      data.days.every(
+        (day: any) =>
+          typeof day === 'object' &&
+          day !== null &&
+          Array.isArray(day.events) &&
+          day.events.length > 0 &&
+          day.events.every(
+            (event: any) =>
+              typeof event === 'object' &&
+              event !== null &&
+              typeof event.time === 'string' &&
+              typeof event.end_time === 'string' &&
+              typeof event.title === 'string' &&
+              typeof event.description === 'string' &&
+              typeof event.icon === 'string'
+          )
       )
     );
   }

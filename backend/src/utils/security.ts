@@ -19,29 +19,25 @@ export function setupHelmet() {
  * @example
  * app.use(addSecurityHeaders);
  */
-export function addSecurityHeaders(
-  req: any,
-  res: any,
-  next: any
-): void {
+export function addSecurityHeaders(req: any, res: any, next: any): void {
   // X-Content-Type-Options
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  
+
   // X-Frame-Options
   res.setHeader('X-Frame-Options', 'DENY');
-  
+
   // X-XSS-Protection
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  
+
   // Referrer-Policy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   // Permissions-Policy
   res.setHeader(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
   );
-  
+
   next();
 }
 
@@ -55,20 +51,20 @@ export function addSecurityHeaders(
  */
 export function createRateLimit(windowMs: number, maxRequests: number) {
   const requests = new Map<string, { count: number; resetTime: number }>();
-  
+
   return (req: any, res: any, next: any): void => {
     const clientId = req.ip || req.connection.remoteAddress;
     const now = Date.now();
-    
+
     // 古いエントリをクリーンアップ
     for (const [key, value] of requests.entries()) {
       if (now > value.resetTime) {
         requests.delete(key);
       }
     }
-    
+
     const clientData = requests.get(clientId);
-    
+
     if (!clientData) {
       // 新しいクライアント
       requests.set(clientId, {
@@ -87,7 +83,8 @@ export function createRateLimit(windowMs: number, maxRequests: number) {
       // レート制限に達した
       res.status(429).json({
         error: 'Too Many Requests',
-        message: 'レート制限に達しました。しばらく時間をおいてから再試行してください。',
+        message:
+          'レート制限に達しました。しばらく時間をおいてから再試行してください。',
         retryAfter: Math.ceil((clientData.resetTime - now) / 1000),
       });
     } else {
@@ -107,12 +104,15 @@ export function createRateLimit(windowMs: number, maxRequests: number) {
  */
 export function createSecureCorsOptions(allowedOrigins: string[]) {
   return {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
       // 同じオリジンからのリクエストは許可
       if (!origin) {
         return callback(null, true);
       }
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -154,8 +154,7 @@ export function escapeSqlInput(input: string): string {
     .replace(/'/g, "''") // シングルクォートをエスケープ
     .replace(/--/g, '') // SQLコメントを除去
     .replace(/;/g, '') // セミコロンを除去
-    .replace(/\x00/g, '') // NULL文字を除去
+    .replace(/\0/g, '') // NULL文字を除去
     .replace(/\n/g, '') // 改行を除去
-    .replace(/\r/g, '') // キャリッジリターンを除去
-    .replace(/\x1a/g, ''); // Ctrl+Zを除去
+    .replace(/\r/g, ''); // キャリッジリターンを除去
 }

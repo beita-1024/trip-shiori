@@ -3,7 +3,7 @@ import { ZodSchema, ZodError } from 'zod';
 
 /**
  * Zodスキーマを使用したリクエストバリデーションミドルウェア
- * 
+ *
  * @param schema - バリデーションに使用するZodスキーマ
  * @param target - バリデーション対象（'body' | 'query' | 'params'）
  * @returns Expressミドルウェア関数
@@ -16,10 +16,12 @@ export const validateRequest = <T>(
     try {
       const data = req[target];
       const validatedData = schema.parse(data);
-      
+
       // バリデーション済みデータをリクエストオブジェクトに設定
-      (req as any)[`validated${target.charAt(0).toUpperCase() + target.slice(1)}`] = validatedData;
-      
+      (req as any)[
+        `validated${target.charAt(0).toUpperCase() + target.slice(1)}`
+      ] = validatedData;
+
       next();
     } catch (error) {
       if (error instanceof ZodError) {
@@ -28,10 +30,13 @@ export const validateRequest = <T>(
           message: err.message,
         }));
 
-        const errorCode = target === 'body' ? 'invalid_body' : 
-                          target === 'query' ? 'invalid_query' : 
-                          'invalid_params';
-        
+        const errorCode =
+          target === 'body'
+            ? 'invalid_body'
+            : target === 'query'
+              ? 'invalid_query'
+              : 'invalid_params';
+
         res.status(400).json({
           error: errorCode,
           message: 'Request validation failed',
@@ -53,14 +58,17 @@ export const validateRequest = <T>(
 /**
  * リクエストボディのバリデーション用ヘルパー
  */
-export const validateBody = <T>(schema: ZodSchema<T>) => validateRequest(schema, 'body');
+export const validateBody = <T>(schema: ZodSchema<T>) =>
+  validateRequest(schema, 'body');
 
 /**
  * クエリパラメータのバリデーション用ヘルパー
  */
-export const validateQuery = <T>(schema: ZodSchema<T>) => validateRequest(schema, 'query');
+export const validateQuery = <T>(schema: ZodSchema<T>) =>
+  validateRequest(schema, 'query');
 
 /**
  * パスパラメータのバリデーション用ヘルパー
  */
-export const validateParams = <T>(schema: ZodSchema<T>) => validateRequest(schema, 'params');
+export const validateParams = <T>(schema: ZodSchema<T>) =>
+  validateRequest(schema, 'params');

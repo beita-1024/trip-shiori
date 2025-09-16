@@ -1,17 +1,16 @@
 import { Router } from 'express';
-import { 
-  createItineraryShare, 
-  getItineraryShare, 
+import {
+  createItineraryShare,
+  getItineraryShare,
   updateItineraryShare,
-  deleteItineraryShare 
+  deleteItineraryShare,
 } from './itineraryShareController';
 import { validateBody, validateParams } from '../middleware/validation';
 import { rateLimit } from '../middleware/rateLimit';
 import { authenticateToken, checkItineraryOwnership } from '../middleware/auth';
-import { z } from 'zod';
-import { 
+import {
   createItineraryShareSchema,
-  updateItineraryShareSchema
+  updateItineraryShareSchema,
 } from '../validators/itineraryShareValidators';
 import { pathParamsSchema } from '../validators/commonSchemas';
 
@@ -32,9 +31,29 @@ const idParamSchema = pathParamsSchema;
 router.use(rateLimit({ windowMs: 60_000, maxRequests: 30 }));
 
 // 共有設定管理CRUD
-router.post('/:id/share', validateParams(idParamSchema), authenticateToken, checkItineraryOwnership,  validateBody(createItineraryShareSchema), createItineraryShare);     // 共有設定作成（認証必須）
-router.get('/:id/share', validateParams(idParamSchema), getItineraryShare);                                                    // 共有設定取得（認証不要）
-router.put('/:id/share', authenticateToken, checkItineraryOwnership, validateParams(idParamSchema), validateBody(updateItineraryShareSchema), updateItineraryShare);     // 共有設定更新（認証必須）
-router.delete('/:id/share', authenticateToken, checkItineraryOwnership, validateParams(idParamSchema), deleteItineraryShare);                                             // 共有設定削除（認証必須）
+router.post(
+  '/:id/share',
+  validateParams(idParamSchema),
+  authenticateToken,
+  checkItineraryOwnership,
+  validateBody(createItineraryShareSchema),
+  createItineraryShare
+); // 共有設定作成（認証必須）
+router.get('/:id/share', validateParams(idParamSchema), getItineraryShare); // 共有設定取得（認証不要）
+router.put(
+  '/:id/share',
+  authenticateToken,
+  checkItineraryOwnership,
+  validateParams(idParamSchema),
+  validateBody(updateItineraryShareSchema),
+  updateItineraryShare
+); // 共有設定更新（認証必須）
+router.delete(
+  '/:id/share',
+  authenticateToken,
+  checkItineraryOwnership,
+  validateParams(idParamSchema),
+  deleteItineraryShare
+); // 共有設定削除（認証必須）
 
 export default router;

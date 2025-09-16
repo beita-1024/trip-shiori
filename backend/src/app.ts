@@ -43,7 +43,7 @@ if (process.env.NODE_ENV !== 'test') {
   const PORT = 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
-    
+
     // 共有設定のクリーンアップジョブを開始
     startShareCleanupJob();
   });

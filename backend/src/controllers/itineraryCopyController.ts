@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { generateRandomId } from '../utils/idGenerator';
 import { AuthenticatedRequest } from '../middleware/auth';
@@ -6,7 +6,7 @@ import { prisma } from '../config/prisma';
 
 /**
  * 旅程を複製して自分の旅程として保存する
- * 
+ *
  * @summary 認証済みユーザーが他のユーザーの旅程を複製して新しいIDで保存
  * @auth Bearer JWT (Cookie: access_token)
  * @idempotency 非冪等 - 同一リクエストでも毎回新しい旅程IDが生成される
@@ -23,13 +23,16 @@ import { prisma } from '../config/prisma';
  *   POST /api/itineraries/copy/abc123
  *   201: { "id": "itn_456", "message": "Itinerary copied successfully" }
  */
-export const copyItinerary = async (req: AuthenticatedRequest, res: Response) => {
+export const copyItinerary = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証チェック
     if (!req.user) {
       return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated'
+        message: 'User not authenticated',
       });
     }
 
@@ -56,7 +59,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
     if (!sourceItinerary) {
       return res.status(404).json({
         error: 'not_found',
-        message: 'Source itinerary not found'
+        message: 'Source itinerary not found',
       });
     }
 
@@ -64,7 +67,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
     if (sourceItinerary.userId === req.user.id) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'Cannot copy your own itinerary'
+        message: 'Cannot copy your own itinerary',
       });
     }
 
@@ -72,7 +75,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
     if (!sourceItinerary.share) {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'This itinerary is not shared'
+        message: 'This itinerary is not shared',
       });
     }
 
@@ -82,7 +85,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
     if (share.scope !== 'PUBLIC_LINK' && share.scope !== 'PUBLIC') {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'This itinerary cannot be copied'
+        message: 'This itinerary cannot be copied',
       });
     }
 
@@ -90,7 +93,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
     if (share.expiresAt && share.expiresAt < new Date()) {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'Share has expired'
+        message: 'Share has expired',
       });
     }
 
@@ -124,45 +127,50 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
 
         return res.status(201).json({
           id: copied.id,
-          message: 'Itinerary copied successfully'
+          message: 'Itinerary copied successfully',
         });
       } catch (err) {
         // Prisma の一意制約違反 (P2002) が返ることがある → 別IDで再試行
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
           if (attempt === MAX_ATTEMPTS) {
-            console.error("Failed to generate unique id after multiple attempts.");
+            console.error(
+              'Failed to generate unique id after multiple attempts.'
+            );
             return res.status(500).json({
               error: 'internal_server_error',
-              message: 'Failed to generate unique id (too many collisions)'
+              message: 'Failed to generate unique id (too many collisions)',
             });
           }
           continue;
         }
 
-        console.error("Copy itinerary error:", err);
+        console.error('Copy itinerary error:', err);
         return res.status(500).json({
           error: 'internal_server_error',
-          message: 'Failed to copy itinerary'
+          message: 'Failed to copy itinerary',
         });
       }
     }
 
     return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to copy itinerary'
+      message: 'Failed to copy itinerary',
     });
   } catch (error) {
     console.error('Copy itinerary error:', error);
     return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to copy itinerary'
+      message: 'Failed to copy itinerary',
     });
   }
 };
 
 /**
  * ローカル保存された旅程を一括移行する
- * 
+ *
  * @summary 認証済みユーザーが登録時にローカルストレージの旅程をDBに移行
  * @auth Bearer JWT (Cookie: access_token)
  * @idempotency 非冪等 - 同一リクエストでも毎回新しい旅程IDが生成される
@@ -178,14 +186,17 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
  *   Body: { "itineraries": [{ "id": "local_123", "data": {...} }] }
  *   200: { "migrated": 1, "message": "Migration completed successfully" }
  */
-export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Response) => {
+export const migrateLocalItineraries = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   // INFO: 現状、フロントエンドでは単一の旅程しか移行しないが、複数の旅程も移行できるように対応している。
   try {
     // 認証チェック
     if (!req.user) {
       return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated'
+        message: 'User not authenticated',
       });
     }
 
@@ -195,14 +206,14 @@ export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Re
     if (!Array.isArray(itineraries)) {
       return res.status(400).json({
         error: 'bad_request',
-        message: 'itineraries must be an array'
+        message: 'itineraries must be an array',
       });
     }
 
     if (itineraries.length === 0) {
       return res.status(200).json({
         migrated: 0,
-        message: 'No itineraries to migrate'
+        message: 'No itineraries to migrate',
       });
     }
 
@@ -211,7 +222,7 @@ export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Re
     if (itineraries.length > MAX_ITINERARIES) {
       return res.status(400).json({
         error: 'bad_request',
-        message: `Too many itineraries. Maximum ${MAX_ITINERARIES} allowed`
+        message: `Too many itineraries. Maximum ${MAX_ITINERARIES} allowed`,
       });
     }
 
@@ -223,14 +234,17 @@ export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Re
       try {
         // バリデーション
         if (!localItinerary.id || !localItinerary.data) {
-          errors.push(`Invalid itinerary format: ${JSON.stringify(localItinerary)}`);
+          errors.push(
+            `Invalid itinerary format: ${JSON.stringify(localItinerary)}`
+          );
           continue;
         }
 
         // データサイズチェック
-        const dataString = typeof localItinerary.data === 'string'
-          ? localItinerary.data
-          : JSON.stringify(localItinerary.data);
+        const dataString =
+          typeof localItinerary.data === 'string'
+            ? localItinerary.data
+            : JSON.stringify(localItinerary.data);
         const MAX_DATA_SIZE = 1024 * 1024; // 1MB
         if (dataString.length > MAX_DATA_SIZE) {
           errors.push(`Itinerary ${localItinerary.id} is too large`);
@@ -272,13 +286,13 @@ export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Re
       migrated: migratedCount,
       total: itineraries.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Migration completed. ${migratedCount}/${itineraries.length} itineraries migrated successfully`
+      message: `Migration completed. ${migratedCount}/${itineraries.length} itineraries migrated successfully`,
     });
   } catch (error) {
     console.error('Migrate local itineraries error:', error);
     return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to migrate local itineraries'
+      message: 'Failed to migrate local itineraries',
     });
   }
 };
