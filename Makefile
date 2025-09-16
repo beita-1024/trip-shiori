@@ -10,6 +10,9 @@ ENV ?= dev
   up \
   down \
   restart \
+  restart-backend \
+  restart-frontend \
+  restart-db \
   build \
   logs \
   logs-backend \
@@ -75,6 +78,15 @@ down: ## 停止＆ネットワーク片付け
 restart: ## サービス再起動（down + up）
 	$(COMPOSE) down
 	$(COMPOSE) up -d
+
+restart-backend: ## backendサービスのみ再起動
+	$(COMPOSE) restart backend
+
+restart-frontend: ## frontendサービスのみ再起動
+	$(COMPOSE) restart frontend
+
+restart-db: ## dbサービスのみ再起動
+	$(COMPOSE) restart db
 
 build: ## イメージビルド
 	$(COMPOSE) build
