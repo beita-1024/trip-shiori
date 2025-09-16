@@ -88,8 +88,7 @@ export class ItineraryEditService {
       console.log('jsondiffpatch の初期化が完了しました');
     } catch (error) {
       console.error('jsondiffpatch の初期化に失敗しました:', error);
-      // TODO: jsondiffpatchがJestで動かないので、とりあえずエラーを出さないようにする
-      // throw new Error('差分パッチャーの初期化に失敗しました');
+      throw new Error('差分パッチャーの初期化に失敗しました');
     }
   }
 

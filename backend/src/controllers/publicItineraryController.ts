@@ -3,21 +3,22 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
 
 /**
- * 共有リンク経由で旅程を取得する
+ * 共有リンク経由で旅程取得
  * 
  * @summary リンクを知っている全員がアクセス可能な旅程を取得
  * @auth 不要（PUBLIC_LINKのため）
+ * @rateLimit 120 req/min（共有アクセスのため緩め）
  * @params
- *   - Path: { id: string } - 旅程ID
+ *   - Path: { id: string } - 旅程の一意識別子
  * @returns
  *   - 200: 旅程データ（JSON形式）+ 共有情報
  * @errors
- *   - 404: 存在しない
  *   - 403: アクセス拒否
- *   - 410: 期限切れ
+ *   - 404: 旅程が見つかりません
+ *   - 410: 共有期限切れ
  * @example
- *   GET /shared/abc123
- *   200: { "title": "Tokyo Trip", "start_date": "2025-09-01", ... }
+ *   GET /shared/itn_123
+ *   200: { "title": "Tokyo Trip", "_shareInfo": { "permission": "READ_ONLY", "scope": "PUBLIC_LINK", "accessCount": 5 } }
  */
 export const getSharedItinerary = async (req: Request, res: Response) => {
   try {
@@ -78,11 +79,11 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
       });
     }
 
-    // アクセス回数を更新
+    // アクセス回数を原子的に更新
     await prisma.itineraryShare.update({
       where: { itineraryId: id },
       data: {
-        accessCount: share.accessCount + 1,
+        accessCount: { increment: 1 },
         lastAccessedAt: new Date(),
       },
     });
@@ -107,7 +108,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
         permission: share.permission,
         scope: share.scope,
         isReadOnly: true, // 共有リンク経由は常に読み取り専用
-        accessCount: share.accessCount + 1,
+        accessCount: share.accessCount + 1, // 更新後の値（increment前の値+1）
         lastAccessedAt: new Date().toISOString(),
       }
     });
@@ -192,11 +193,11 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
       });
     }
 
-    // アクセス回数を更新
+    // アクセス回数を原子的に更新
     await prisma.itineraryShare.update({
       where: { itineraryId: id },
       data: {
-        accessCount: share.accessCount + 1,
+        accessCount: { increment: 1 },
         lastAccessedAt: new Date(),
       },
     });
@@ -233,7 +234,7 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
         permission: share.permission,
         scope: share.scope,
         isReadOnly: true, // 公開旅程は常に読み取り専用
-        accessCount: share.accessCount + 1,
+        accessCount: share.accessCount + 1, // 更新後の値（increment前の値+1）
         lastAccessedAt: new Date().toISOString(),
         author: {
           name: itinerary.user?.name || '匿名',

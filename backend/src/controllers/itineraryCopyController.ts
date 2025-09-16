@@ -9,6 +9,7 @@ import { prisma } from '../config/prisma';
  * 
  * @summary 認証済みユーザーが他のユーザーの旅程を複製して新しいIDで保存
  * @auth Bearer JWT (Cookie: access_token)
+ * @idempotency 非冪等 - 同一リクエストでも毎回新しい旅程IDが生成される
  * @params
  *   - Path: { id: string } - 複製元の旅程ID
  * @returns
@@ -164,6 +165,7 @@ export const copyItinerary = async (req: AuthenticatedRequest, res: Response) =>
  * 
  * @summary 認証済みユーザーが登録時にローカルストレージの旅程をDBに移行
  * @auth Bearer JWT (Cookie: access_token)
+ * @idempotency 非冪等 - 同一リクエストでも毎回新しい旅程IDが生成される
  * @params
  *   - Body: { itineraries: Array<{ id: string, data: any }> } - 移行する旅程の配列
  * @returns
