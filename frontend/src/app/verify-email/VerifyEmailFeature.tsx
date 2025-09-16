@@ -25,7 +25,7 @@ export default function VerifyEmailFeature() {
   const searchParams = useSearchParams();
   
   // 状態管理
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [, setIsVerifying] = useState(true);
   const [error, setError] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -60,7 +60,7 @@ export default function VerifyEmailFeature() {
         } else {
           // エラーレスポンスの処理
           const contentType = response.headers.get("content-type");
-          let errorData: any = null;
+          let errorData: { error?: string; message?: string } | null = null;
           let fallbackText = "";
           
           try {

@@ -388,7 +388,7 @@ export const IconRadioGroup: React.FC<{
   );
 };
 
-export default {
+const Primitives = {
   Card,
   Heading,
   SubHeading,
@@ -400,3 +400,5 @@ export default {
   Spinner,
   IconRadioGroup,
 };
+
+export default Primitives;

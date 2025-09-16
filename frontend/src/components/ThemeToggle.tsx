@@ -11,7 +11,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { SunIcon, MoonIcon, BriefcaseIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { SunIcon, MoonIcon } from "@heroicons/react/24/outline";
 
 /** LocalStorageのスキンキー名 */
 const SKIN_KEY = "skin";
@@ -30,9 +30,9 @@ function applySkin(name: string | null, persist = true) {
   document.documentElement.classList.remove(...KNOWN_SKINS);
   if (name) {
     document.documentElement.classList.add(name);
-    if (persist) try { localStorage.setItem(SKIN_KEY, name); } catch (e) {}
+    if (persist) try { localStorage.setItem(SKIN_KEY, name); } catch {}
   } else {
-    if (persist) try { localStorage.removeItem(SKIN_KEY); } catch (e) {}
+    if (persist) try { localStorage.removeItem(SKIN_KEY); } catch {}
   }
 }
 
@@ -59,12 +59,11 @@ export default function ThemeToggle(): React.JSX.Element {
         applySkin(s, false); // persist=false: 既に localStorage にあるので再保存不要
         setSkinState(s);
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
     // mark mounted to avoid hydration mismatches
     setMounted(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -72,7 +71,8 @@ export default function ThemeToggle(): React.JSX.Element {
    * 
    * @param name - トグルするスキン名
    */
-  function toggleSkin(name: string) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function _toggleSkin(name: string) {
     if (skin === name) {
       applySkin(null); // 既に同じなら解除
       setSkinState(null);

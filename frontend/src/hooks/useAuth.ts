@@ -121,7 +121,7 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [handlePendingMigration]);
 
   /**
    * ログアウト処理
