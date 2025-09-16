@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -8,8 +7,7 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma';
 
 // 検証トークンの有効期限（30分）
 const EXPIRES_MS = 30 * 60 * 1000;
@@ -579,18 +577,28 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     const newPasswordHash = await hashPassword(newPassword);
 
     // パスワードを更新し、passwordChangedAtを設定、トークンを削除
-    await prisma.$transaction([
-      prisma.user.update({ 
+    await prisma.$transaction(async (tx) => {
+      // ユーザーのパスワードを更新
+      await tx.user.update({ 
         where: { id: uid }, 
         data: { 
           passwordHash: newPasswordHash,
           passwordChangedAt: new Date()
         } 
-      }),
-      prisma.passwordResetToken.delete({ 
-        where: { id: resetToken.id } 
-      }),
-    ]);
+      });
+      
+      // トークンを削除（存在しない場合は無視）
+      try {
+        await tx.passwordResetToken.delete({ 
+          where: { id: resetToken.id } 
+        });
+      } catch (error: any) {
+        // P2025エラー（レコードが見つからない）の場合は無視
+        if (error.code !== 'P2025') {
+          throw error;
+        }
+      }
+    });
 
     // 既存のCookieをクリア（JWT無効化）
     res.clearCookie(COOKIE_NAME, {

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
+import { buildApiUrl } from "@/lib/api";
 
 /**
  * ログインフォームのデータ型
@@ -109,14 +110,7 @@ export default function LoginFeature() {
     try {
       timeoutId = window.setTimeout(() => controller.abort(), 10000); // 10秒で中断
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      
-      // デバッグ情報（開発環境のみ）
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('API URL:', apiUrl);
-      }
-      
-      const response = await fetch(`${apiUrl}/auth/login`, {
+      const response = await fetch(buildApiUrl('/auth/login'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -2,44 +2,33 @@
 
 import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Card, Button, Spinner } from '@/components/Primitives';
-
-interface SharedItinerary {
-  id: string;
-  title: string;
-  // TODO: 旅程の構造が決定したらanyを削除する
-  data: any;
-  createdAt: string;
-  updatedAt: string;
-  share: {
-    id: string;
-    scope: string;
-    permission: string;
-    hasPassword: boolean;
-    expiresAt: string | null;
-    allowedEmails: Array<{ email: string; name: string | null }>;
-  };
-}
+import { Spinner } from '@/components/Primitives';
+import { useAuthRedirect } from '@/hooks/useAuthRedirect';
+import { buildApiUrl } from '@/lib/api';
 
 /**
- * 共有URL経由で旅程を表示するページ
+ * 共有旅程ページ（即リダイレクト/即保存）
  * 
- * @returns 共有された旅程の表示ページ
+ * 非ログイン時: 旅程データをLocalStorageに保存して/edit/ページにリダイレクト
+ * ログイン時: 旅程を複製して自分の旅程として保存後、/edit/:idページにリダイレクト
+ * 
+ * @returns リダイレクト処理中のローディング画面
  */
 export default function SharedPage() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
-  const [itinerary, setItinerary] = React.useState<SharedItinerary | null>(null);
+  const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const fetchSharedItinerary = async () => {
+    const handleRedirect = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/shared/${id}`, {
+        // 共有旅程データを取得
+        const response = await fetch(buildApiUrl(`/shared/${id}`), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -57,7 +46,56 @@ export default function SharedPage() {
         }
 
         const data = await response.json();
-        setItinerary(data);
+
+        if (isAuthenticated) {
+          // ログイン時: 旅程を複製して自分の旅程として保存
+          try {
+            // 共有URLのIDをそのまま使用して複製（共有URLのID = 旅程ID）
+            const copyResponse = await fetch(buildApiUrl(`/api/itineraries/copy/${id}`), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+            });
+
+            if (!copyResponse.ok) {
+              const errorData = await copyResponse.json();
+              console.error('Copy failed:', errorData);
+              
+              // 自分の旅程の場合は直接編集ページにリダイレクト
+              if (errorData.message === 'Cannot copy your own itinerary') {
+                router.push(`/edit/${id}`);
+                return;
+              }
+              
+              throw new Error('旅程の複製に失敗しました');
+            }
+
+            const result = await copyResponse.json();
+            // 複製された旅程の編集ページにリダイレクト
+            router.push(`/edit/${result.id}`);
+          } catch (err) {
+            console.error('Failed to copy itinerary:', err);
+            setError('旅程の複製に失敗しました');
+          }
+        } else {
+          // 非ログイン時: LocalStorageに保存して/edit/ページにリダイレクト
+          try {
+            const itineraryData = {
+              title: data.title,
+              description: data.description || '',
+              subtitle: data.subtitle || '',
+              days: data.days || []
+            };
+            
+            localStorage.setItem('itinerary', JSON.stringify(itineraryData));
+            router.push('/edit');
+          } catch (err) {
+            console.error('Failed to save to local storage:', err);
+            setError('ローカルストレージへの保存に失敗しました');
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch shared itinerary:', err);
         setError(err instanceof Error ? err.message : '共有された旅程の取得に失敗しました');
@@ -66,21 +104,30 @@ export default function SharedPage() {
       }
     };
 
-    if (id) {
-      fetchSharedItinerary();
+    if (id && !authLoading) {
+      handleRedirect();
     }
-  }, [id]);
+  }, [id, isAuthenticated, authLoading, router]);
 
-  const handleBackToHome = () => {
-    router.push('/');
-  };
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600">認証状態を確認中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Spinner size="lg" />
-          <p className="mt-4 text-gray-600">共有された旅程を読み込み中...</p>
+          <p className="mt-4 text-gray-600">
+            {isAuthenticated ? '旅程を複製中...' : '編集ページに移動中...'}
+          </p>
         </div>
       </div>
     );
@@ -89,125 +136,24 @@ export default function SharedPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md mx-auto p-8 text-center">
-          <div className="mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">アクセスできません</h1>
-            <p className="text-gray-600">{error}</p>
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
           </div>
-          <Button onClick={handleBackToHome} kind="primary">
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">エラーが発生しました</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.push('/')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
             ホームに戻る
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!itinerary) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md mx-auto p-8 text-center">
-          <div className="mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">旅程が見つかりません</h1>
-            <p className="text-gray-600">共有された旅程のデータを取得できませんでした。</p>
-          </div>
-          <Button onClick={handleBackToHome} kind="primary">
-            ホームに戻る
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{itinerary.title}</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                共有された旅程 • {new Date(itinerary.updatedAt).toLocaleDateString('ja-JP')}
-              </p>
-            </div>
-            <Button onClick={handleBackToHome} kind="ghost">
-              ホームに戻る
-            </Button>
-          </div>
+          </button>
         </div>
-
-        {/* 旅程情報 */}
-        <Card className="p-6">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">旅程情報</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700">作成日:</span>
-                <span className="ml-2 text-gray-600">
-                  {new Date(itinerary.createdAt).toLocaleDateString('ja-JP')}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">更新日:</span>
-                <span className="ml-2 text-gray-600">
-                  {new Date(itinerary.updatedAt).toLocaleDateString('ja-JP')}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">共有権限:</span>
-                <span className="ml-2 text-gray-600">
-                  {itinerary.share.permission === 'READ_ONLY' ? '閲覧のみ' : '編集可能'}
-                </span>
-              </div>
-              {itinerary.share.expiresAt && (
-                <div>
-                  <span className="font-medium text-gray-700">有効期限:</span>
-                  <span className="ml-2 text-gray-600">
-                    {new Date(itinerary.share.expiresAt).toLocaleDateString('ja-JP')}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 旅程データの表示 */}
-          <div className="mt-6">
-            <h3 className="text-md font-semibold text-gray-900 mb-3">旅程詳細</h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                {JSON.stringify(itinerary.data, null, 2)}
-              </pre>
-            </div>
-          </div>
-        </Card>
-
-        {/* 注意事項 */}
-        <Card className="mt-6 p-4 bg-blue-50 border-blue-200">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h4 className="text-sm font-medium text-blue-800">共有された旅程について</h4>
-              <p className="text-sm text-blue-700 mt-1">
-                この旅程は共有リンク経由で表示されています。編集権限がない場合は、旅程の内容を変更することはできません。
-              </p>
-            </div>
-          </div>
-        </Card>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }

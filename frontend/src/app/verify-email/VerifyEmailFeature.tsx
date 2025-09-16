@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, Heading } from "@/components/Primitives";
+import { buildApiUrl } from "@/lib/api";
 
 /**
  * メール認証機能のメインコンポーネント
@@ -41,15 +42,8 @@ export default function VerifyEmailFeature() {
           return;
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-        
-        // デバッグ情報（開発環境のみ）
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log('Verifying email with:', { uid, token: token.substring(0, 10) + '...' });
-        }
-
         // メール認証APIを呼び出し
-        const response = await fetch(`${apiUrl}/auth/verify-email?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`, {
+        const response = await fetch(buildApiUrl(`/auth/verify-email?uid=${encodeURIComponent(uid)}&token=${encodeURIComponent(token)}`), {
           method: 'GET',
           credentials: 'include', // Cookieを受け取るために必要
         });

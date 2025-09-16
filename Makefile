@@ -10,6 +10,9 @@ ENV ?= dev
   up \
   down \
   restart \
+  restart-backend \
+  restart-frontend \
+  restart-db \
   build \
   logs \
   logs-backend \
@@ -20,13 +23,27 @@ ENV ?= dev
   sh-frontend \
   lint \
   test \
+  test-backend \
+  test-frontend \
+  test-main \
+  test-auth \
+  test-shared \
+  test-copy \
+  test-password-reset \
+  test-verbose \
+  test-coverage \
+  test-itinerary \
+  test-user \
   db-migrate \
   db-seed \
+  db-reset-seed \
   db-studio \
   swagger-ui \
   swagger-ui-stop \
   swagger-ui-local \
-  deploy
+  snapshot \
+  deploy \
+  init
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -62,6 +79,15 @@ restart: ## サービス再起動（down + up）
 	$(COMPOSE) down
 	$(COMPOSE) up -d
 
+restart-backend: ## backendサービスのみ再起動
+	$(COMPOSE) restart backend
+
+restart-frontend: ## frontendサービスのみ再起動
+	$(COMPOSE) restart frontend
+
+restart-db: ## dbサービスのみ再起動
+	$(COMPOSE) restart db
+
 build: ## イメージビルド
 	$(COMPOSE) build
 
@@ -86,19 +112,74 @@ sh-backend: ## backendのシェル
 sh-frontend: ## frontendのシェル
 	$(COMPOSE) exec frontend sh
 
-lint: ## まとめてlint
-	$(COMPOSE) exec backend npm run lint || true
-	$(COMPOSE) exec frontend npm run lint || true
+# NOTE: $(if $(CI),,|| true) はCI環境では失敗検知を潰さないため
 
-test: ## まとめてtest
-	$(COMPOSE) exec backend npm test -- --watch=false || true
-	$(COMPOSE) exec frontend npm test -- --watch=false || true
+lint: ## まとめてlint
+	$(COMPOSE) exec backend npm run lint $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm run lint $(if $(CI),,|| true)
+
+test: ## 全テスト実行（backend + frontend）
+	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
+
+test-backend: ## backendの全テスト実行
+	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
+
+test-frontend: ## frontendの全テスト実行
+	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
+
+test-main: ## メインE2Eテスト実行（全API統合テスト）
+	$(COMPOSE) exec backend npm test src/app.test.ts -- --watch=false $(if $(CI),,|| true)
+
+test-auth: ## 認証・ユーザー管理APIテスト実行
+	$(COMPOSE) exec backend npm test src/controllers/auth.test.ts -- --watch=false $(if $(CI),,|| true)
+
+test-shared: ## 共有旅程アクセスAPIテスト実行
+	$(COMPOSE) exec backend npm test src/controllers/sharedItineraryController.test.ts -- --watch=false $(if $(CI),,|| true)
+
+test-copy: ## 旅程複製・マイグレーションAPIテスト実行
+	$(COMPOSE) exec backend npm test src/controllers/itineraryCopyController.test.ts -- --watch=false $(if $(CI),,|| true)
+
+test-password-reset: ## パスワードリセット機能テスト実行
+	$(COMPOSE) exec backend npm test src/controllers/authController.test.ts -- --watch=false $(if $(CI),,|| true)
+
+# テスト実行オプション（詳細ログ付き）
+test-verbose: ## 全テスト実行（詳細ログ付き）
+	$(COMPOSE) exec backend npm test -- --watch=false --verbose $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false --verbose $(if $(CI),,|| true)
+
+test-coverage: ## 全テスト実行（カバレッジ付き）
+	$(COMPOSE) exec backend npm test -- --watch=false --coverage $(if $(CI),,|| true)
+	$(COMPOSE) exec frontend npm test -- --watch=false --coverage $(if $(CI),,|| true)
+
+# 特定のテストスイート実行
+test-itinerary: ## 旅程関連APIテスト実行
+	$(COMPOSE) exec backend npm test -- --testNamePattern="旅程管理API|旅程共有機能API|公開旅程アクセスAPI|旅程複製・マイグレーションAPI" --watch=false $(if $(CI),,|| true)
+
+test-user: ## ユーザー関連APIテスト実行
+	$(COMPOSE) exec backend npm test -- --testNamePattern="ユーザー管理API|認証エンドポイント" --watch=false $(if $(CI),,|| true)
+
+# テスト実行例:
+# make test                    # 全テスト実行
+# make test-backend           # backendの全テスト
+# make test-main              # メインE2Eテスト
+# make test-auth              # 認証APIテスト
+# make test-shared            # 共有旅程APIテスト
+# make test-copy              # 複製・マイグレーションAPIテスト
+# make test-verbose           # 詳細ログ付きテスト
+# make test-coverage          # カバレッジ付きテスト
 
 db-migrate: ## DBマイグレーション
 	$(COMPOSE) exec backend npm run db:migrate
 
 db-seed: ## 初期データ投入
 	$(COMPOSE) exec backend npm run db:seed
+
+db-reset-seed: ## データベースリセット + 初期データ投入
+	@echo "データベースをリセットして初期データを投入します..."
+	$(COMPOSE) exec backend npx prisma migrate reset --force --skip-seed
+	$(COMPOSE) exec backend npm run db:seed
+	@echo "データベースリセットとシードが完了しました"
 
 db-studio: ## Prisma Studio起動
 	$(COMPOSE) exec backend npx prisma studio
@@ -126,5 +207,36 @@ swagger-ui-local: ## Swagger UI起動（ローカル）
 	@echo "Starting Swagger UI locally on http://localhost:8081"
 	@npx swagger-ui-watcher docs/api/openapi.yaml --port 8081
 
+snapshot: ## プロジェクトのスナップショットを親ディレクトリに圧縮保存
+	@echo "プロジェクトのスナップショットを作成中..."
+	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
+	PROJECT_NAME=$$(basename "$$(pwd)"); \
+	PARENT_DIR=$$(dirname "$$(pwd)"); \
+	ARCHIVE_NAME="$${PROJECT_NAME}_snapshot_$${TIMESTAMP}.tar.gz"; \
+	echo "アーカイブ名: $${ARCHIVE_NAME}"; \
+	echo "保存先: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
+	tar -czf "$${PARENT_DIR}/$${ARCHIVE_NAME}" \
+		--exclude='node_modules' \
+		--exclude='.git' \
+		--exclude='dist' \
+		--exclude='build' \
+		--exclude='coverage' \
+		--exclude='*.log' \
+		--exclude='.env.local' \
+		--exclude='.env.production' \
+		--exclude='*.tmp' \
+		--exclude='.DS_Store' \
+		--exclude='Thumbs.db' \
+		-C "$$(pwd)" .; \
+	echo "スナップショットが作成されました: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
+	ls -lh "$${PARENT_DIR}/$${ARCHIVE_NAME}"
+
 deploy: ## デプロイNoop（後で差し替え）
 	@echo "Deploy to $(ENV) - TODO"
+
+init: ## 初回セットアップ（DBマイグレーション + シード）
+	$(COMPOSE) up -d
+	@echo "データベースの初期化を待機中..."
+	@sleep 10
+	$(COMPOSE) exec backend npm run db:migrate
+	$(COMPOSE) exec backend npm run db:seed

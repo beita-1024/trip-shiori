@@ -2,12 +2,6 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  transformIgnorePatterns: [
-    'node_modules/(?!(jsondiffpatch)/)'
-  ],
-  moduleNameMapper: {
-    '^jsondiffpatch$': '<rootDir>/node_modules/jsondiffpatch/lib/index.js'
-  },
   testMatch: [
     '**/__tests__/**/*.ts',
     '**/?(*.)+(spec|test).ts'
@@ -15,5 +9,18 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts'
-  ]
+  ],
+  transform: {
+    '^.+\\.ts$': 'ts-jest'
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(jsondiffpatch)/)'
+  ],
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        types: ['node', 'jest']
+      }
+    }
+  }
 };

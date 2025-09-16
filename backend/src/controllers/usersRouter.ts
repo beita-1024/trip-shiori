@@ -5,7 +5,7 @@ import {
   changePassword, 
   deleteUserAccount 
 } from './usersController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, checkUserExists } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
 import { rateLimit } from '../middleware/rateLimit';
 import { 
@@ -25,7 +25,7 @@ router.use(authenticateToken);
 router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // プロフィール管理
-router.get('/profile', getUserProfile);
+router.get('/profile', checkUserExists, getUserProfile);
 router.put('/profile', validateBody(updateUserProfileSchema), updateUserProfile);
 
 // パスワード管理

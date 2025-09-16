@@ -43,9 +43,9 @@ router.post("/complete", async (req: Request, res: Response) => {
     // リクエストボディからイベントデータを取得
     const { event1, event2, dummy } = req.body ?? {};
     if (!event1 || !event2) {
-      console.warn(
-        `[eventsRouter] POST /api/events/complete missing required fields userId=${userId ?? "-"}`
-      );
+      // console.warn(
+      //   `[eventsRouter] POST /api/events/complete missing required fields userId=${userId ?? "-"}`
+      // );
       return res.status(400).json({ error: "event1 and event2 are required in body" });
     }
 

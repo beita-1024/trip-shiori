@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { generateRandomId } from '../utils/idGenerator';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../config/prisma';
 import { 
   getItinerariesQuerySchema,
   createItinerarySchema,
@@ -10,8 +11,6 @@ import {
   type CreateItineraryRequest,
   type UpdateItineraryRequest
 } from '../validators/itineraryValidators';
-
-const prisma = new PrismaClient();
 
 /**
  * 旅のしおりを作成する
@@ -139,6 +138,7 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  * @returns
  *   - 200: 旅程データ（JSON形式）
  * @errors
+ *   - 400: validation_error
  *   - 401: unauthorized
  *   - 403: forbidden
  *   - 404: not_found
@@ -148,6 +148,7 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const getItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     /**
@@ -170,11 +171,6 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
             passwordHash: true,
             expiresAt: true,
             scope: true,
-            allowedEmails: {
-              select: {
-                email: true,
-              },
-            },
           },
         },
       },
@@ -217,37 +213,6 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
         case 'PUBLIC_LINK':
           // リンクを知っている人全員（認証不要）
           // 公開リンクの場合は、リンクを知っていることが認証の代わり
-          break;
-        case 'AUTHENTICATED_USERS':
-          // 認証済みユーザーのみ
-          // 認証済みユーザーのみがアクセス可能な設定
-          if (!isAuthenticated) {
-            return res.status(401).json({ 
-              error: 'unauthorized',
-              message: 'Authentication required' 
-            });
-          }
-          break;
-        case 'RESTRICTED_EMAILS':
-          // 特定のメールアドレスのみ
-          // 許可されたメールアドレスのみがアクセス可能
-          if (!isAuthenticated) {
-            return res.status(401).json({ 
-              error: 'unauthorized',
-              message: 'Authentication required' 
-            });
-          }
-          if (share.allowedEmails && share.allowedEmails.length > 0) {
-            const allowedEmails = share.allowedEmails.map((email: any) => email.email);
-            // 自分のメールアドレスが許可リストに含まれているかチェック
-            // 許可されていないメールアドレスからのアクセスを防ぐ
-            if (!allowedEmails.includes(req.user!.email)) {
-              return res.status(403).json({ 
-                error: 'forbidden',
-                message: 'Access denied' 
-              });
-            }
-          }
           break;
         case 'PUBLIC':
           // 全体公開（認証不要）
@@ -316,7 +281,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *       - limit?: number — 1ページあたりの件数（デフォルト: 10, 最大: 100）
  *       - sort?: string — ソート対象フィールド（createdAt/updatedAt、デフォルト: createdAt）
  *       - order?: string — ソート順（asc/desc、デフォルト: desc）
- *       - shareScope?: string | string[] — 共有範囲での絞り込み（PUBLIC_LINK/RESTRICTED_EMAILS/AUTHENTICATED_USERS/PUBLIC、単一または複数指定可能）
+ *       - shareScope?: string | string[] — 共有範囲での絞り込み（PUBLIC_LINK/PUBLIC、単一または複数指定可能）
  *       - sharePermission?: string | string[] — 共有権限での絞り込み（READ_ONLY/EDIT、単一または複数指定可能）
  *       - includeShare?: boolean — 各旅程の共有設定情報を含めるか（デフォルト: false, オプション）
  *       - includeShared?: boolean — 共有された旅程も含めるか（デフォルト: false, オプション）
@@ -333,7 +298,6 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *             scope: string,           // 共有範囲（PUBLIC_LINK等）
  *             permission: string,      // 共有権限（READ_ONLY/EDIT）
  *             expiresAt?: string,      // 有効期限（あれば）
- *             allowedEmails?: string[] // 許可メールアドレス（RESTRICTED_EMAILS時のみ）
  *           } | null
  *         }>,
  *         pagination: {
@@ -361,8 +325,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *           "id": "shr_xyz789",
  *           "scope": "PUBLIC_LINK",
  *           "permission": "READ_ONLY",
- *           "expiresAt": null,
- *           "allowedEmails": null
+ *           "expiresAt": null
  *         }
  *       }
  *     ],
@@ -422,19 +385,6 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
                   OR: [
                     { scope: 'PUBLIC_LINK' }, // 公開リンク - リンクを知っている人全員がアクセス可能
                     { scope: 'PUBLIC' }, // 全体公開 - 誰でもアクセス可能
-                    { scope: 'AUTHENTICATED_USERS' }, // 認証済みユーザー - 認証済みなら誰でもアクセス可能
-                    {
-                      AND: [
-                        { scope: 'RESTRICTED_EMAILS' }, // 特定メールアドレスのみ
-                        {
-                          allowedEmails: {
-                            some: {
-                              email: req.user.email // 自分のメールアドレスが許可リストに含まれている場合のみアクセス可能
-                            }
-                          }
-                        }
-                      ]
-                    }
                   ]
                 }
               }
@@ -489,11 +439,6 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
           expiresAt: true,
           accessCount: true,
           lastAccessedAt: true,
-          allowedEmails: {
-            select: {
-              email: true,
-            }
-          }
         }
       };
     }
@@ -543,7 +488,6 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
             expiresAt: (it as any).share.expiresAt,
             accessCount: (it as any).share.accessCount,
             lastAccessedAt: (it as any).share.lastAccessedAt,
-            allowedEmails: (it as any).share.allowedEmails?.map((email: any) => email.email) || [],
           };
         } else {
           // 共有設定が存在しない場合は明示的にnullを設定
@@ -611,6 +555,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
  */
 export const updateItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     // Zodバリデーション済みデータを取得
     const validatedBody = (req as any).validatedBody as UpdateItineraryRequest;
@@ -666,6 +611,7 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
  */
 export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み
@@ -685,3 +631,71 @@ export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) 
     });
   }
 };
+
+/**
+ * 旅程の所有者かどうかを確認する
+ * 
+ * @summary 指定された旅程IDが現在のユーザーのものかどうかを確認
+ * @auth Bearer JWT (Cookie: access_token)
+ * @middleware
+ *   - authenticateToken: JWT認証
+ * @context
+ *   - req.user: 認証済みユーザー情報（id, email）
+ * @params
+ *   - Path: { id: string } - 旅程ID
+ * @returns
+ *   - 200: { isOwner: boolean, message: string }
+ * @errors
+ *   - 401: unauthorized
+ *   - 404: not_found
+ * @example
+ *   GET /api/itineraries/abc123/ownership
+ *   200: { "isOwner": true, "message": "User is the owner of this itinerary" }
+ */
+export const checkItineraryOwnership = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // 認証チェック
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'unauthorized',
+        message: 'User not authenticated' 
+      });
+    }
+
+    // ミドルウェアでバリデーション済み
+    const { id } = req.params;
+
+    // 旅程の存在確認と所有者チェック
+    const itinerary = await prisma.itinerary.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+    if (!itinerary) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: 'Itinerary not found'
+      });
+    }
+
+    const isOwner = itinerary.userId === req.user.id;
+
+    return res.status(200).json({
+      isOwner,
+      message: isOwner 
+        ? 'User is the owner of this itinerary' 
+        : 'User is not the owner of this itinerary'
+    });
+
+  } catch (error) {
+    console.error('Check itinerary ownership error:', error);
+    return res.status(500).json({ 
+      error: 'internal_server_error',
+      message: 'Failed to check itinerary ownership' 
+    });
+  }
+};
+

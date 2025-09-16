@@ -5,7 +5,14 @@ info:
     旅のしおり作成・管理システムのAPI
     
     このAPIは旅行の行程を作成・編集・管理するためのRESTful APIです。
-    AI機能を使用してイベントの補完や旅程の編集をサポートします。
+    OpenAI ChatGPT APIを統合したAI機能により、イベントの補完や旅程の編集をサポートします。
+    
+    ## AI機能について
+    このAPIでは以下のAI機能を提供しています：
+    - **イベント補完**: 2つのイベントの間に新しいイベントを自動生成
+    - **旅程編集**: 自然言語での編集指示を理解し、旅程を自動更新
+    
+    詳細については、[OpenAI統合ドキュメント](../openai-integration.md)を参照してください。
     
     
     ## グローバルミドルウェア
@@ -605,7 +612,7 @@ paths:
         - name: page
           in: query
           description: ページ番号（1から開始）
-          required: false
+          required: true
           schema:
             type: integer
             minimum: 1
@@ -613,7 +620,7 @@ paths:
         - name: limit
           in: query
           description: 1ページあたりの件数（最大100）
-          required: false
+          required: true
           schema:
             type: integer
             minimum: 1
@@ -622,7 +629,7 @@ paths:
         - name: sort
           in: query
           description: ソートフィールド
-          required: false
+          required: true
           schema:
             type: string
             enum: [createdAt, updatedAt]
@@ -630,7 +637,7 @@ paths:
         - name: order
           in: query
           description: ソート順序
-          required: false
+          required: true
           schema:
             type: string
             enum: [asc, desc]
@@ -638,20 +645,20 @@ paths:
         - name: shareScope
           in: query
           description: 共有範囲での絞り込み（単一または複数指定可能）
-          required: false
+          required: true
           schema:
             oneOf:
               - type: string
-                enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
               - type: array
                 items:
                   type: string
-                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
           example: "PUBLIC_LINK"
         - name: sharePermission
           in: query
           description: 共有権限での絞り込み（単一または複数指定可能）
-          required: false
+          required: true
           schema:
             oneOf:
               - type: string
@@ -664,14 +671,14 @@ paths:
         - name: includeShare
           in: query
           description: 各旅程の共有設定情報を含めるか
-          required: false
+          required: true
           schema:
             type: boolean
             default: false
         - name: includeShared
           in: query
           description: 共有された旅程も含めるか
-          required: false
+          required: true
           schema:
             type: boolean
             default: false
@@ -756,14 +763,11 @@ paths:
         2. **共有設定がある場合**: 公開範囲（scope）に応じて以下のアクセス制御が行われます：
            - PRIVATE: 所有者のみアクセス可能（デフォルト）
            - PUBLIC_LINK: リンクを知っている人全員（認証不要）
-           - AUTHENTICATED_USERS: 認証済みユーザーのみ
-           - RESTRICTED_EMAILS: 特定のメールアドレスのみ（認証必須）
            - PUBLIC: 全体公開（認証不要）
         3. **共有設定がない場合**: 所有者のみアクセス可能
         
         **セキュリティ機能**:
         - 有効期限チェック: 期限切れの共有設定は自動的に無効化
-        - メールアドレス検証: RESTRICTED_EMAILSでは許可リストに基づく厳密なチェック
         - パスワード保護: 共有設定でパスワードが設定されている場合は認証が必要
         
         **使用ミドルウェア**:
@@ -943,17 +947,9 @@ paths:
                   example: "2024-12-31T23:59:59Z"
                 scope:
                   type: string
-                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
                   description: 公開範囲
                   example: "PUBLIC_LINK"
-                allowedEmails:
-                  type: array
-                  items:
-                    type: string
-                    format: email
-                  maxItems: 100
-                  description: 許可されたメールアドレスリスト（RESTRICTED_EMAILS時のみ使用）
-                  example: ["user@example.com", "friend@example.com"]
       responses:
         '201':
           description: 共有設定が正常に作成されました
@@ -1050,24 +1046,15 @@ paths:
                     description: パスワード保護の有無
                     example: true
                   expiresAt:
-                    type: string
+                    type: [string, "null"]
                     format: date-time
-                    nullable: true
                     description: 有効期限（nullの場合は無期限）
                     example: "2024-12-31T23:59:59Z"
                   scope:
                     type: string
-                    enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                    enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
                     description: 公開範囲
                     example: "PRIVATE"
-                  allowedEmails:
-                    type: array
-                    items:
-                      type: string
-                      format: email
-                    nullable: true
-                    description: 許可されたメールアドレスリスト
-                    example: ["user@example.com", "friend@example.com"]
         '404':
           description: 共有設定が見つかりません
           content:
@@ -1117,32 +1104,21 @@ paths:
                   description: 共有権限レベル
                   example: "EDIT"
                 password:
-                  type: string
-                  nullable: true
+                  type: [string, "null"]
                   minLength: 8
                   maxLength: 128
                   description: 共有パスワード（nullでパスワード削除）
                   example: "NewSharePass123!"
                 expiresAt:
-                  type: string
+                  type: [string, "null"]
                   format: date-time
-                  nullable: true
                   description: 有効期限（nullで無期限）
                   example: "2024-12-31T23:59:59Z"
                 scope:
                   type: string
-                  enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+                  enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
                   description: 公開範囲
-                  example: "RESTRICTED_EMAILS"
-                allowedEmails:
-                  type: array
-                  items:
-                    type: string
-                    format: email
-                  nullable: true
-                  maxItems: 100
-                  description: 許可されたメールアドレスリスト（nullでリスト削除）
-                  example: ["user@example.com", "friend@example.com"]
+                  example: "PUBLIC_LINK"
       responses:
         '200':
           description: 共有設定が正常に更新されました
@@ -1225,12 +1201,373 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  # 公開旅程アクセスAPI
+  /shared/{id}:
+    get:
+      summary: 共有リンク経由で旅程取得
+      description: |
+        リンクを知っている全員がアクセス可能な旅程を取得
+        
+        **アクセス制御**:
+        - PUBLIC_LINK公開範囲の旅程のみアクセス可能
+        - 認証不要
+        - 有効期限チェックあり
+        - アクセス回数の自動カウント
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（120 req/min）
+      tags:
+        - Public Access
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      responses:
+        '200':
+          description: 旅程データ（JSON形式）+ 共有情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                    example: "Tokyo Trip"
+                  start_date:
+                    type: string
+                    example: "2025-09-01"
+                  end_date:
+                    type: string
+                    example: "2025-09-05"
+                  days:
+                    type: array
+                    items:
+                      type: object
+                  _shareInfo:
+                    type: object
+                    properties:
+                      permission:
+                        type: string
+                        enum: [READ_ONLY, EDIT]
+                        example: "READ_ONLY"
+                      scope:
+                        type: string
+                        enum: [PUBLIC_LINK]
+                        example: "PUBLIC_LINK"
+                      isReadOnly:
+                        type: boolean
+                        example: true
+                      accessCount:
+                        type: integer
+                        example: 5
+                      lastAccessedAt:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T10:30:00Z"
+        '403':
+          description: アクセス拒否
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 旅程が見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: 共有期限切れ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /public/{id}:
+    get:
+      summary: 公開旅程取得（OGP対応）
+      description: |
+        誰でもアクセス可能な公開旅程を取得（検索エンジンにインデックスされる）
+        
+        **アクセス制御**:
+        - PUBLIC公開範囲の旅程のみアクセス可能
+        - 認証不要
+        - OGP用メタデータを含む
+        - アクセス回数の自動カウント
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（120 req/min）
+      tags:
+        - Public Access
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 旅程の一意識別子
+          schema:
+            type: string
+            example: "itn_123"
+      responses:
+        '200':
+          description: 旅程データ（JSON形式）+ OGP用メタデータ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                    example: "Tokyo Trip"
+                  start_date:
+                    type: string
+                    example: "2025-09-01"
+                  end_date:
+                    type: string
+                    example: "2025-09-05"
+                  days:
+                    type: array
+                    items:
+                      type: object
+                  _publicInfo:
+                    type: object
+                    properties:
+                      permission:
+                        type: string
+                        enum: [READ_ONLY, EDIT]
+                        example: "READ_ONLY"
+                      scope:
+                        type: string
+                        enum: [PUBLIC]
+                        example: "PUBLIC"
+                      isReadOnly:
+                        type: boolean
+                        example: true
+                      accessCount:
+                        type: integer
+                        example: 15
+                      lastAccessedAt:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T10:30:00Z"
+                      author:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "匿名"
+                          email:
+                            type: [string, "null"]
+                            example: "***@***.***"
+                      ogp:
+                        type: object
+                        properties:
+                          title:
+                            type: string
+                            example: "旅のしおり"
+                          description:
+                            type: string
+                            example: "共有された旅のしおりです"
+                          image:
+                            type: [string, "null"]
+                            example: "https://example.com/image.jpg"
+                          url:
+                            type: string
+                            example: "https://example.com/public/itn_123"
+                          type:
+                            type: string
+                            example: "article"
+                          site_name:
+                            type: string
+                            example: "旅のしおり"
+        '403':
+          description: アクセス拒否
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 旅程が見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # 旅程複製・マイグレーションAPI
+  /api/itineraries/copy/{id}:
+    post:
+      summary: 旅程複製
+      description: |
+        認証済みユーザーが他のユーザーの旅程を複製して新しいIDで保存
+        
+        **アクセス制御**:
+        - 認証必須
+        - PUBLIC_LINKまたはPUBLIC公開範囲の旅程のみ複製可能
+        - 自分の旅程は複製不可
+        - 有効期限チェックあり
+        
+        **使用ミドルウェア**:
+        - auth: JWT認証
+        - rateLimit: リクエスト頻度制限（30 req/min）
+      tags:
+        - Itinerary Copy
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 複製元の旅程ID
+          schema:
+            type: string
+            example: "itn_123"
+      responses:
+        '201':
+          description: 旅程が正常に複製されました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "itn_456"
+                  message:
+                    type: string
+                    example: "Itinerary copied successfully"
+        '400':
+          description: バリデーションエラーまたは自分の旅程の複製
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: アクセス拒否または期限切れ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 複製元の旅程が見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/itineraries/migrate:
+    post:
+      summary: ローカル保存マイグレーション
+      description: |
+        認証済みユーザーが登録時にローカルストレージの旅程をDBに移行
+        
+        **制限事項**:
+        - 最大50旅程まで移行可能
+        - 各旅程のデータサイズは1MB以下
+        - 重複チェックなし（新しいIDで作成）
+        
+        **使用ミドルウェア**:
+        - auth: JWT認証
+        - rateLimit: リクエスト頻度制限（30 req/min）
+      tags:
+        - Itinerary Copy
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - itineraries
+              properties:
+                itineraries:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                        description: ローカルストレージの旅程ID
+                        example: "local_123"
+                      data:
+                        type: object
+                        description: 旅程データ（任意のJSON形式）
+                  minItems: 1
+                  maxItems: 50
+                  description: 移行する旅程の配列
+      responses:
+        '200':
+          description: マイグレーション完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  migrated:
+                    type: integer
+                    example: 3
+                  total:
+                    type: integer
+                    example: 5
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                    description: エラーメッセージ（エラーがある場合のみ）
+                    example: ["Failed to migrate itinerary local_456"]
+                  message:
+                    type: string
+                    example: "Migration completed. 3/5 itineraries migrated successfully"
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/events/complete:
     post:
-      summary: イベント補完
-      description: 2つのイベントの間に新しいイベントを生成するAI機能
+      summary: イベント補完（AI機能）
+      description: |
+        2つのイベントの間に新しいイベントをOpenAI ChatGPT APIを使用して自動生成するAI機能
+        
+        **AI機能の詳細**:
+        - 使用モデル: GPT-4o Mini（デフォルト）、GPT-4、GPT-3.5 Turbo
+        - 温度設定: 0.7（創造性と一貫性のバランス）
+        - 最大トークン: 1000
+        - タイムアウト: 30秒
+        - リトライ: 最大5回（JSONスキーマ検証失敗時）
+        
+        **生成されるイベントの特徴**:
+        - 時刻は必ず "HH:MM" 形式
+        - アイコンは指定されたリストから選択
+        - 詳細な説明文を自動生成
+        - JSONスキーマによる厳密な検証
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（AI機能専用制限）
       tags:
         - Events
+        - AI Features
       requestBody:
         required: true
         content:
@@ -1243,26 +1580,53 @@ paths:
               properties:
                 event1:
                   $ref: '#/components/schemas/Event'
+                  description: 最初のイベント（開始地点）
                 event2:
                   $ref: '#/components/schemas/Event'
+                  description: 2番目のイベント（終了点）
                 dummy:
                   type: boolean
-                  description: ダミーモードフラグ（オプション）
+                  description: ダミーモードフラグ（テスト用、実際のAI呼び出しをスキップ）
                   example: false
+            examples:
+              basic_example:
+                summary: 基本的なイベント補完
+                value:
+                  event1:
+                    time: "10:00"
+                    end_time: "10:30"
+                    title: "出発"
+                    description: "新宿駅から出発"
+                    icon: "mdi-train"
+                  event2:
+                    time: "12:00"
+                    end_time: "12:30"
+                    title: "到着"
+                    description: "東京駅に到着"
+                    icon: "mdi-map-marker"
       parameters:
         - name: x-user-id
           in: header
-          required: false
+          required: true
           schema:
             type: string
-          description: ユーザーID（オプション）
+          description: ユーザーID（ログ用、オプション）
       responses:
         '200':
-          description: 生成されたイベント
+          description: AI生成されたイベント
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Event'
+              examples:
+                generated_event:
+                  summary: 生成されたイベント例
+                  value:
+                    time: "11:00"
+                    end_time: "11:30"
+                    title: "電車移動"
+                    description: "新宿駅から東京駅まで電車で移動します。JR山手線または中央線を利用し、約1時間の移動時間です。"
+                    icon: "mdi-train"
         '400':
           description: 必須フィールド不足
           content:
@@ -1274,7 +1638,7 @@ paths:
                     type: string
                     example: event1 and event2 are required in body
         '422':
-          description: AI生成エラー
+          description: AI生成エラー（スキーマ検証失敗、API呼び出し失敗など）
           content:
             application/json:
               schema:
@@ -1283,13 +1647,42 @@ paths:
                   error:
                     type: string
                     example: AI generation failed
+        '429':
+          description: レート制限超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/itinerary-edit:
     post:
-      summary: 旅程編集
-      description: AIを使用して旅程を編集
+      summary: 旅程編集（AI機能）
+      description: |
+        OpenAI ChatGPT APIを使用して自然言語での旅程編集指示を理解し、旅程を自動更新するAI機能
+        
+        **AI機能の詳細**:
+        - 使用モデル: GPT-4o Mini（デフォルト）、GPT-4、GPT-3.5 Turbo
+        - 自然言語理解: 日本語での編集指示を解析
+        - 差分生成: 変更前後の差分をJSON Patch形式で提供
+        - 変更説明: 実行された変更内容を自然言語で説明
+        
+        **対応する編集指示の例**:
+        - "2日目の朝食を和食に変更してください"
+        - "3日目の観光地を浅草寺に変更"
+        - "移動時間を30分延長してください"
+        - "夕食の予約時間を1時間遅らせてください"
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（AI機能専用制限）
       tags:
         - Itinerary Edit
+        - AI Features
       requestBody:
         required: true
         content:
@@ -1302,10 +1695,28 @@ paths:
               properties:
                 originalItinerary:
                   $ref: '#/components/schemas/Itinerary'
+                  description: 編集対象の元の旅程データ
                 editPrompt:
                   type: string
-                  description: 変更したい内容の説明
-                  example: 2日目の朝食を和食に変更してください
+                  description: 変更したい内容の自然言語での説明
+                  example: 2日目の朝食を和食レストランに変更してください
+                  minLength: 1
+                  maxLength: 1000
+            examples:
+              basic_edit:
+                summary: 基本的な旅程編集
+                value:
+                  originalItinerary:
+                    title: "東京観光旅行"
+                    days:
+                      - date: "2025-09-01"
+                        events:
+                          - time: "09:00"
+                            end_time: "09:30"
+                            title: "朝食"
+                            description: "ホテルで朝食"
+                            icon: "mdi-food"
+                  editPrompt: "2日目の朝食を和食レストランに変更してください"
       responses:
         '200':
           description: 旅程編集成功
@@ -1319,8 +1730,29 @@ paths:
                     example: true
                   data:
                     $ref: '#/components/schemas/ItineraryEditResponse'
+              examples:
+                successful_edit:
+                  summary: 編集成功例
+                  value:
+                    success: true
+                    data:
+                      modifiedItinerary:
+                        title: "東京観光旅行"
+                        days:
+                          - date: "2025-09-01"
+                            events:
+                              - time: "09:00"
+                                end_time: "09:30"
+                                title: "和食朝食"
+                                description: "築地市場の老舗和食レストランで朝食"
+                                icon: "mdi-food"
+                      diffPatch:
+                        op: "replace"
+                        path: "/days/0/events/0/title"
+                        value: "和食朝食"
+                      changeDescription: "2日目の朝食を和食レストランに変更しました"
         '400':
-          description: バリデーションエラー
+          description: バリデーションエラー（必須フィールド不足、不正なデータ形式など）
           content:
             application/json:
               schema:
@@ -1329,6 +1761,25 @@ paths:
                   error:
                     type: string
                     example: originalItinerary is required
+        '422':
+          description: AI生成エラー（編集指示の理解失敗、無効な編集結果など）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: AI generation failed
+        '429':
+          description: レート制限超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: サーバーエラー
           content:
@@ -1396,13 +1847,11 @@ components:
           format: email
           example: "user@example.com"
         name:
-          type: string
-          nullable: true
+          type: [string, "null"]
           example: "Taro Yamada"
         emailVerified:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           example: "2025-01-01T00:00:00Z"
         createdAt:
           type: string
@@ -1447,24 +1896,15 @@ components:
           description: パスワード保護の有無
           example: true
         expiresAt:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: 有効期限（nullの場合は無期限）
           example: "2024-12-31T23:59:59Z"
         scope:
           type: string
-          enum: [PRIVATE, PUBLIC_LINK, RESTRICTED_EMAILS, AUTHENTICATED_USERS, PUBLIC]
+          enum: [PRIVATE, PUBLIC_LINK, PUBLIC]
           description: 公開範囲
           example: "PUBLIC_LINK"
-        allowedEmails:
-          type: array
-          items:
-            type: string
-            format: email
-          nullable: true
-          description: 許可されたメールアドレスリスト
-          example: ["user@example.com", "friend@example.com"]
 
     Pagination:
       type: object
@@ -1588,8 +2028,7 @@ components:
           format: date-time
           example: "2025-01-15T10:30:00Z"
         userId:
-          type: string
-          nullable: true
+          type: [string, "null"]
           example: user123
 
     ItineraryEditResponse:
@@ -1674,8 +2113,14 @@ tags:
     description: 旅のしおり管理
   - name: Itinerary Share
     description: 旅程共有機能
+  - name: Public Access
+    description: 公開旅程アクセス
+  - name: Itinerary Copy
+    description: 旅程複製・マイグレーション
   - name: Events
     description: イベント管理
   - name: Itinerary Edit
     description: 旅程編集
+  - name: AI Features
+    description: AI機能（OpenAI ChatGPT API統合）
 

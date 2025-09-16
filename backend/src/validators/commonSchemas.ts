@@ -29,3 +29,19 @@ export const changePasswordSchema = z.object({
  * パスワード変更のリクエスト型
  */
 export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
+
+/**
+ * 旅程IDのバリデーションスキーマ
+ * セキュリティガイドラインに基づく厳格な形式チェック
+ */
+export const itineraryIdSchema = z.string()
+  .min(1, '旅程IDは必須です')
+  .max(64, '旅程IDは64文字以内である必要があります')
+  .regex(/^[A-Za-z0-9_-]+$/, '旅程IDは英数字、ハイフン、アンダースコアのみ使用可能です');
+
+/**
+ * パスパラメータのバリデーションスキーマ
+ */
+export const pathParamsSchema = z.object({
+  id: itineraryIdSchema,
+});

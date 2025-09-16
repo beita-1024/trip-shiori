@@ -2,7 +2,7 @@
 import { PrismaClient } from '@prisma/client'
 import repl from 'repl'
 
-const prisma = new PrismaClient()
+import { prisma } from './config/prisma'
 
 const r = repl.start({
   prompt: 'prisma> ',

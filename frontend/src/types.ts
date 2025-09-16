@@ -26,13 +26,8 @@ export interface Itinerary {
 }
 
 // 共有設定関連の型定義
-export type ShareScope = 'PRIVATE' | 'PUBLIC_LINK' | 'RESTRICTED_EMAILS' | 'AUTHENTICATED_USERS' | 'PUBLIC';
+export type ShareScope = 'PRIVATE' | 'PUBLIC_LINK' | 'PUBLIC';
 export type SharePermission = 'READ_ONLY' | 'EDIT';
-
-export interface SharedUser {
-  name?: string;
-  email: string; // 内部でのみ使用、APIでは返さない
-}
 
 export interface ItineraryShareInfo {
   permission: SharePermission;
@@ -40,7 +35,6 @@ export interface ItineraryShareInfo {
   expiresAt?: string | null;
   accessCount: number;
   lastAccessedAt?: string | null;
-  allowedEmails: SharedUser[]; // メールアドレスではなくユーザー情報の配列
 }
 
 // 旅程一覧アイテム

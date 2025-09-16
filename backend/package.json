@@ -7,7 +7,9 @@
     "build": "tsc",
     "test": "cross-env NODE_ENV=test dotenv -e .env.test jest",
     "dev": "ts-node src/app.ts",
-    "docs": "npx typedoc --options typedoc.json"
+    "docs": "npx typedoc --options typedoc.json",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:migrate": "npx prisma migrate dev"
   },
   "keywords": [],
   "author": "",

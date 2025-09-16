@@ -6,8 +6,8 @@
 import { ChatGptClient } from '../adapters/chatGptClient';
 import { ModelType } from '../types/modelType';
 import { Itinerary, ItineraryEditRequest, ItineraryEditResponse } from '../types/itineraryTypes';
-// @ts-ignore
-import * as jsondiffpatch from 'jsondiffpatch';
+
+// jsondiffpatch は ES6 モジュール形式なので、動的インポートを使用
 
 /**
  * 旅程編集サービスクラス
@@ -57,17 +57,39 @@ export class ItineraryEditService {
       timeoutMs: 60000
     });
 
-    // JSON差分パッチャーの初期化
-    this.diffPatcher = jsondiffpatch.create({
-      arrays: {
-        detectMove: false,
-        includeValueOnMove: false
-      },
-      textDiff: {
-        minLength: 60,
-        diffMatchPatch: require('diff-match-patch')
+    // JSON差分パッチャーの初期化（動的インポート）
+    this.initializeDiffPatcher();
+  }
+
+  /**
+   * JSON差分パッチャーを初期化する
+   */
+  private async initializeDiffPatcher(): Promise<void> {
+    try {
+      // テスト環境ではjsondiffpatchをスキップ
+      if (process.env.NODE_ENV === 'test') {
+        console.log('テスト環境のため、jsondiffpatchの初期化をスキップします');
+        return;
       }
-    });
+
+      // 動的インポートでjsondiffpatchを読み込み
+      const jsondiffpatch = await import('jsondiffpatch');
+      
+      // デフォルトエクスポートまたは名前付きエクスポートを確認
+      const diffPatcherModule = jsondiffpatch.default || jsondiffpatch;
+      
+      this.diffPatcher = diffPatcherModule.create({
+        arrays: {
+          detectMove: false,
+          includeValueOnMove: false
+        }
+      });
+      
+      console.log('jsondiffpatch の初期化が完了しました');
+    } catch (error) {
+      console.error('jsondiffpatch の初期化に失敗しました:', error);
+      throw new Error('差分パッチャーの初期化に失敗しました');
+    }
   }
 
   /**
@@ -78,6 +100,11 @@ export class ItineraryEditService {
    */
   async editItinerary(request: ItineraryEditRequest): Promise<ItineraryEditResponse> {
     try {
+      // 差分パッチャーが初期化されていない場合は初期化
+      if (!this.diffPatcher) {
+        await this.initializeDiffPatcher();
+      }
+
       // 1. ChatGPTを使用して旅程を編集
       const modifiedItinerary = await this.editItineraryWithAI(request);
 
@@ -158,7 +185,17 @@ ${request.editPrompt}
    * @returns 差分パッチ
    */
   private generateDiff(original: Itinerary, modified: Itinerary): any {
-    return this.diffPatcher.diff(original, modified);
+    if (!this.diffPatcher) {
+      console.warn('差分パッチャーが初期化されていません。空の差分を返します。');
+      return {};
+    }
+    
+    try {
+      return this.diffPatcher.diff(original, modified);
+    } catch (error) {
+      console.error('差分パッチの生成に失敗しました:', error);
+      return {};
+    }
   }
 
   /**

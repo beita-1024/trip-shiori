@@ -1,0 +1,40 @@
+/**
+ * PrintArea コンポーネント用のCSS
+ * 
+ * 印刷専用エリアのスタイルを定義します。
+ * 画面には表示されず、印刷時のみ表示されるように設定されています。
+ */
+
+/* 印刷専用エリア（通常は非表示） */
+.printArea {
+  display: none;
+}
+
+/* 印刷時に表示 */
+@media print {
+  .printArea {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
+  }
+  
+  /* 印刷時は他の要素を非表示 */
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* デバッグ用（show=trueの場合のみ表示） */
+.printArea.show {
+  display: block;
+  border: 2px dashed #ccc;
+  margin: 20px 0;
+  padding: 20px;
+  background: #f9f9f9;
+}

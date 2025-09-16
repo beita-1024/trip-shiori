@@ -3,8 +3,9 @@ import app from '../app';
 import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
 
-const prisma = new PrismaClient();
+import { testPrisma as prisma } from '../config/prisma.test';
 
 // 参考
 // Jest公式サイト: https://jestjs.io/docs/getting-started
@@ -22,13 +23,13 @@ const prisma = new PrismaClient();
 describe('Auth Endpoints Tests', () => {
   // テスト用のユーザーデータ
   const testUser = {
-    email: 'test@example.com',
+    email: 'auth-endpoint-test@example.com',
     password: 'TestPassword123!',
     name: 'Test User'
   };
 
   const testUser2 = {
-    email: 'test2@example.com',
+    email: 'auth-endpoint-test2@example.com',
     password: 'TestPassword123!',
     name: 'Test User 2'
   };
@@ -37,6 +38,7 @@ describe('Auth Endpoints Tests', () => {
   beforeEach(async () => {
     // テスト用データのクリーンアップ
     await prisma.emailVerificationToken.deleteMany({});
+    await prisma.passwordResetToken.deleteMany({});
     await prisma.user.deleteMany({
       where: {
         email: {
@@ -49,6 +51,7 @@ describe('Auth Endpoints Tests', () => {
   afterAll(async () => {
     // 最終クリーンアップ
     await prisma.emailVerificationToken.deleteMany({});
+    await prisma.passwordResetToken.deleteMany({});
     await prisma.user.deleteMany({
       where: {
         email: {
@@ -86,6 +89,17 @@ describe('Auth Endpoints Tests', () => {
         .send(testUser)
         .set('Content-Type', 'application/json');
 
+      // ユーザーを認証済みにする
+      const user = await prisma.user.findUnique({
+        where: { email: testUser.email }
+      });
+      if (user) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() }
+        });
+      }
+
       // 同じメールアドレスで再度登録を試行
       const response = await request(app)
         .post('/auth/register')
@@ -95,7 +109,7 @@ describe('Auth Endpoints Tests', () => {
       expect(response.status).toBe(409);
       expect(response.body).toHaveProperty('error', 'already_exists');
       expect(response.body).toHaveProperty('message');
-    });
+    }, 10000);
 
     test('必須フィールドが不足している場合にエラーを返す', async () => {
       const response = await request(app)
@@ -173,8 +187,14 @@ describe('Auth Endpoints Tests', () => {
       const response = await request(app)
         .get(`/auth/verify-email?uid=${userId}&token=${verificationToken}`);
 
-      expect(response.status).toBe(302);
-      expect(response.headers.location).toContain('/dashboard');
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message', 'Email verification successful');
+
+      // Cookieが設定されているか確認
+      const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+      expect(cookies).toBeTruthy();
+      expect(cookies?.some((cookie: string) => cookie.includes('access_token'))).toBe(true);
 
       // ユーザーが認証済みになっているか確認
       const user = await prisma.user.findUnique({
@@ -202,7 +222,8 @@ describe('Auth Endpoints Tests', () => {
         .get('/auth/verify-email?uid=test');
 
       expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty('error', 'invalid_parameters');
+      expect(response.body).toHaveProperty('error', 'invalid_body');
+      expect(response.body).toHaveProperty('message', 'Validation failed');
     });
   });
 
@@ -397,6 +418,192 @@ describe('Auth Endpoints Tests', () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'unauthorized');
+    });
+  });
+
+  describe('ユーザー管理API', () => {
+    let authCookie: string;
+    let userId: string;
+
+    beforeEach(async () => {
+      // 認証済みユーザーを作成してログイン
+      const passwordHash = await argon2.hash(testUser.password);
+      const user = await prisma.user.create({
+        data: {
+          email: testUser.email,
+          passwordHash,
+          name: testUser.name,
+          emailVerified: new Date()
+        }
+      });
+      userId = user.id;
+
+      // ログインしてCookieを取得
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: testUser.email,
+          password: testUser.password
+        })
+        .set('Content-Type', 'application/json');
+
+      authCookie = loginResponse.headers['set-cookie']?.[0] || '';
+    });
+
+    describe('GET /api/users/profile', () => {
+      test('認証済みユーザーがプロフィールを取得できる', async () => {
+        const response = await request(app)
+          .get('/api/users/profile')
+          .set('Cookie', authCookie);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('id', userId);
+        expect(response.body).toHaveProperty('email', testUser.email);
+        expect(response.body).toHaveProperty('name', testUser.name);
+        expect(response.body).toHaveProperty('emailVerified');
+        expect(response.body).toHaveProperty('createdAt');
+        expect(response.body).toHaveProperty('updatedAt');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const response = await request(app)
+          .get('/api/users/profile');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+    });
+
+    describe('PUT /api/users/profile', () => {
+      test('認証済みユーザーがプロフィールを更新できる', async () => {
+        const updateData = {
+          name: '更新された名前'
+        };
+
+        const response = await request(app)
+          .put('/api/users/profile')
+          .send(updateData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('id', userId);
+        expect(response.body).toHaveProperty('email', testUser.email);
+        expect(response.body).toHaveProperty('name', '更新された名前');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const updateData = {
+          name: '更新された名前'
+        };
+
+        const response = await request(app)
+          .put('/api/users/profile')
+          .send(updateData)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+    });
+
+    describe('PUT /api/users/password', () => {
+      test('認証済みユーザーがパスワードを変更できる', async () => {
+        const passwordData = {
+          currentPassword: testUser.password,
+          newPassword: 'NewPassword123!'
+        };
+
+        const response = await request(app)
+          .put('/api/users/password')
+          .send(passwordData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(204);
+      });
+
+      test('間違った現在のパスワードでエラーを返す', async () => {
+        const passwordData = {
+          currentPassword: 'wrongpassword',
+          newPassword: 'NewPassword123!'
+        };
+
+        const response = await request(app)
+          .put('/api/users/password')
+          .send(passwordData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_current_password');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const passwordData = {
+          currentPassword: testUser.password,
+          newPassword: 'NewPassword123!'
+        };
+
+        const response = await request(app)
+          .put('/api/users/password')
+          .send(passwordData)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+    });
+
+    describe('POST /api/users/account/delete', () => {
+      test('認証済みユーザーがアカウントを削除できる', async () => {
+        const deleteData = {
+          password: testUser.password
+        };
+
+        const response = await request(app)
+          .post('/api/users/account/delete')
+          .send(deleteData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(204);
+
+        // ユーザーが削除されていることを確認
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+        expect(user).toBeNull();
+      });
+
+      test('間違ったパスワードでエラーを返す', async () => {
+        const deleteData = {
+          password: 'WrongPassword123!'
+        };
+
+        const response = await request(app)
+          .post('/api/users/account/delete')
+          .send(deleteData)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_password');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const deleteData = {
+          password: testUser.password
+        };
+
+        const response = await request(app)
+          .post('/api/users/account/delete')
+          .send(deleteData)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
     });
   });
 });

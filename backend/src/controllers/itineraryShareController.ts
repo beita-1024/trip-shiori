@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../config/prisma';
 import { 
   createItineraryShareSchema,
   updateItineraryShareSchema,
@@ -10,8 +11,6 @@ import {
   type ShareScope
 } from '../validators/itineraryShareValidators';
 import { hashPassword } from '../utils/password';
-
-const prisma = new PrismaClient();
 
 /**
  * 共有設定を作成する
@@ -30,7 +29,7 @@ const prisma = new PrismaClient();
  *   - req.itinerary: 旅程情報（所有権チェック済み）
  * @params
  *   - Path: { id: string } - 旅程ID
- *   - Body: { permission: SharePermission, password?: string, expiresAt?: string, scope: ShareScope, allowedEmails?: string[] }
+ *   - Body: { permission: SharePermission, password?: string, expiresAt?: string, scope: ShareScope }
  * @returns
  *   - 201: { shareUrl: string, message: string }
  * @errors
@@ -46,6 +45,7 @@ const prisma = new PrismaClient();
  */
 export const createItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as CreateItineraryShareRequest;
 
@@ -79,22 +79,26 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
       expiresAt = new Date(validatedBody.expiresAt);
     }
 
-    // 共有設定の作成（メールアドレスも含む）
-    // トランザクション内で共有設定とメールアドレスを一括作成し、データ整合性を保つ
-    await prisma.itineraryShare.create({
-      data: {
-        itineraryId: id,
-        permission: validatedBody.permission as SharePermission,
-        passwordHash, // ハッシュ化済みパスワードを保存
-        expiresAt, // 有効期限を設定
-        scope: validatedBody.scope as ShareScope,
-        allowedEmails: {
-          create: validatedBody.allowedEmails?.map((email: string) => ({
-            email: email, // 許可されたメールアドレスのみ保存
-          })) || [],
-        } as any,
-      },
-    });
+    // 共有設定の作成（P2002 を 409 に正規化）
+    try {
+      await prisma.itineraryShare.create({
+        data: {
+          itineraryId: id,
+          permission: validatedBody.permission as SharePermission,
+          passwordHash, // ハッシュ化済みパスワードを保存
+          expiresAt, // 有効期限を設定
+          scope: validatedBody.scope as ShareScope,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return res.status(409).json({
+          error: 'share_already_exists',
+          message: 'Share settings already exist for this itinerary',
+        });
+      }
+      throw err;
+    }
 
     // 共有URLの生成（フロントエンドのURLを想定）
     const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shared/${id}`;
@@ -124,7 +128,7 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
  * @params
  *   - Path: { id: string } - 旅程ID
  * @returns
- *   - 200: { permission: SharePermission, hasPassword: boolean, expiresAt: string | null, scope: ShareScope, allowedEmails: string[] | null }
+ *   - 200: { permission: SharePermission, hasPassword: boolean, expiresAt: string | null, scope: ShareScope }
  * @errors
  *   - 404: share_not_found
  * @example
@@ -133,6 +137,7 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
  */
 export const getItineraryShare = async (req: Request, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     const share = await prisma.itineraryShare.findUnique({
@@ -142,11 +147,6 @@ export const getItineraryShare = async (req: Request, res: Response) => {
         passwordHash: true,
         expiresAt: true,
         scope: true,
-        allowedEmails: {
-          select: {
-            email: true,
-          },
-        } as any,
       },
     });
 
@@ -157,15 +157,11 @@ export const getItineraryShare = async (req: Request, res: Response) => {
       });
     }
 
-    // 許可されたメールアドレスリストの復元
-    const allowedEmails = (share.allowedEmails as any)?.map((email: any) => email.email) || [];
-
     return res.status(200).json({
       permission: share.permission,
       hasPassword: !!share.passwordHash,
       expiresAt: share.expiresAt?.toISOString() || null,
       scope: share.scope,
-      allowedEmails,
     });
   } catch (error) {
     console.error('Get itinerary share error:', error);
@@ -208,6 +204,7 @@ export const getItineraryShare = async (req: Request, res: Response) => {
  */
 export const updateItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
     const validatedBody = (req as any).validatedBody as UpdateItineraryShareRequest;
 
@@ -258,25 +255,6 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
       updateData.scope = validatedBody.scope as ShareScope;
     }
 
-    // 許可されたメールアドレスリストの更新処理
-    // メールアドレスリストの設定・削除時に適切なデータ操作を実施
-    if (validatedBody.allowedEmails !== undefined) {
-      if (validatedBody.allowedEmails === null) {
-        // 既存のメールアドレスを削除（アクセス権限を完全に削除）
-        (updateData as any).allowedEmails = {
-          deleteMany: {},
-        };
-      } else {
-        // 既存のメールアドレスを削除して新しいものを追加（権限の完全な置き換え）
-        (updateData as any).allowedEmails = {
-          deleteMany: {},
-          create: validatedBody.allowedEmails.map((email: string) => ({
-            email: email, // 許可されたメールアドレスのみ保存
-          })),
-        };
-      }
-    }
-
     // 共有設定の更新
     await prisma.itineraryShare.update({
       where: { itineraryId: id },
@@ -322,6 +300,7 @@ export const updateItineraryShare = async (req: AuthenticatedRequest, res: Respo
  */
 export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み
@@ -341,7 +320,6 @@ export const deleteItineraryShare = async (req: AuthenticatedRequest, res: Respo
     }
 
     // 共有設定の削除
-    // 共有設定と関連するメールアドレスを完全に削除し、アクセス権限を無効化
     await prisma.itineraryShare.delete({
       where: { itineraryId: id },
     });

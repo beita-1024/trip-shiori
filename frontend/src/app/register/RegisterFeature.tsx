@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Heading, FormField, InputWithPlaceholder, Button, SimpleForm } from "@/components/Primitives";
+import { buildApiUrl } from "@/lib/api";
 
 /**
  * 登録フォームのデータ型
@@ -97,6 +98,7 @@ export default function RegisterFeature() {
     return newErrors;
   };
 
+
   /**
    * フォーム送信処理
    */
@@ -112,14 +114,7 @@ export default function RegisterFeature() {
     setApiError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
-      
-      // デバッグ情報（開発環境のみ）
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('API URL:', apiUrl);
-      }
-      
-      const response = await fetch(`${apiUrl}/auth/register`, {
+      const response = await fetch(buildApiUrl('/auth/register'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -134,6 +129,13 @@ export default function RegisterFeature() {
       if (response.status === 204) {
         // 登録成功
         setShowSuccessMessage(true);
+        
+        // NOTE: ログイン後に移行する（登録直後は未認証のため）
+        const localItinerary = localStorage.getItem('itinerary');
+        if (localItinerary) {
+          sessionStorage.setItem('pendingLocalItinerary', localItinerary);
+        }
+        
         // 3秒後にログインページへ遷移
         setTimeout(() => {
           router.push("/login");
@@ -196,6 +198,7 @@ export default function RegisterFeature() {
           <p className="text-muted text-sm">
             3秒後にログインページに移動します...
           </p>
+          
         </Card>
       </section>
     );
