@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
 
-const prisma = new PrismaClient();
+import { testPrisma as prisma } from './config/prisma.test';
 
 // テスト用のユーザーデータ
 const testUser = {

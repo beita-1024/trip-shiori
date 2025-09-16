@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../config/prisma';
 import { 
   createItineraryShareSchema,
   updateItineraryShareSchema,
@@ -10,8 +11,6 @@ import {
   type ShareScope
 } from '../validators/itineraryShareValidators';
 import { hashPassword } from '../utils/password';
-
-const prisma = new PrismaClient();
 
 /**
  * 共有設定を作成する

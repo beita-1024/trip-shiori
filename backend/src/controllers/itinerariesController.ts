@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { generateRandomId } from '../utils/idGenerator';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../config/prisma';
 import { 
   getItinerariesQuerySchema,
   createItinerarySchema,
@@ -10,8 +11,6 @@ import {
   type CreateItineraryRequest,
   type UpdateItineraryRequest
 } from '../validators/itineraryValidators';
-
-const prisma = new PrismaClient();
 
 /**
  * 旅のしおりを作成する

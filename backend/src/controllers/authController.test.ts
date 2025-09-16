@@ -13,7 +13,7 @@ jest.mock('../utils/email', () => ({
   createPasswordResetEmailTemplate: jest.fn()
 }));
 
-const prisma = new PrismaClient();
+import { testPrisma as prisma } from '../config/prisma.test';
 
 // テスト用のユーザーデータ
 const testUser = {

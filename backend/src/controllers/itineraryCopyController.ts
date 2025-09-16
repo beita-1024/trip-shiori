@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { generateRandomId } from '../utils/idGenerator';
 import { AuthenticatedRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma';
 
 /**
  * 旅程を複製して自分の旅程として保存する

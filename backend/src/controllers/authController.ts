@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
 import { z } from 'zod';
@@ -8,8 +7,7 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma';
 
 // 検証トークンの有効期限（30分）
 const EXPIRES_MS = 30 * 60 * 1000;

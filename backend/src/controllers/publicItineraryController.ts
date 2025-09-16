@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma';
 
 /**
  * 共有リンク経由で旅程を取得する
@@ -226,6 +224,7 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
 
     // 公開情報を含めて返す
     // TODO: 将来的に画像も含めるようにする。
+    // TODO: /shared/{id}と仕様を統一する？
     return res.status(200).json({
       ...parsedData,
       _publicInfo: {

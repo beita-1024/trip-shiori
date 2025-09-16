@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../config/prisma';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { 
   updateUserProfileSchema, 
@@ -44,7 +44,6 @@ import {
 // // 3) 上書き（B優先）
 // type C3 = Combine<A, { id: number }>;    // { createdAt: string; id: number }
 
-const prisma = new PrismaClient();
 
 /**
  * ユーザープロフィール情報を取得する

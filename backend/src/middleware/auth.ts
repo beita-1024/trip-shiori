@@ -1,10 +1,8 @@
 
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../utils/jwt';
 import { JWTPayload } from '../config/jwt';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/prisma';
 
 // Cookie名の定数
 const COOKIE_NAME = 'access_token';

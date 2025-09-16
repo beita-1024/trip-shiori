@@ -5,7 +5,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
 
-const prisma = new PrismaClient();
+import { testPrisma as prisma } from '../config/prisma.test';
 
 // 参考
 // Jest公式サイト: https://jestjs.io/docs/getting-started
