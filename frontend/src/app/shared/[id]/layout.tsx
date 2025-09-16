@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         siteName: '旅のしおり',
         type: 'article',
       },
-      robots: 'noindex, nofollow', // 共有リンクは検索エンジンにインデックスしない
+      robots: { index: false, follow: false }, // 共有リンクは検索エンジンにインデックスしない
     };
   } catch (error) {
     return {
