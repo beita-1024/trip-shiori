@@ -228,7 +228,9 @@ export const migrateLocalItineraries = async (req: AuthenticatedRequest, res: Re
         }
 
         // データサイズチェック
-        const dataString = JSON.stringify(localItinerary.data);
+        const dataString = typeof localItinerary.data === 'string'
+          ? localItinerary.data
+          : JSON.stringify(localItinerary.data);
         const MAX_DATA_SIZE = 1024 * 1024; // 1MB
         if (dataString.length > MAX_DATA_SIZE) {
           errors.push(`Itinerary ${localItinerary.id} is too large`);

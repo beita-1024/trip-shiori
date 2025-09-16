@@ -79,16 +79,26 @@ export const createItineraryShare = async (req: AuthenticatedRequest, res: Respo
       expiresAt = new Date(validatedBody.expiresAt);
     }
 
-    // 共有設定の作成
-    await prisma.itineraryShare.create({
-      data: {
-        itineraryId: id,
-        permission: validatedBody.permission as SharePermission,
-        passwordHash, // ハッシュ化済みパスワードを保存
-        expiresAt, // 有効期限を設定
-        scope: validatedBody.scope as ShareScope,
-      },
-    });
+    // 共有設定の作成（P2002 を 409 に正規化）
+    try {
+      await prisma.itineraryShare.create({
+        data: {
+          itineraryId: id,
+          permission: validatedBody.permission as SharePermission,
+          passwordHash, // ハッシュ化済みパスワードを保存
+          expiresAt, // 有効期限を設定
+          scope: validatedBody.scope as ShareScope,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return res.status(409).json({
+          error: 'share_already_exists',
+          message: 'Share settings already exist for this itinerary',
+        });
+      }
+      throw err;
+    }
 
     // 共有URLの生成（フロントエンドのURLを想定）
     const shareUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/shared/${id}`;
