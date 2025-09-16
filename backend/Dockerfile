@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
@@ -13,9 +13,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 
-# パッケージインストール
+# パッケージインストール（devDependenciesも含む）
 COPY package*.json ./
-RUN npm install
+RUN NODE_ENV=development npm ci
 
 # アプリ本体コピー
 COPY . .
