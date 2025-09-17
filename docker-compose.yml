@@ -1,3 +1,9 @@
+# 開発環境用のdocker-compose.yml
+# 使用方法: docker compose up -d
+
+# NOTE:Dockerfileをマルチステージビルドに対応したので、
+#      command: はここに書かない方針（DockerfileのCMDを使用）
+
 services:
   db: 
     image: postgres:16
@@ -11,17 +17,23 @@ services:
       # CI/CD 用に app_db_test は 起動スクリプト内で自動作成するため
       - ./initdb:/docker-entrypoint-initdb.d
   backend :
-    build: ./backend
+    build: 
+      context: ./backend
+      target: dev  # 開発ステージを指定
     ports:
       - "4002:3000"
       - "5555:5555"  # Prisma Studio
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
+      - /app/node_modules  # node_modulesはボリュームで上書き
     depends_on:
       - db
+    
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      target: dev  # 開発ステージを指定
     ports:
       - "3001:3000" 
     env_file:
@@ -31,5 +43,7 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+    # command: は不要（DockerfileのCMDを使用）
+
 volumes:
   postgres_data: 
