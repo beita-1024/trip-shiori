@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
   id: string;
-  children: (bind: { attributes: any; listeners: any }) => React.ReactNode;
+  children: (bind: { attributes: Record<string, unknown>; listeners: Record<string, unknown> }) => React.ReactNode;
 };
 
 /**

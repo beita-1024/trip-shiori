@@ -2,14 +2,19 @@ import { prisma } from '../config/prisma';
 
 /**
  * 期限切れの共有設定をクリーンアップする
- * 
+ *
  * @summary 有効期限が過ぎた共有設定を削除
  * @returns 削除された共有設定の数
+ * @auth 内部ジョブ専用（ユーザー起動不可）
+ * @idempotency 冪等（deleteManyのみ）。再実行しても追加削除は発生しない
+ * @errors 500（DB接続/タイムアウト）
+ * @example
+ * await cleanupExpiredShares();
  */
 export const cleanupExpiredShares = async (): Promise<number> => {
   try {
     const now = new Date();
-    
+
     const result = await prisma.itineraryShare.deleteMany({
       where: {
         expiresAt: {
@@ -28,9 +33,14 @@ export const cleanupExpiredShares = async (): Promise<number> => {
 
 /**
  * 存在しない旅程に関連する共有設定をクリーンアップする
- * 
+ *
  * @summary 旅程が削除されたが共有設定が残っている場合のクリーンアップ
  * @returns 削除された共有設定の数
+ * @auth 内部ジョブ専用
+ * @idempotency 冪等（deleteMany）
+ * @errors 500（DB接続/タイムアウト）
+ * @example
+ * await cleanupOrphanedShares();
  */
 export const cleanupOrphanedShares = async (): Promise<number> => {
   try {
@@ -62,7 +72,7 @@ export const cleanupOrphanedShares = async (): Promise<number> => {
     const result = await prisma.itineraryShare.deleteMany({
       where: {
         id: {
-          in: orphanedShares.map(share => share.id),
+          in: orphanedShares.map((share) => share.id),
         },
       },
     });
@@ -77,16 +87,22 @@ export const cleanupOrphanedShares = async (): Promise<number> => {
 
 /**
  * 古い共有設定をクリーンアップする（作成から一定期間経過）
- * 
+ *
  * @summary 作成から指定日数経過した共有設定を削除
  * @param daysOld 削除対象となる日数（デフォルト: 365日）
  * @returns 削除された共有設定の数
+ * @idempotency 冪等（deleteMany）
+ * @errors 400（daysOld が負数/非有限）, 500（DB接続）
+ * @example
+ * await cleanupOldShares(365);
  */
-export const cleanupOldShares = async (daysOld: number = 365): Promise<number> => {
+export const cleanupOldShares = async (
+  daysOld: number = 365
+): Promise<number> => {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-    
+
     const result = await prisma.itineraryShare.deleteMany({
       where: {
         createdAt: {
@@ -95,7 +111,9 @@ export const cleanupOldShares = async (daysOld: number = 365): Promise<number> =
       },
     });
 
-    console.log(`Cleaned up ${result.count} old share settings (older than ${daysOld} days)`);
+    console.log(
+      `Cleaned up ${result.count} old share settings (older than ${daysOld} days)`
+    );
     return result.count;
   } catch (error) {
     console.error('Failed to cleanup old shares:', error);
@@ -105,17 +123,24 @@ export const cleanupOldShares = async (daysOld: number = 365): Promise<number> =
 
 /**
  * 全てのクリーンアップ処理を実行する
- * 
+ *
  * @summary 期限切れ、孤立、古い共有設定のクリーンアップを一括実行
  * @param options クリーンアップオプション
  * @returns クリーンアップ結果のサマリー
+ * @auth 内部ジョブ/管理者ツール専用
+ * @idempotency 冪等（各 deleteMany を順次実行）
+ * @errors 400（oldDaysThreshold < 0）, 500（DB接続/タイムアウト）
+ * @example
+ * await runFullCleanup({ cleanupExpired: true, cleanupOrphaned: true, cleanupOld: true, oldDaysThreshold: 365 });
  */
-export const runFullCleanup = async (options: {
-  cleanupExpired?: boolean;
-  cleanupOrphaned?: boolean;
-  cleanupOld?: boolean;
-  oldDaysThreshold?: number;
-} = {}): Promise<{
+export const runFullCleanup = async (
+  options: {
+    cleanupExpired?: boolean;
+    cleanupOrphaned?: boolean;
+    cleanupOld?: boolean;
+    oldDaysThreshold?: number;
+  } = {}
+): Promise<{
   expired: number;
   orphaned: number;
   old: number;
@@ -146,9 +171,11 @@ export const runFullCleanup = async (options: {
     }
 
     const total = expired + orphaned + old;
-    
-    console.log(`Full cleanup completed: ${total} total shares cleaned up (expired: ${expired}, orphaned: ${orphaned}, old: ${old})`);
-    
+
+    console.log(
+      `Full cleanup completed: ${total} total shares cleaned up (expired: ${expired}, orphaned: ${orphaned}, old: ${old})`
+    );
+
     return {
       expired,
       orphaned,

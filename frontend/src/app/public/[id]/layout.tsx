@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         images: data.image ? [data.image] : [],
       },
     };
-  } catch (error) {
+  } catch {
     return {
       title: 'エラー',
       description: '旅程の取得中にエラーが発生しました。',

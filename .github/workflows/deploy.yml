@@ -1,19 +1,82 @@
-# TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
+name: Deploy
 
-name: Deploy (noop)
-
+# ワークフロートリガー設定
+# - push: vタグプッシュ時（本番デプロイ）
+# - workflow_dispatch: 手動実行時（環境選択可能）
+# - workflow_run: CI完了時（mainブランチのみ、ステージングデプロイ）
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       env:
-        description: "deploy target (dev/stg/prod)"
-        required: false
-        default: "dev"
+        description: "deploy target (staging/production)"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 jobs:
-  deploy-noop:
+  deploy-staging:
     runs-on: ubuntu-latest
+    # ステージングデプロイ条件:
+    # 1. CI完了 + mainブランチ (workflow_run イベント)
+    # 2. 手動実行 + staging選択 (workflow_dispatch イベント)
+    if: |
+      (github.event.workflow_run.conclusion == 'success' && 
+       github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && 
+       inputs.env == 'staging')
     steps:
-      - name: noop
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      
+      - name: Deploy to staging
         run: |
-          echo "Deploy placeholder: env=${{ inputs.env }}"
+          echo "🚀 Deploying to staging environment"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Trigger: ${{ github.event_name }}"
+          # イベント種類の説明:
+          # - workflow_run: CI完了後の自動実行
+          # - workflow_dispatch: 手動実行
+          # TODO: CapRover staging deployment
+          # - Build Docker images with tags: latest, ${{ github.sha }}
+          # - Push to Docker registry
+          # - Deploy to CapRover staging environment
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    # 本番デプロイ条件:
+    # 1. vタグプッシュ (push イベント)
+    # 2. 手動実行 + production選択 (workflow_dispatch イベント)
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.env == 'production')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment"
+          echo "Tag: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Trigger: ${{ github.event_name }}"
+          # イベント種類の説明:
+          # - push: vタグプッシュ時の自動実行
+          # - workflow_dispatch: 手動実行
+          # TODO: CapRover production deployment
+          # - Build Docker images with tags: latest, ${{ github.sha }}, ${{ github.ref_name }}
+          # - Push to Docker registry
+          # - Deploy to CapRover production environment

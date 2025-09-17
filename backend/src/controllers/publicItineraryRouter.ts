@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { getPublicItinerary } from './publicItineraryController';
 import { validateParams } from '../middleware/validation';
 import { rateLimit } from '../middleware/rateLimit';
-import { z } from 'zod';
 import { pathParamsSchema } from '../validators/commonSchemas';
 
 const router = Router();
@@ -24,4 +23,3 @@ router.use(rateLimit({ windowMs: 60_000, maxRequests: 120 }));
 router.get('/:id', validateParams(idParamSchema), getPublicItinerary);
 
 export default router;
-

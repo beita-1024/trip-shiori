@@ -1,9 +1,7 @@
 import request from 'supertest';
 import app from '../app';
-import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
-import { describe, test, expect, beforeAll, afterAll } from "@jest/globals";
-
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 
 import { testPrisma as prisma } from '../config/prisma.test';
 
@@ -16,7 +14,7 @@ const testUser = {
 
 let testUserId: string;
 let testItineraryId: string;
-let authCookie: string;
+// let authCookie: string;
 
 /**
  * 共有旅程アクセスAPIのテスト
@@ -24,7 +22,9 @@ let authCookie: string;
 describe('Shared Itinerary Access API Tests', () => {
   beforeAll(async () => {
     // テスト用ユーザーを作成
-    const passwordHash = await argon2.hash(testUser.password, { type: argon2.argon2id });
+    const passwordHash = await argon2.hash(testUser.password, {
+      type: argon2.argon2id,
+    });
     const user = await prisma.user.create({
       data: {
         email: testUser.email,
@@ -36,14 +36,14 @@ describe('Shared Itinerary Access API Tests', () => {
     testUserId = user.id;
 
     // ログインしてCookieを取得
-    const loginResponse = await request(app)
+    await request(app)
       .post('/auth/login')
       .send({
         email: testUser.email,
-        password: testUser.password
+        password: testUser.password,
       })
       .set('Content-Type', 'application/json');
-    authCookie = loginResponse.headers['set-cookie']?.[0] || '';
+    // authCookie = loginResponse.headers['set-cookie']?.[0] || '';
 
     // テスト用の旅程を作成
     const itinerary = await prisma.itinerary.create({
@@ -51,7 +51,7 @@ describe('Shared Itinerary Access API Tests', () => {
         id: 'shared_test_itinerary',
         data: JSON.stringify({
           title: '共有テスト旅程',
-          days: []
+          days: [],
         }),
         userId: testUserId,
       },
@@ -62,17 +62,16 @@ describe('Shared Itinerary Access API Tests', () => {
   afterAll(async () => {
     // テストデータをクリーンアップ
     await prisma.itineraryShare.deleteMany({
-      where: { itineraryId: testItineraryId }
+      where: { itineraryId: testItineraryId },
     });
     await prisma.itinerary.delete({
-      where: { id: testItineraryId }
+      where: { id: testItineraryId },
     });
     await prisma.user.delete({
-      where: { id: testUserId }
+      where: { id: testUserId },
     });
     await prisma.$disconnect();
   });
-
 
   describe('GET /shared/{id}', () => {
     test('PUBLIC_LINK旅程を取得できる（認証不要）', async () => {
@@ -85,21 +84,23 @@ describe('Shared Itinerary Access API Tests', () => {
         },
       });
 
-      const response = await request(app)
-        .get(`/shared/${testItineraryId}`);
+      const response = await request(app).get(`/shared/${testItineraryId}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('title', '共有テスト旅程');
       expect(response.body).toHaveProperty('_shareInfo');
       expect(response.body._shareInfo).toHaveProperty('scope', 'PUBLIC_LINK');
-      expect(response.body._shareInfo).toHaveProperty('permission', 'READ_ONLY');
+      expect(response.body._shareInfo).toHaveProperty(
+        'permission',
+        'READ_ONLY'
+      );
       expect(response.body._shareInfo).toHaveProperty('isReadOnly', true);
     });
 
     test('PRIVATE旅程にアクセスできない', async () => {
       // 既存の共有設定を削除
       await prisma.itineraryShare.deleteMany({
-        where: { itineraryId: testItineraryId }
+        where: { itineraryId: testItineraryId },
       });
 
       // PRIVATE共有設定を作成
@@ -111,16 +112,14 @@ describe('Shared Itinerary Access API Tests', () => {
         },
       });
 
-      const response = await request(app)
-        .get(`/shared/${testItineraryId}`);
+      const response = await request(app).get(`/shared/${testItineraryId}`);
 
       expect(response.status).toBe(403);
       expect(response.body).toHaveProperty('error', 'forbidden');
     });
 
     test('存在しない旅程にアクセスできない', async () => {
-      const response = await request(app)
-        .get('/shared/nonexistent');
+      const response = await request(app).get('/shared/nonexistent');
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error', 'not_found');
@@ -129,7 +128,7 @@ describe('Shared Itinerary Access API Tests', () => {
     test('期限切れの共有設定にアクセスできない', async () => {
       // 期限切れの共有設定を作成
       await prisma.itineraryShare.deleteMany({
-        where: { itineraryId: testItineraryId }
+        where: { itineraryId: testItineraryId },
       });
 
       await prisma.itineraryShare.create({
@@ -141,8 +140,7 @@ describe('Shared Itinerary Access API Tests', () => {
         },
       });
 
-      const response = await request(app)
-        .get(`/shared/${testItineraryId}`);
+      const response = await request(app).get(`/shared/${testItineraryId}`);
 
       expect(response.status).toBe(410);
       expect(response.body).toHaveProperty('error', 'gone');
@@ -154,7 +152,7 @@ describe('Shared Itinerary Access API Tests', () => {
     test('PUBLIC旅程を取得できる（認証不要）', async () => {
       // PUBLIC共有設定を作成
       await prisma.itineraryShare.deleteMany({
-        where: { itineraryId: testItineraryId }
+        where: { itineraryId: testItineraryId },
       });
 
       await prisma.itineraryShare.create({
@@ -165,14 +163,16 @@ describe('Shared Itinerary Access API Tests', () => {
         },
       });
 
-      const response = await request(app)
-        .get(`/public/${testItineraryId}`);
+      const response = await request(app).get(`/public/${testItineraryId}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('title', '共有テスト旅程');
       expect(response.body).toHaveProperty('_publicInfo');
       expect(response.body._publicInfo).toHaveProperty('scope', 'PUBLIC');
-      expect(response.body._publicInfo).toHaveProperty('permission', 'READ_ONLY');
+      expect(response.body._publicInfo).toHaveProperty(
+        'permission',
+        'READ_ONLY'
+      );
       expect(response.body._publicInfo).toHaveProperty('isReadOnly', true);
       expect(response.body._publicInfo).toHaveProperty('ogp');
       expect(response.body._publicInfo.ogp).toHaveProperty('title');
@@ -184,19 +184,17 @@ describe('Shared Itinerary Access API Tests', () => {
       // PUBLIC_LINK共有設定に変更
       await prisma.itineraryShare.update({
         where: { itineraryId: testItineraryId },
-        data: { scope: 'PUBLIC_LINK' }
+        data: { scope: 'PUBLIC_LINK' },
       });
 
-      const response = await request(app)
-        .get(`/public/${testItineraryId}`);
+      const response = await request(app).get(`/public/${testItineraryId}`);
 
       expect(response.status).toBe(403);
       expect(response.body).toHaveProperty('error', 'forbidden');
     });
 
     test('存在しない旅程にアクセスできない', async () => {
-      const response = await request(app)
-        .get('/public/nonexistent');
+      const response = await request(app).get('/public/nonexistent');
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error', 'not_found');

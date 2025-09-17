@@ -25,6 +25,20 @@ export interface Itinerary {
   days: Day[];
 }
 
+// UI用のUID付き型定義
+export interface EventWithUid extends Event {
+  _uid: string;
+}
+
+export interface DayWithUid extends Omit<Day, 'events'> {
+  _uid: string;
+  events: EventWithUid[];
+}
+
+export interface ItineraryWithUid extends Omit<Itinerary, 'days'> {
+  days: DayWithUid[];
+}
+
 // 共有設定関連の型定義
 export type ShareScope = 'PRIVATE' | 'PUBLIC_LINK' | 'PUBLIC';
 export type SharePermission = 'READ_ONLY' | 'EDIT';

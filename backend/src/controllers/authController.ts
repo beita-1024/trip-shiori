@@ -4,7 +4,11 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { passwordSchema } from '../validators/commonSchemas';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { sendEmailWithTemplate, createVerificationEmailTemplate, createPasswordResetEmailTemplate } from '../utils/email';
+import {
+  sendEmailWithTemplate,
+  createVerificationEmailTemplate,
+  createPasswordResetEmailTemplate,
+} from '../utils/email';
 import { generateAccessToken } from '../utils/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
@@ -33,14 +37,14 @@ const handleZodError = (error: z.ZodError, res: Response) => {
     message: 'Validation failed',
     details: error.issues.map((err: z.ZodIssue) => ({
       field: err.path.join('.'),
-      message: err.message
-    }))
+      message: err.message,
+    })),
   });
 };
 
 /**
  * ユーザー登録エンドポイント
- * 
+ *
  * @summary 新しいユーザーアカウントを作成し、メール認証を送信
  * @auth 認証不要
  * @params
@@ -63,19 +67,19 @@ export const register = async (req: Request, res: Response) => {
     const schema = z.object({
       email: z.string().trim().email(),
       password: passwordSchema,
-      name: z.string().optional()
+      name: z.string().optional(),
     });
-    
+
     const { email, password, name } = schema.parse(req.body);
 
     // 重複チェック（メール認証済みユーザーのみ）
-    const exists = await prisma.user.findUnique({ 
-      where: { email: email.toLowerCase() } 
+    const exists = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
     });
     if (exists && exists.emailVerified) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         error: 'already_exists',
-        message: 'User with this email already exists' 
+        message: 'User with this email already exists',
       });
     }
 
@@ -103,14 +107,14 @@ export const register = async (req: Request, res: Response) => {
     await prisma.emailVerificationToken.deleteMany({
       where: {
         userId: user.id,
-        expiresAt: { lt: new Date() }
-      }
+        expiresAt: { lt: new Date() },
+      },
     });
 
     // 新しい検証トークン発行
     const raw = crypto.randomBytes(32).toString('hex');
     const tokenHash = await argon2.hash(raw, { type: argon2.argon2id });
-    
+
     await prisma.emailVerificationToken.create({
       data: {
         userId: user.id,
@@ -125,14 +129,17 @@ export const register = async (req: Request, res: Response) => {
     // メール送信
     try {
       const displayName = name || 'ユーザー';
-      const emailTemplate = createVerificationEmailTemplate(displayName, verifyUrl);
+      const emailTemplate = createVerificationEmailTemplate(
+        displayName,
+        verifyUrl
+      );
       await sendEmailWithTemplate(email, emailTemplate);
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
       // メール送信に失敗した場合でもユーザーは作成済みなので、エラーを返す
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'email_send_failed',
-        message: 'User created but failed to send verification email' 
+        message: 'User created but failed to send verification email',
       });
     }
 
@@ -142,16 +149,16 @@ export const register = async (req: Request, res: Response) => {
       return handleZodError(error, res);
     }
     console.error('Registration error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * メール認証エンドポイント
- * 
+ *
  * @summary メール認証トークンを検証し、ユーザーを認証済みに更新
  * @auth 認証不要
  * @params
@@ -172,33 +179,33 @@ export const verifyEmail = async (req: Request, res: Response) => {
     // Zodバリデーション（クエリパラメータ）
     const schema = z.object({
       uid: z.string().min(1),
-      token: z.string().min(1)
+      token: z.string().min(1),
     });
-    
+
     const { uid, token } = schema.parse(req.query);
 
     // 期限内の最新トークンを取得
     const record = await prisma.emailVerificationToken.findFirst({
-      where: { 
-        userId: uid, 
-        expiresAt: { gt: new Date() } 
+      where: {
+        userId: uid,
+        expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!record) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_token',
-        message: 'Invalid or expired token' 
+        message: 'Invalid or expired token',
       });
     }
 
     // 生トークンとDBのハッシュを照合
     const isValidToken = await argon2.verify(record.tokenHash, token);
     if (!isValidToken) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_token',
-        message: 'Invalid token' 
+        message: 'Invalid token',
       });
     }
 
@@ -208,20 +215,20 @@ export const verifyEmail = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'user_not_found',
-        message: 'User not found' 
+        message: 'User not found',
       });
     }
 
     // ユーザーを verified にして、トークンは削除
     await prisma.$transaction([
-      prisma.user.update({ 
-        where: { id: uid }, 
-        data: { emailVerified: new Date() } 
+      prisma.user.update({
+        where: { id: uid },
+        data: { emailVerified: new Date() },
       }),
-      prisma.emailVerificationToken.delete({ 
-        where: { id: record.id } 
+      prisma.emailVerificationToken.delete({
+        where: { id: record.id },
       }),
     ]);
 
@@ -238,24 +245,23 @@ export const verifyEmail = async (req: Request, res: Response) => {
     // 認証成功レスポンス（フロントエンドでリダイレクト処理）
     return res.status(200).json({
       success: true,
-      message: 'Email verification successful'
+      message: 'Email verification successful',
     });
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return handleZodError(error, res);
     }
     console.error('Email verification error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * ユーザーログインエンドポイント
- * 
+ *
  * @summary メールアドレスとパスワードでログインし、JWT Cookieを発行
  * @auth 認証不要
  * @params
@@ -277,36 +283,36 @@ export const login = async (req: Request, res: Response) => {
     // Zodバリデーション
     const schema = z.object({
       email: z.string().trim().email(),
-      password: z.string()
+      password: z.string(),
     });
-    
+
     const { email, password } = schema.parse(req.body);
 
     // ユーザー検索
-    const user = await prisma.user.findUnique({ 
-      where: { email: email.toLowerCase() } 
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
     });
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials',
       });
     }
 
     // メール認証済みかチェック
     if (!user.emailVerified) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'forbidden',
-        message: 'Email not verified' 
+        message: 'Email not verified',
       });
     }
 
     // パスワード検証
     const isValidPassword = await verifyPassword(user.passwordHash, password);
     if (!isValidPassword) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'Invalid credentials' 
+        message: 'Invalid credentials',
       });
     }
 
@@ -323,22 +329,21 @@ export const login = async (req: Request, res: Response) => {
     });
 
     return res.sendStatus(204);
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return handleZodError(error, res);
     }
     console.error('Login error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * ユーザーログアウトエンドポイント
- * 
+ *
  * @summary 認証済みユーザーをログアウトし、JWT Cookieを無効化
  * @auth Bearer JWT (Cookie)
  * @params
@@ -363,19 +368,18 @@ export const logout = async (req: Request, res: Response) => {
     });
 
     return res.sendStatus(204);
-
   } catch (error) {
     console.error('Logout error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * 保護されたリソースの例エンドポイント
- * 
+ *
  * @summary 認証済みユーザーのみアクセス可能なリソースの例
  * @auth Bearer JWT (Cookie)
  * @params
@@ -389,15 +393,18 @@ export const logout = async (req: Request, res: Response) => {
  *   Cookie: access_token=<JWT>
  *   200: { "user": { "id": "user123", "email": "user@example.com" } }
  */
-export const protectedResource = async (req: AuthenticatedRequest, res: Response) => {
+export const protectedResource = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証ミドルウェアでreq.userが設定されている
     const user = req.user;
-    
+
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
     }
 
@@ -408,19 +415,18 @@ export const protectedResource = async (req: AuthenticatedRequest, res: Response
       },
       message: 'This is a protected resource',
     });
-
   } catch (error) {
     console.error('Protected resource error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * パスワードリセットリクエストエンドポイント
- * 
+ *
  * @summary メールアドレスを受け取り、パスワードリセットトークンを発行してメール送信
  * @auth 認証不要
  * @rateLimit 15分あたり3回
@@ -443,14 +449,14 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
   try {
     // Zodバリデーション
     const schema = z.object({
-      email: z.string().trim().email()
+      email: z.string().trim().email(),
     });
-    
+
     const { email } = schema.parse(req.body);
 
     // ユーザー検索（存在しない場合でも同じレスポンスを返す）
-    const user = await prisma.user.findUnique({ 
-      where: { email: email.toLowerCase() } 
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
     });
 
     if (user) {
@@ -458,19 +464,19 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
       const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
-      
+
       // upsertを使用して競合状態を防止（@@unique([userId])制約により1ユーザー1トークン）
       await prisma.passwordResetToken.upsert({
         where: { userId: user.id },
-        update: { 
-          tokenHash, 
-          expiresAt, 
-          createdAt: new Date() 
+        update: {
+          tokenHash,
+          expiresAt,
+          createdAt: new Date(),
         },
-        create: { 
-          userId: user.id, 
-          tokenHash, 
-          expiresAt 
+        create: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
         },
       });
 
@@ -480,7 +486,10 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       // メール送信
       try {
         const displayName = user.name || 'ユーザー';
-        const emailTemplate = createPasswordResetEmailTemplate(displayName, resetUrl);
+        const emailTemplate = createPasswordResetEmailTemplate(
+          displayName,
+          resetUrl
+        );
         await sendEmailWithTemplate(user.email, emailTemplate);
       } catch (emailError) {
         console.error('Failed to send password reset email:', emailError);
@@ -490,22 +499,21 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     // セキュリティ上、ユーザーの存在に関係なく同じレスポンスを返す
     return res.status(204).end();
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return handleZodError(error, res);
     }
     console.error('Password reset request error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };
 
 /**
  * パスワードリセット確認エンドポイント
- * 
+ *
  * @summary パスワードリセットトークンを検証し、新しいパスワードを設定
  * @auth 認証不要
  * @rateLimit 15分あたり5回
@@ -531,33 +539,33 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     const schema = z.object({
       uid: z.string().min(1),
       token: z.string().min(1),
-      newPassword: passwordSchema
+      newPassword: passwordSchema,
     });
-    
+
     const { uid, token, newPassword } = schema.parse(req.body);
 
     // 期限内のパスワードリセットトークンを取得
     const resetToken = await prisma.passwordResetToken.findFirst({
-      where: { 
-        userId: uid, 
-        expiresAt: { gt: new Date() } 
+      where: {
+        userId: uid,
+        expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!resetToken) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_token',
-        message: 'Invalid or expired token' 
+        message: 'Invalid or expired token',
       });
     }
 
     // 生トークンとDBのハッシュを照合
     const isValidToken = await argon2.verify(resetToken.tokenHash, token);
     if (!isValidToken) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_token',
-        message: 'Invalid token' 
+        message: 'Invalid token',
       });
     }
 
@@ -567,9 +575,9 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'user_not_found',
-        message: 'User not found' 
+        message: 'User not found',
       });
     }
 
@@ -579,18 +587,18 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     // パスワードを更新し、passwordChangedAtを設定、トークンを削除
     await prisma.$transaction(async (tx) => {
       // ユーザーのパスワードを更新
-      await tx.user.update({ 
-        where: { id: uid }, 
-        data: { 
+      await tx.user.update({
+        where: { id: uid },
+        data: {
           passwordHash: newPasswordHash,
-          passwordChangedAt: new Date()
-        } 
+          passwordChangedAt: new Date(),
+        },
       });
-      
+
       // トークンを削除（存在しない場合は無視）
       try {
-        await tx.passwordResetToken.delete({ 
-          where: { id: resetToken.id } 
+        await tx.passwordResetToken.delete({
+          where: { id: resetToken.id },
         });
       } catch (error: any) {
         // P2025エラー（レコードが見つからない）の場合は無視
@@ -609,15 +617,14 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     });
 
     return res.status(204).end();
-
   } catch (error) {
     if (error instanceof z.ZodError) {
       return handleZodError(error, res);
     }
     console.error('Password reset confirmation error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_error',
-      message: 'Internal server error' 
+      message: 'Internal server error',
     });
   }
 };

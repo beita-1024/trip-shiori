@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { Itinerary, Day, Event } from "@/types";
+import type { ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
 import { Card } from "@/components/Primitives";
 
 /**
@@ -9,7 +9,7 @@ import { Card } from "@/components/Primitives";
  */
 export interface ItineraryPreviewProps {
   /** 表示する旅のしおりデータ */
-  itinerary: Itinerary;
+  itinerary: ItineraryWithUid;
 }
 
 /**
@@ -50,12 +50,12 @@ export const ItineraryPreview: React.FC<ItineraryPreviewProps> = ({ itinerary })
       <h2>{itinerary.subtitle}</h2>
       <p>{itinerary.description}</p>
       
-      {itinerary.days.map((day: Day, dayIndex: number) => (
-        <section key={(day as any)._uid || dayIndex}>
+      {itinerary.days.map((day: DayWithUid, dayIndex: number) => (
+        <section key={day._uid || dayIndex}>
           <h3>{formatDate(day.date)}</h3>
           <ul>
-            {day.events.map((event: Event, eventIndex: number) => (
-              <li key={(event as any)._uid || eventIndex}>
+            {day.events.map((event: EventWithUid, eventIndex: number) => (
+              <li key={event._uid || eventIndex}>
                 <strong>
                   {event.time} - {event.end_time}
                 </strong>

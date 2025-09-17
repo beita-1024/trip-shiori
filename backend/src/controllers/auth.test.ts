@@ -1,23 +1,20 @@
 import request from 'supertest';
 import app from '../app';
-import { PrismaClient } from '@prisma/client';
 import argon2 from 'argon2';
 import crypto from 'crypto';
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
+import { describe, test, expect, afterAll, beforeEach } from '@jest/globals';
 
 import { testPrisma as prisma } from '../config/prisma.test';
 
 // 参考
 // Jest公式サイト: https://jestjs.io/docs/getting-started
 // Supertest公式: https://github.com/visionmedia/supertest
-// supertest でREST APIの試験を行う: 
+// supertest でREST APIの試験を行う:
 // https://qiita.com/mikakane/items/5ee9503ca04f1a719aa3
-
-
 
 /**
  * 認証エンドポイントのテスト
- * 
+ *
  * 各認証エンドポイントの正常系・異常系をテストします。
  */
 describe('Auth Endpoints Tests', () => {
@@ -25,13 +22,13 @@ describe('Auth Endpoints Tests', () => {
   const testUser = {
     email: 'auth-endpoint-test@example.com',
     password: 'TestPassword123!',
-    name: 'Test User'
+    name: 'Test User',
   };
 
   const testUser2 = {
     email: 'auth-endpoint-test2@example.com',
     password: 'TestPassword123!',
-    name: 'Test User 2'
+    name: 'Test User 2',
   };
 
   // テスト前後のクリーンアップ
@@ -42,9 +39,9 @@ describe('Auth Endpoints Tests', () => {
     await prisma.user.deleteMany({
       where: {
         email: {
-          in: [testUser.email, testUser2.email]
-        }
-      }
+          in: [testUser.email, testUser2.email],
+        },
+      },
     });
   });
 
@@ -55,9 +52,9 @@ describe('Auth Endpoints Tests', () => {
     await prisma.user.deleteMany({
       where: {
         email: {
-          in: [testUser.email, testUser2.email]
-        }
-      }
+          in: [testUser.email, testUser2.email],
+        },
+      },
     });
     await prisma.$disconnect();
   });
@@ -74,7 +71,7 @@ describe('Auth Endpoints Tests', () => {
 
       // データベースにユーザーが作成されているか確認
       const user = await prisma.user.findUnique({
-        where: { email: testUser.email }
+        where: { email: testUser.email },
       });
       expect(user).toBeTruthy();
       expect(user?.email).toBe(testUser.email);
@@ -91,12 +88,12 @@ describe('Auth Endpoints Tests', () => {
 
       // ユーザーを認証済みにする
       const user = await prisma.user.findUnique({
-        where: { email: testUser.email }
+        where: { email: testUser.email },
       });
       if (user) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { emailVerified: new Date() }
+          data: { emailVerified: new Date() },
         });
       }
 
@@ -127,7 +124,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/register')
         .send({
           email: 'invalid-email',
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -141,7 +138,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/register')
         .send({
           email: testUser.email,
-          password: 'weak'
+          password: 'weak',
         })
         .set('Content-Type', 'application/json');
 
@@ -163,15 +160,15 @@ describe('Auth Endpoints Tests', () => {
           email: testUser.email,
           passwordHash,
           name: testUser.name,
-          emailVerified: null
-        }
+          emailVerified: null,
+        },
       });
       userId = user.id;
 
       // 検証トークンを作成
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(rawToken);
-      
+
       await prisma.emailVerificationToken.create({
         data: {
           userId: user.id,
@@ -184,42 +181,50 @@ describe('Auth Endpoints Tests', () => {
     });
 
     test('正常なメール認証が成功する', async () => {
-      const response = await request(app)
-        .get(`/auth/verify-email?uid=${userId}&token=${verificationToken}`);
+      const response = await request(app).get(
+        `/auth/verify-email?uid=${userId}&token=${verificationToken}`
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('message', 'Email verification successful');
+      expect(response.body).toHaveProperty(
+        'message',
+        'Email verification successful'
+      );
 
       // Cookieが設定されているか確認
-      const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const cookies = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(cookies).toBeTruthy();
-      expect(cookies?.some((cookie: string) => cookie.includes('access_token'))).toBe(true);
+      expect(
+        cookies?.some((cookie: string) => cookie.includes('access_token'))
+      ).toBe(true);
 
       // ユーザーが認証済みになっているか確認
       const user = await prisma.user.findUnique({
-        where: { id: userId }
+        where: { id: userId },
       });
       expect(user?.emailVerified).toBeTruthy();
 
       // 検証トークンが削除されているか確認
       const token = await prisma.emailVerificationToken.findFirst({
-        where: { userId }
+        where: { userId },
       });
       expect(token).toBeNull();
     });
 
     test('無効なトークンの場合にエラーを返す', async () => {
-      const response = await request(app)
-        .get(`/auth/verify-email?uid=${userId}&token=invalid-token`);
+      const response = await request(app).get(
+        `/auth/verify-email?uid=${userId}&token=invalid-token`
+      );
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'invalid_token');
     });
 
     test('必須パラメータが不足している場合にエラーを返す', async () => {
-      const response = await request(app)
-        .get('/auth/verify-email?uid=test');
+      const response = await request(app).get('/auth/verify-email?uid=test');
 
       expect(response.status).toBe(400);
       expect(response.body).toHaveProperty('error', 'invalid_body');
@@ -228,20 +233,20 @@ describe('Auth Endpoints Tests', () => {
   });
 
   describe('POST /auth/login', () => {
-    let userId: string;
+    // let userId: string;
 
     beforeEach(async () => {
       // 認証済みユーザーを作成
       const passwordHash = await argon2.hash(testUser.password);
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: {
           email: testUser.email,
           passwordHash,
           name: testUser.name,
-          emailVerified: new Date() // 認証済み
-        }
+          emailVerified: new Date(), // 認証済み
+        },
       });
-      userId = user.id;
+      // userId = user.id;
     });
 
     test('正常なログインが成功する', async () => {
@@ -249,7 +254,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: testUser.email,
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -257,9 +262,13 @@ describe('Auth Endpoints Tests', () => {
       expect(response.body).toEqual({});
 
       // Cookieが設定されているか確認
-      const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const cookies = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(cookies).toBeTruthy();
-      expect(cookies?.some((cookie: string) => cookie.includes('access_token'))).toBe(true);
+      expect(
+        cookies?.some((cookie: string) => cookie.includes('access_token'))
+      ).toBe(true);
     });
 
     test('存在しないユーザーの場合にエラーを返す', async () => {
@@ -267,7 +276,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: 'nonexistent@example.com',
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -280,7 +289,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: testUser.email,
-          password: 'wrongpassword'
+          password: 'wrongpassword',
         })
         .set('Content-Type', 'application/json');
 
@@ -296,15 +305,15 @@ describe('Auth Endpoints Tests', () => {
           email: testUser2.email,
           passwordHash,
           name: testUser2.name,
-          emailVerified: null // 未認証
-        }
+          emailVerified: null, // 未認証
+        },
       });
 
       const response = await request(app)
         .post('/auth/login')
         .send({
           email: testUser2.email,
-          password: testUser2.password
+          password: testUser2.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -334,8 +343,8 @@ describe('Auth Endpoints Tests', () => {
           email: testUser.email,
           passwordHash,
           name: testUser.name,
-          emailVerified: new Date()
-        }
+          emailVerified: new Date(),
+        },
       });
 
       // ログインしてCookieを取得
@@ -343,7 +352,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: testUser.email,
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -359,14 +368,17 @@ describe('Auth Endpoints Tests', () => {
       expect(response.body).toEqual({});
 
       // Cookieがクリアされているか確認
-      const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const cookies = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(cookies).toBeTruthy();
-      expect(cookies?.some((cookie: string) => cookie.includes('access_token=;'))).toBe(true);
+      expect(
+        cookies?.some((cookie: string) => cookie.includes('access_token=;'))
+      ).toBe(true);
     });
 
     test('認証されていない場合にエラーを返す', async () => {
-      const response = await request(app)
-        .post('/auth/logout');
+      const response = await request(app).post('/auth/logout');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'unauthorized');
@@ -384,8 +396,8 @@ describe('Auth Endpoints Tests', () => {
           email: testUser.email,
           passwordHash,
           name: testUser.name,
-          emailVerified: new Date()
-        }
+          emailVerified: new Date(),
+        },
       });
 
       // ログインしてCookieを取得
@@ -393,7 +405,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: testUser.email,
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -409,12 +421,14 @@ describe('Auth Endpoints Tests', () => {
       expect(response.body).toHaveProperty('user');
       expect(response.body.user).toHaveProperty('id');
       expect(response.body.user).toHaveProperty('email', testUser.email);
-      expect(response.body).toHaveProperty('message', 'This is a protected resource');
+      expect(response.body).toHaveProperty(
+        'message',
+        'This is a protected resource'
+      );
     });
 
     test('認証されていない場合にエラーを返す', async () => {
-      const response = await request(app)
-        .get('/auth/protected');
+      const response = await request(app).get('/auth/protected');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error', 'unauthorized');
@@ -433,8 +447,8 @@ describe('Auth Endpoints Tests', () => {
           email: testUser.email,
           passwordHash,
           name: testUser.name,
-          emailVerified: new Date()
-        }
+          emailVerified: new Date(),
+        },
       });
       userId = user.id;
 
@@ -443,7 +457,7 @@ describe('Auth Endpoints Tests', () => {
         .post('/auth/login')
         .send({
           email: testUser.email,
-          password: testUser.password
+          password: testUser.password,
         })
         .set('Content-Type', 'application/json');
 
@@ -466,8 +480,7 @@ describe('Auth Endpoints Tests', () => {
       });
 
       test('認証されていない場合にエラーを返す', async () => {
-        const response = await request(app)
-          .get('/api/users/profile');
+        const response = await request(app).get('/api/users/profile');
 
         expect(response.status).toBe(401);
         expect(response.body).toHaveProperty('error', 'unauthorized');
@@ -477,7 +490,7 @@ describe('Auth Endpoints Tests', () => {
     describe('PUT /api/users/profile', () => {
       test('認証済みユーザーがプロフィールを更新できる', async () => {
         const updateData = {
-          name: '更新された名前'
+          name: '更新された名前',
         };
 
         const response = await request(app)
@@ -494,7 +507,7 @@ describe('Auth Endpoints Tests', () => {
 
       test('認証されていない場合にエラーを返す', async () => {
         const updateData = {
-          name: '更新された名前'
+          name: '更新された名前',
         };
 
         const response = await request(app)
@@ -511,7 +524,7 @@ describe('Auth Endpoints Tests', () => {
       test('認証済みユーザーがパスワードを変更できる', async () => {
         const passwordData = {
           currentPassword: testUser.password,
-          newPassword: 'NewPassword123!'
+          newPassword: 'NewPassword123!',
         };
 
         const response = await request(app)
@@ -526,7 +539,7 @@ describe('Auth Endpoints Tests', () => {
       test('間違った現在のパスワードでエラーを返す', async () => {
         const passwordData = {
           currentPassword: 'wrongpassword',
-          newPassword: 'NewPassword123!'
+          newPassword: 'NewPassword123!',
         };
 
         const response = await request(app)
@@ -536,13 +549,16 @@ describe('Auth Endpoints Tests', () => {
           .set('Content-Type', 'application/json');
 
         expect(response.status).toBe(400);
-        expect(response.body).toHaveProperty('error', 'invalid_current_password');
+        expect(response.body).toHaveProperty(
+          'error',
+          'invalid_current_password'
+        );
       });
 
       test('認証されていない場合にエラーを返す', async () => {
         const passwordData = {
           currentPassword: testUser.password,
-          newPassword: 'NewPassword123!'
+          newPassword: 'NewPassword123!',
         };
 
         const response = await request(app)
@@ -558,7 +574,7 @@ describe('Auth Endpoints Tests', () => {
     describe('POST /api/users/account/delete', () => {
       test('認証済みユーザーがアカウントを削除できる', async () => {
         const deleteData = {
-          password: testUser.password
+          password: testUser.password,
         };
 
         const response = await request(app)
@@ -571,14 +587,14 @@ describe('Auth Endpoints Tests', () => {
 
         // ユーザーが削除されていることを確認
         const user = await prisma.user.findUnique({
-          where: { id: userId }
+          where: { id: userId },
         });
         expect(user).toBeNull();
       });
 
       test('間違ったパスワードでエラーを返す', async () => {
         const deleteData = {
-          password: 'WrongPassword123!'
+          password: 'WrongPassword123!',
         };
 
         const response = await request(app)
@@ -593,7 +609,7 @@ describe('Auth Endpoints Tests', () => {
 
       test('認証されていない場合にエラーを返す', async () => {
         const deleteData = {
-          password: testUser.password
+          password: testUser.password,
         };
 
         const response = await request(app)

@@ -11,7 +11,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import type { Itinerary } from "@/types";
+import type { Itinerary, ItineraryWithUid, Event, EventWithUid } from "@/types";
 import defaultItinerary from "@/lib/defaultItinerary";
 import { attachUids, parseWithUids, serializeWithUids, generateUid, stripUids, stripEventUid } from "./uiUid";
 import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
@@ -57,14 +57,13 @@ function normalizeTimeValue(timeStr: string): string {
  * @param event - 正規化するイベント
  * @returns 正規化されたイベント
  */
-function normalizeEventTimes(event: unknown): unknown {
+function normalizeEventTimes(event: Event | EventWithUid): Event | EventWithUid {
   if (!event || typeof event !== 'object') return event;
   
-  const eventObj = event as Record<string, unknown>;
   return {
-    ...eventObj,
-    time: normalizeTimeValue((eventObj.time as string) || ""),
-    end_time: normalizeTimeValue((eventObj.end_time as string) || ""),
+    ...event,
+    time: normalizeTimeValue(event.time || ""),
+    end_time: normalizeTimeValue(event.end_time || ""),
   };
 }
 
@@ -74,15 +73,18 @@ function normalizeEventTimes(event: unknown): unknown {
  * @param itinerary - 正規化する旅程データ
  * @returns 正規化された旅程データ
  */
-function normalizeItineraryTimes(itinerary: any): any {
-  if (!itinerary || !itinerary.days) return itinerary;
+function normalizeItineraryTimes(itinerary: Itinerary | ItineraryWithUid): Itinerary | ItineraryWithUid {
+  if (!itinerary || typeof itinerary !== 'object' || !('days' in itinerary)) return itinerary;
   
   return {
     ...itinerary,
-    days: itinerary.days.map((day: any) => ({
-      ...day,
-      events: (day.events || []).map(normalizeEventTimes),
-    })),
+    days: itinerary.days.map((day) => {
+      if (typeof day !== 'object' || !day) return day;
+      return {
+        ...day,
+        events: (day.events || []).map(normalizeEventTimes),
+      };
+    }),
   };
 }
 
@@ -105,7 +107,7 @@ export async function aiEditItineraryImpl(
 ): Promise<{success: boolean, changeDescription?: string, error?: string}> {
   try {
     // _uidを削除してAPIに送信するデータを準備
-    const cleanItinerary = stripUids(itinerary as any) as Itinerary;
+    const cleanItinerary = stripUids(itinerary) as Itinerary;
     
     console.debug("=== AI旅程編集 デバッグ情報 ===");
     console.debug("編集プロンプト:", editPrompt);
@@ -230,7 +232,7 @@ export async function aiCompleteEventImpl(
       return jsonResponse;
     };
 
-    let newEvent: any;
+    let newEvent: unknown;
     try {
       newEvent = await tryRequest(false);
     } catch (err) {
@@ -240,7 +242,7 @@ export async function aiCompleteEventImpl(
 
     const newDays = [...itinerary.days];
     const newEvents = [...newDays[dayIndex].events];
-    // @ts-ignore
+    // @ts-expect-error - newEventの型が不明なため
     newEvents.splice(eventIndex + 1, 0, { ...newEvent, _uid: generateUid() });
     newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
     setItinerary({ ...itinerary, days: newDays });
@@ -340,10 +342,10 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
     
-    const stripped = stripUids(itinerary as any) as Itinerary;
+    const stripped = stripUids(itinerary) as Itinerary;
     const payload = {
       ...stripped,
-      days: (stripped.days || []).map((d: any) => ({
+      days: (stripped.days || []).map((d: { date?: Date }) => ({
         ...d,
         date: d?.date ? (d.date as Date).toISOString() : undefined,
       })),
@@ -389,10 +391,10 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
  */
 export async function shareItineraryImpl(itinerary: Itinerary): Promise<string | null> {
   try {
-    const stripped = stripUids(itinerary as any) as Itinerary;
+    const stripped = stripUids(itinerary) as Itinerary;
     const payload = {
       ...stripped,
-      days: (stripped.days || []).map((d: any) => ({
+      days: (stripped.days || []).map((d: { date?: Date }) => ({
         ...d,
         date: d?.date ? (d.date as Date).toISOString() : undefined,
       })),
@@ -465,11 +467,11 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
       const text = await resp.text();
       throw new Error(text || `HTTP ${resp.status}`);
     }
-    let data: any = await resp.json();
+    let data: unknown = await resp.json();
     if (typeof data === "string") {
       try {
         data = JSON.parse(data);
-      } catch (_e) {
+      } catch {
         // noop
       }
     }
@@ -533,8 +535,8 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
  * ] = useItineraryStore("itinerary-id");
  */
 export default function useItineraryStore(itineraryId?: string): [
-  Itinerary,
-  (next: Itinerary) => void,
+  ItineraryWithUid,
+  (next: ItineraryWithUid) => void,
   (dayIndex: number, eventIndex: number) => Promise<void>,
   (editPrompt: string) => Promise<{success: boolean, changeDescription?: string, error?: string}>,
   () => void,
@@ -547,13 +549,13 @@ export default function useItineraryStore(itineraryId?: string): [
   boolean,
   boolean
 ] {
-  const [itinerary, setItinerary] = useState<Itinerary>(attachUids(defaultItinerary));
-  const [past, setPast] = useState<Itinerary[]>([]);
-  const [future, setFuture] = useState<Itinerary[]>([]);
+  const [itinerary, setItinerary] = useState<ItineraryWithUid>(attachUids(defaultItinerary));
+  const [past, setPast] = useState<ItineraryWithUid[]>([]);
+  const [future, setFuture] = useState<ItineraryWithUid[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const HISTORY_LIMIT = 50;
 
-  const setItineraryWithHistory = (next: Itinerary) => {
+  const setItineraryWithHistory = (next: ItineraryWithUid) => {
     setPast((prev) => {
       const nextPast = [...prev, itinerary];
       return nextPast.length > HISTORY_LIMIT ? nextPast.slice(nextPast.length - HISTORY_LIMIT) : nextPast;
@@ -674,7 +676,7 @@ export default function useItineraryStore(itineraryId?: string): [
     if (!canUndo) return;
     setPast((prevPast) => {
       const prev = [...prevPast];
-      const previous = prev.pop() as Itinerary;
+      const previous = prev.pop() as ItineraryWithUid;
       setFuture((f) => [...f, itinerary]);
       setItinerary(previous);
       return prev;
@@ -685,7 +687,7 @@ export default function useItineraryStore(itineraryId?: string): [
     if (!canRedo) return;
     setFuture((prevFuture) => {
       const nextFuture = [...prevFuture];
-      const next = nextFuture.pop() as Itinerary;
+      const next = nextFuture.pop() as ItineraryWithUid;
       setPast((p) => [...p, itinerary]);
       setItinerary(next);
       return nextFuture;
@@ -694,7 +696,7 @@ export default function useItineraryStore(itineraryId?: string): [
 
   return [
     itinerary,
-    (next: Itinerary) => setItineraryWithHistory(next),
+    (next: ItineraryWithUid) => setItineraryWithHistory(next),
     aiCompleteEvent,
     aiEditItinerary,
     resetItinerary,

@@ -42,13 +42,16 @@ export default function FloatingActionBar({
   onBackToList,
   onUndo,
   onRedo,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSave,
   onPrintPreview,
   onShare,
   onAiDialog,
   canUndo,
   canRedo,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   saving,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   itineraryId,
   isGuestMode = false
 }: FloatingActionBarProps) {

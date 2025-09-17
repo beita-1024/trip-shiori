@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
 
 /**
  * 共有リンク経由で旅程取得
- * 
+ *
  * @summary リンクを知っている全員がアクセス可能な旅程を取得
  * @auth 不要（PUBLIC_LINKのため）
  * @rateLimit 120 req/min（共有アクセスのため緩め）
@@ -49,7 +48,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
     if (!itinerary) {
       return res.status(404).json({
         error: 'not_found',
-        message: 'Itinerary not found'
+        message: 'Itinerary not found',
       });
     }
 
@@ -57,7 +56,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
     if (!itinerary.share) {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'This itinerary is not shared'
+        message: 'This itinerary is not shared',
       });
     }
 
@@ -67,7 +66,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
     if (share.scope !== 'PUBLIC_LINK') {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'Access denied'
+        message: 'Access denied',
       });
     }
 
@@ -75,7 +74,7 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
     if (share.expiresAt && share.expiresAt < new Date()) {
       return res.status(410).json({
         error: 'gone',
-        message: 'Share has expired'
+        message: 'Share has expired',
       });
     }
 
@@ -91,10 +90,10 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
     // 旅程データの解析
     const stored = itinerary.data;
     let parsedData;
-    if (typeof stored === "string") {
+    if (typeof stored === 'string') {
       try {
         parsedData = JSON.parse(stored);
-      } catch (parseErr) {
+      } catch {
         parsedData = stored;
       }
     } else {
@@ -110,20 +109,20 @@ export const getSharedItinerary = async (req: Request, res: Response) => {
         isReadOnly: true, // 共有リンク経由は常に読み取り専用
         accessCount: share.accessCount + 1, // 更新後の値（increment前の値+1）
         lastAccessedAt: new Date().toISOString(),
-      }
+      },
     });
   } catch (error) {
-    console.error("Get shared itinerary error:", error);
+    console.error('Get shared itinerary error:', error);
     return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to fetch shared itinerary'
+      message: 'Failed to fetch shared itinerary',
     });
   }
 };
 
 /**
  * 公開旅程を取得する（OGP対応）
- * 
+ *
  * @summary 誰でもアクセス可能な公開旅程を取得（検索エンジンにインデックスされる）
  * @auth 不要（PUBLICのため）
  * @params
@@ -171,7 +170,7 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
     if (!itinerary) {
       return res.status(404).json({
         error: 'not_found',
-        message: 'Itinerary not found'
+        message: 'Itinerary not found',
       });
     }
 
@@ -179,7 +178,7 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
     if (!itinerary.share) {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'This itinerary is not public'
+        message: 'This itinerary is not public',
       });
     }
 
@@ -189,7 +188,7 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
     if (share.scope !== 'PUBLIC') {
       return res.status(403).json({
         error: 'forbidden',
-        message: 'Access denied'
+        message: 'Access denied',
       });
     }
 
@@ -205,10 +204,10 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
     // 旅程データの解析
     const stored = itinerary.data;
     let parsedData;
-    if (typeof stored === "string") {
+    if (typeof stored === 'string') {
       try {
         parsedData = JSON.parse(stored);
-      } catch (parseErr) {
+      } catch {
         parsedData = stored;
       }
     } else {
@@ -241,13 +240,13 @@ export const getPublicItinerary = async (req: Request, res: Response) => {
           email: itinerary.user?.email ? '***@***.***' : null, // メールアドレスは部分的にマスク
         },
         ogp: ogpData,
-      }
+      },
     });
   } catch (error) {
-    console.error("Get public itinerary error:", error);
+    console.error('Get public itinerary error:', error);
     return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to fetch public itinerary'
+      message: 'Failed to fetch public itinerary',
     });
   }
 };

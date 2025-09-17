@@ -1,5 +1,5 @@
 # TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
-name: Build (noop)
+name: Build
 
 on:
   workflow_dispatch:

@@ -1,17 +1,17 @@
 /**
  * ChatGPT (OpenAI) APIクライアント
- * 
+ *
  * OpenAIのChatGPT APIを呼び出すための低レベルクライアントです。
  * RubyのChatGPTClientをTypeScriptに移植したものです。
- * 
+ *
  * @example
- * const client = new ChatGptClient({ 
- *   model: ModelType.GPT_4O_MINI, 
- *   systemContent: 'あなたは有能なアシスタントです。' 
+ * const client = new ChatGptClient({
+ *   model: ModelType.GPT_4O_MINI,
+ *   systemContent: 'あなたは有能なアシスタントです。'
  * });
  * const response = await client.callChat({ userContent: 'こんにちは' });
  */
-import { ModelTypeKey, VALID_MODELS, isValidModel } from "../types/modelType";
+import { ModelTypeKey, VALID_MODELS, isValidModel } from '../types/modelType';
 
 /**
  * ChatGptClientの設定オプション
@@ -37,7 +37,7 @@ export type ChatGptClientOptions = {
 
 /**
  * OpenAI ChatGPT APIクライアントクラス
- * 
+ *
  * 非同期でChatGPT APIを呼び出し、テキストレスポンスを取得します。
  * エラーハンドリング、タイムアウト、型安全性を提供します。
  */
@@ -51,12 +51,12 @@ export class ChatGptClient {
   private frequency_penalty?: number;
   private timeoutMs: number;
 
-  private apiUrl = "https://api.openai.com/v1/chat/completions";
+  private apiUrl = 'https://api.openai.com/v1/chat/completions';
   private apiKey: string;
 
   /**
    * ChatGptClientのインスタンスを作成する
-   * 
+   *
    * @param opts - クライアントの設定オプション
    * @throws {Error} 無効なモデルが指定された場合
    * @throws {Error} OPENAI_API_KEY環境変数が設定されていない場合
@@ -70,10 +70,12 @@ export class ChatGptClient {
    */
   constructor(opts: ChatGptClientOptions) {
     if (!isValidModel(opts.model)) {
-      throw new Error(`Invalid model: ${opts.model}. valid: ${VALID_MODELS.join(", ")}`);
+      throw new Error(
+        `Invalid model: ${opts.model}. valid: ${VALID_MODELS.join(', ')}`
+      );
     }
     this.model = opts.model;
-    this.systemContent = opts.systemContent ?? "You are a helpful assistant.";
+    this.systemContent = opts.systemContent ?? 'You are a helpful assistant.';
     this.temperature = opts.temperature;
     this.top_p = opts.top_p;
     this.n = opts.n;
@@ -82,13 +84,13 @@ export class ChatGptClient {
     this.timeoutMs = opts.timeoutMs ?? 30_000;
 
     const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error("OPENAI_API_KEY is not set in environment");
+    if (!key) throw new Error('OPENAI_API_KEY is not set in environment');
     this.apiKey = key;
   }
 
   /**
    * ChatGPT APIを呼び出してテキストレスポンスを取得する
-   * 
+   *
    * @param params - API呼び出しパラメータ
    * @param params.userContent - ユーザーからの入力テキスト
    * @param params.maxTokens - 最大トークン数（デフォルト: 1000）
@@ -116,8 +118,8 @@ export class ChatGptClient {
     const body: any = {
       model: this.model,
       messages: [
-        { role: "system", content: this.systemContent },
-        { role: "user", content: userContent },
+        { role: 'system', content: this.systemContent },
+        { role: 'user', content: userContent },
       ],
       max_tokens: maxTokens,
       stream: false,
@@ -129,7 +131,8 @@ export class ChatGptClient {
     if (this.top_p !== undefined) body.top_p = this.top_p;
     if (this.n !== undefined) body.n = this.n;
     if (this.stop !== undefined) body.stop = this.stop;
-    if (this.frequency_penalty !== undefined) body.frequency_penalty = this.frequency_penalty;
+    if (this.frequency_penalty !== undefined)
+      body.frequency_penalty = this.frequency_penalty;
 
     // タイムアウト制御の設定
     const controller = new AbortController();
@@ -138,9 +141,9 @@ export class ChatGptClient {
     try {
       // OpenAI APIへのリクエスト送信
       const res = await fetch(this.apiUrl, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(body),
@@ -165,12 +168,13 @@ export class ChatGptClient {
       // 正常レスポンスの解析
       const json = JSON.parse(text);
       // choices[0].message.content または choices[0].text からレスポンスを取得
-      const message = json?.choices?.[0]?.message?.content ?? json?.choices?.[0]?.text;
-      return (message ?? "").trim();
+      const message =
+        json?.choices?.[0]?.message?.content ?? json?.choices?.[0]?.text;
+      return (message ?? '').trim();
     } catch (err: any) {
       // タイムアウトエラーの特別処理
-      if (err.name === "AbortError") {
-        throw new Error("OpenAI request timed out");
+      if (err.name === 'AbortError') {
+        throw new Error('OpenAI request timed out');
       }
       throw err;
     }

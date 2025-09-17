@@ -1,6 +1,6 @@
 /**
  * 旅程編集ルーター
- * 
+ *
  * 旅程編集機能のHTTPルーティングを定義します。
  */
 import { Router } from 'express';
@@ -11,7 +11,7 @@ const router = Router();
 /**
  * POST /api/itinerary-edit
  * 旅程を編集する
- * 
+ *
  * リクエストボディ:
  * {
  *   "originalItinerary": {
@@ -22,7 +22,7 @@ const router = Router();
  *   },
  *   "editPrompt": "変更したい内容の説明"
  * }
- * 
+ *
  * レスポンス:
  * {
  *   "success": true,
@@ -34,6 +34,5 @@ const router = Router();
  * }
  */
 router.post('/', editItinerary);
-
 
 export default router;

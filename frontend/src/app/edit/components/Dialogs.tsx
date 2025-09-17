@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { Card, Button, Spinner } from "@/components/Primitives";
-import type { Itinerary, Day, Event } from "@/types";
+import { Button, Spinner } from "@/components/Primitives";
+import type { ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
 
 /**
  * 時刻形式を正規化する関数
@@ -69,7 +69,7 @@ function normalizeTimeForDisplay(timeStr: string): string {
  * @returns レンダリングされたDialogsコンポーネント
  */
 interface DialogsProps {
-  itinerary: Itinerary;
+  itinerary: ItineraryWithUid;
   showPrintPreview: boolean;
   showTriFoldPrintPreview: boolean;
   showShareDialog: boolean;
@@ -100,6 +100,7 @@ interface DialogsProps {
 export default function Dialogs({
   itinerary,
   showPrintPreview,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   showTriFoldPrintPreview,
   showShareDialog,
   showAiDialog,
@@ -113,7 +114,9 @@ export default function Dialogs({
   toastMessage,
   saving,
   itineraryId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClosePrintPreview,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onCloseTriFoldPrintPreview,
   onCloseShareDialog,
   onCloseAiDialog,
@@ -138,12 +141,12 @@ export default function Dialogs({
             </div>
 
             <div className="print-days">
-              {itinerary.days.map((day: Day, dIdx: number) => (
-                <section key={(day as any)._uid || dIdx} className="print-day">
+              {itinerary.days.map((day: DayWithUid, dIdx: number) => (
+                <section key={day._uid || dIdx} className="print-day">
                   <div className="print-day-title">
                     {(() => {
                       if (!day.date) return `Day ${dIdx + 1}`;
-                      const dateObj = new Date(day.date as any);
+                      const dateObj = new Date(day.date as string | Date);
                       const dateStr = dateObj.toLocaleDateString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit" });
                       const wk = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(dateObj);
                       return `${dateStr} (${wk})`;
@@ -158,8 +161,8 @@ export default function Dialogs({
                       </tr>
                     </thead>
                     <tbody>
-                      {day.events.map((ev: Event, eIdx: number) => (
-                        <tr key={(ev as any)._uid || eIdx}>
+                      {day.events.map((ev: EventWithUid, eIdx: number) => (
+                        <tr key={ev._uid || eIdx}>
                           <td className="print-td">
                             {normalizeTimeForDisplay(ev.time || "")} 
                             {(ev.end_time ? ` - ${normalizeTimeForDisplay(ev.end_time)}` : "")}

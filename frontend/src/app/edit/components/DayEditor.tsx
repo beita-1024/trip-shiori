@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import SortableEvent from "../SortableEvent";
-import type { Day, Event, Itinerary } from "@/types";
+import type { ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
 import { PlusIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/solid";
 import iconItems from "@/components/iconItems";
 
@@ -32,8 +32,8 @@ import iconItems from "@/components/iconItems";
  * @returns レンダリングされたDayEditorコンポーネント
  */
 interface DayEditorProps {
-  itinerary: Itinerary;
-  onItineraryChange: (itinerary: Itinerary) => void;
+  itinerary: ItineraryWithUid;
+  onItineraryChange: (itinerary: ItineraryWithUid) => void;
   onAiCompleteEvent: (dayIndex: number, eventIndex: number) => Promise<void>;
   loadingKeys: Set<string>;
   setLoadingKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -62,8 +62,8 @@ export default function DayEditor({
     // イベントアイテムのドラッグのみを処理
     if (!(activeId.startsWith("event-") && overId.startsWith("event-"))) return;
 
-    const [_a, aDayStr, aIndexStr] = activeId.split("-");
-    const [_b, bDayStr, bIndexStr] = overId.split("-");
+    const [, aDayStr, aIndexStr] = activeId.split("-");
+    const [, bDayStr, bIndexStr] = overId.split("-");
     const aDay = parseInt(aDayStr, 10);
     const aIndex = parseInt(aIndexStr, 10);
     const bDay = parseInt(bDayStr, 10);
@@ -78,7 +78,7 @@ export default function DayEditor({
     newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
     // 目標位置に挿入
     const targetEvents = [...newDays[bDay].events];
-    const insertIndex = aDay === bDay && aIndex < bIndex ? bIndex : bIndex;
+    const insertIndex = bIndex;
     targetEvents.splice(insertIndex, 0, activeEvent);
     newDays[bDay] = { ...newDays[bDay], events: targetEvents };
     onItineraryChange({ ...itinerary, days: newDays });
@@ -86,8 +86,8 @@ export default function DayEditor({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      {itinerary.days.map((day: Day, dayIndex: number) => (
-        <Card key={(day as any)._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4">
+      {itinerary.days.map((day: DayWithUid, dayIndex: number) => (
+        <Card key={day._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4">
           <section className="mb-4">
             <DateInputWithWeekday
               id={`day-${dayIndex}-date`}
@@ -102,8 +102,8 @@ export default function DayEditor({
             
             {/* イベントの並べ替え可能なリスト */}
             <SortableContext items={day.events.map((_, ei) => `event-${dayIndex}-${ei}`)} strategy={rectSortingStrategy}>
-              {day.events.map((event: Event, eventIndex: number) => (
-                <SortableEvent id={`event-${dayIndex}-${eventIndex}`} key={(event as any)._uid || `event-${dayIndex}-${eventIndex}`}>
+              {day.events.map((event: EventWithUid, eventIndex: number) => (
+                <SortableEvent id={`event-${dayIndex}-${eventIndex}`} key={event._uid || `event-${dayIndex}-${eventIndex}`}>
                   {({ attributes, listeners }) => {
                     const loadingKey = `event-${dayIndex}-${eventIndex}`;
                     const isLoading = loadingKeys.has(loadingKey);

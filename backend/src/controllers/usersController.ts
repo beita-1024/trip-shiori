@@ -2,52 +2,19 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { 
-  updateUserProfileSchema, 
-  changePasswordSchema, 
-  deleteAccountSchema,
+import {
   type UpdateUserProfileRequest,
   type ChangePasswordRequest,
-  type DeleteAccountRequest
+  type DeleteAccountRequest,
 } from '../validators/userValidators';
-
 
 // TODO: (req as any).validatedBody as UpdateUserProfileRequest;みたいになっているのは
 // とりあえずの苦肉の策、
-// (req: Combine<AuthenticatedRequest, UpdateUserProfileRequest>
-// みたいに書きたい
-// 以下のようにすれば可能？要検証
-// type Merge<A, B> = Omit<A, keyof B> & B;
-// type ConflictKeys<A, B> = keyof A & keyof B;
-// // 衝突が無い時だけ A & B、あるなら never（＝型エラーにしたいとき）
-// type NoConflict<A, B> =
-//   [ConflictKeys<A, B>] extends [never]
-//     ? A & B
-//     : never;
-
-// // --- main ---
-// // Mode: "merge" なら B で上書き / "strict" ならキー衝突でエラー
-// export type Combine<
-//   A,
-//   B,
-//   Mode extends "merge" | "strict" = "merge"
-// > = Mode extends "merge" ? Merge<A, B> : NoConflict<A, B>;
-// type A = { id: string; createdAt: string };
-// type B = { title: string };
-
-// // 1) 上書きマージ（デフォルト）: A と B を結合
-// type C1 = Combine<A, B>;                 // { id: string; createdAt: string; title: string }
-
-// // 2) 厳格（衝突でエラー）
-// type C2 = Combine<A, { id: number }, "strict">; // X id が衝突 → never（型エラー）
-
-// // 3) 上書き（B優先）
-// type C3 = Combine<A, { id: number }>;    // { createdAt: string; id: number }
-
+// AatacchTypesをつかって、req: AttachAll<[AuthenticatedRequest, UserProfile]>みたいに全部書き換える予定
 
 /**
  * ユーザープロフィール情報を取得する
- * 
+ *
  * @summary 認証済みユーザーのプロフィール情報を取得
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -64,7 +31,10 @@ import {
  *   GET /api/users/profile
  *   200: { "id": "usr_123", "email": "user@example.com", "name": "Taro", "emailVerified": "2025-01-01T00:00:00Z", "createdAt": "2025-01-01T00:00:00Z", "updatedAt": "2025-01-01T00:00:00Z" }
  */
-export const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
+export const getUserProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでユーザー存在確認済み
     const user = (req as any).userProfile;
@@ -81,16 +51,16 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     // 予期しないエラーは500で返す
     console.error('Get user profile error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to get user profile' 
+      message: 'Failed to get user profile',
     });
   }
 };
 
 /**
  * ユーザープロフィール情報を更新する
- * 
+ *
  * @summary 認証済みユーザーのプロフィール情報を更新
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -111,19 +81,22 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
  *   Body: { "name": "New Name" }
  *   200: { "id": "usr_123", "email": "user@example.com", "name": "New Name", ... }
  */
-export const updateUserProfile = async (req: AuthenticatedRequest, res: Response) => {
+export const updateUserProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証ユーザーが存在しない場合は401を返す
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
-    
 
     // バリデーション済みのリクエストボディを取得
-    const validatedBody = (req as any).validatedBody as UpdateUserProfileRequest;
+    const validatedBody = (req as any)
+      .validatedBody as UpdateUserProfileRequest;
     const { name } = validatedBody;
 
     // nameが未指定の場合はnullで上書きされる点に注意
@@ -153,16 +126,16 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     // 予期しないエラーは500で返す
     console.error('Update user profile error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to update user profile' 
+      message: 'Failed to update user profile',
     });
   }
 };
 
 /**
  * ユーザーのパスワードを変更する
- * 
+ *
  * @summary 認証済みユーザーのパスワードを変更
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -183,13 +156,16 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
  *   Body: { "currentPassword": "oldpass", "newPassword": "newpass123" }
  *   204: No Content
  */
-export const changePassword = async (req: AuthenticatedRequest, res: Response) => {
+export const changePassword = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ユーザー認証情報が存在するか確認
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
 
@@ -206,18 +182,21 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
 
     // ユーザーが存在しない場合は認証エラー
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not found' 
+        message: 'User not found',
       });
     }
 
     // 現在のパスワードが正しいか検証
-    const isCurrentPasswordValid = await verifyPassword(user.passwordHash, currentPassword);
+    const isCurrentPasswordValid = await verifyPassword(
+      user.passwordHash,
+      currentPassword
+    );
     if (!isCurrentPasswordValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_current_password',
-        message: 'Current password is incorrect' 
+        message: 'Current password is incorrect',
       });
     }
 
@@ -228,7 +207,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
     // INFO: passwordChangedAtを更新することで既存のトークンを無効化できる
     await prisma.user.update({
       where: { id: req.user.id },
-      data: { 
+      data: {
         passwordHash: newPasswordHash,
         passwordChangedAt: new Date(),
       },
@@ -239,16 +218,16 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
   } catch (error) {
     // 予期しないエラーは500で返却
     console.error('Change password error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to change password' 
+      message: 'Failed to change password',
     });
   }
 };
 
 /**
  * ユーザーアカウントを削除する
- * 
+ *
  * @summary 認証済みユーザーのアカウントを削除（パスワード確認必須）
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -269,13 +248,16 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response) =
  *   Body: { "password": "userpassword" }
  *   204: No Content
  */
-export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteUserAccount = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証ユーザーが存在するかチェック
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
 
@@ -291,18 +273,18 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
 
     // ユーザーが存在しない場合は401を返却
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not found' 
+        message: 'User not found',
       });
     }
 
     // パスワードが正しいか検証
     const isPasswordValid = await verifyPassword(user.passwordHash, password);
     if (!isPasswordValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'invalid_password',
-        message: 'Password is incorrect' 
+        message: 'Password is incorrect',
       });
     }
 
@@ -316,9 +298,9 @@ export const deleteUserAccount = async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     // 予期しないエラーは500で返却
     console.error('Delete user account error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to delete user account' 
+      message: 'Failed to delete user account',
     });
   }
 };

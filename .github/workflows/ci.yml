@@ -1,17 +1,98 @@
-# TODO: GithubActionsの動作確認に、とりあえず、Actionをおいておく。
-
-name: CI (noop)
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    # CI変更時もチェックしたいのでinfraブランチもチェックする。
+    branches: [ main, 'infra/*' ]
+    tags: [ 'v*' ]
   pull_request:
+    branches: [ main ]
 
 jobs:
-  ci-noop:
+  lint-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: noop
-        run: |
-          echo "CI placeholder: TODO replace with lint/test"
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # 遅い場合はキャッシュを有効にすることも検討する。
+          #   cache: 'npm'
+          #   cache-dependency-path: |
+          #     frontend/package-lock.json
+          #     backend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend && npm ci
+          cd ../backend && npm ci
+
+      - name: Create environment files
+        env:
+          # 本番環境用の機密情報のみGitHub Secretsから取得
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # APIキーの安全な表示（デバッグ用）
+          if [ -n "${OPENAI_API_KEY}" ]; then
+            echo "OPENAI_API_KEY: ${OPENAI_API_KEY:0:3}...${OPENAI_API_KEY: -3}"
+          else
+            echo "Warning: OPENAI_API_KEY is not set"
+          fi
+          
+          # 環境変数テンプレートから生成
+          envsubst < .github/workflows/templates/backend.env.template > backend/.env
+          envsubst < .github/workflows/templates/backend.env.template > backend/.env.test
+          envsubst < .github/workflows/templates/frontend.env.template > frontend/.env
+          
+          # データベース環境変数ファイル作成
+          cat > .env << EOF
+          POSTGRES_DB=app_db_test
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          EOF
+
+      - name: Setup PostgreSQL
+        run: |
+          # PostgreSQLサービスを起動
+          sudo systemctl start postgresql
+          sudo systemctl enable postgresql
+          
+          # テスト用データベースを作成
+          sudo -u postgres psql -c "CREATE DATABASE app_db_test;" || true
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';" || true
+          
+          # データベース接続確認
+          timeout 30 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
+          
+          # データベースマイグレーション実行
+          cd backend && npx prisma migrate deploy --schema=./prisma/schema.prisma
+
+      - name: Run lint
+        run: |
+          # ファイル権限を修正
+          sudo chown -R $USER:$USER .
+          chmod -R 755 .
+          
+          # キャッシュディレクトリを事前作成
+          mkdir -p frontend/.next/cache/eslint
+          mkdir -p backend/node_modules/.cache
+          
+          # 直接npmコマンドを実行
+          cd backend && npm run lint
+          cd ../frontend && npm run lint
+
+      - name: Run test
+        run: |
+          # データベース接続確認
+          echo "データベース接続確認中..."
+          timeout 30 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
+          
+          # テスト用データベースのマイグレーション実行
+          cd backend && npx prisma migrate deploy --schema=./prisma/schema.prisma
+          
+          # 直接npmコマンドを実行
+          cd backend && npm test
+          cd ../frontend && npm test

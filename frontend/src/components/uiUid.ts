@@ -7,7 +7,7 @@
  * @fileoverview データ送信時には_uidを削除して送信するようにしてください。
  */
 
-import type { Itinerary } from "@/types";
+import type { Itinerary, ItineraryWithUid, DayWithUid, EventWithUid, Event as ItinEvent } from "@/types";
 
 /**
  * 簡易 UID 生成関数
@@ -33,20 +33,16 @@ function generateUid(): string {
  * @example
  * const itineraryWithUids = attachUids(itineraryData);
  */
-export function attachUids(it: Itinerary): Itinerary {
+export function attachUids(it: Itinerary): ItineraryWithUid {
   return {
     title: it.title,
     subtitle: it.subtitle,
     description: it.description,
     days: it.days.map(d => ({
-      // TODO: _uidを追加した型を定義してanyを取り除く
-      // @ts-ignore
-      _uid: (d as any)._uid || generateUid(),
+      _uid: (d as DayWithUid)._uid || generateUid(),
       date: d.date ? new Date(d.date) : undefined,
-      label: (d as any).label,
       events: (d.events || []).map(e => ({
-        // @ts-ignore
-        _uid: (e as any)._uid || generateUid(),
+        _uid: (e as EventWithUid)._uid || generateUid(),
         ...e,
       })),
     })),
@@ -65,17 +61,16 @@ export function attachUids(it: Itinerary): Itinerary {
  * const cleanData = stripUids(itineraryWithUids);
  * await fetch('/api/itineraries', { body: JSON.stringify(cleanData) });
  */
-export function stripUids(it: Itinerary): Itinerary {
-  // TODO: _uidを追加した型を定義してanyを取り除く
+export function stripUids(it: ItineraryWithUid): Itinerary {
   return {
     title: it.title,
     subtitle: it.subtitle,
     description: it.description,
     days: (it.days || []).map(d => ({
       date: d.date ? new Date(d.date) : undefined,
-      label: (d as any).label,
       events: (d.events || []).map(e => {
-        const { _uid, ...rest } = e as any;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _uid: _, ...rest } = e;
         return rest;
       }),
     })),
@@ -92,9 +87,9 @@ export function stripUids(it: Itinerary): Itinerary {
  * @example
  * const cleanEvent = stripEventUid(eventWithUid);
  */
-export function stripEventUid(event: any): any {
-  // TODO: _uidを追加した型を定義してanyを取り除く
-  const { _uid, ...rest } = event;
+export function stripEventUid(event: EventWithUid): ItinEvent {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { _uid: _, ...rest } = event;
   return rest;
 }
 
@@ -110,12 +105,11 @@ export function stripEventUid(event: any): any {
  * const serialized = serializeWithUids(itineraryData);
  * localStorage.setItem('itinerary', JSON.stringify(serialized));
  */
-export function serializeWithUids(it: Itinerary): any {
+export function serializeWithUids(it: ItineraryWithUid): { [key: string]: unknown } {
   return {
     ...it,
     days: it.days.map(d => ({
-      // @ts-ignore
-      _uid: (d as any)._uid,
+      _uid: d._uid,
       ...d,
       date: d.date ? (d.date as Date).toISOString() : undefined,
     })),
@@ -135,19 +129,15 @@ export function serializeWithUids(it: Itinerary): any {
  * const parsed = JSON.parse(raw);
  * const itinerary = parseWithUids(parsed);
  */
-export function parseWithUids(data: any): Itinerary {
-  // TODO: _uidを追加した型を定義してanyを取り除く
+export function parseWithUids(data: { [key: string]: unknown }): ItineraryWithUid {
   return {
-    title: data.title,
-    subtitle: data.subtitle,
-    description: data.description,
-    days: (data.days || []).map((d: any) => ({
-      // @ts-ignore
+    title: data.title as string,
+    subtitle: data.subtitle as string | undefined,
+    description: data.description as string | undefined,
+    days: (data.days as unknown[] || []).map((d: { _uid?: string; date?: string; events?: unknown[] }) => ({
       _uid: d?._uid || generateUid(),
       date: d?.date ? new Date(d.date) : undefined,
-      label: d?.label,
-      events: (d.events || []).map((e: any) => ({
-        // @ts-ignore
+      events: (d.events || []).map((e: { _uid?: string; [key: string]: unknown }) => ({
         _uid: e?._uid || generateUid(),
         ...e,
       })),

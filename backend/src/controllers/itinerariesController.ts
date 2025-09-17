@@ -1,20 +1,17 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { generateRandomId } from '../utils/idGenerator';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
-import { 
-  getItinerariesQuerySchema,
-  createItinerarySchema,
-  updateItinerarySchema,
+import {
   type GetItinerariesQuery,
   type CreateItineraryRequest,
-  type UpdateItineraryRequest
+  type UpdateItineraryRequest,
 } from '../validators/itineraryValidators';
 
 /**
  * 旅のしおりを作成する
- * 
+ *
  * @summary 認証済みユーザーが新しい旅程を作成
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -35,14 +32,17 @@ import {
  *   Body: { "title": "Tokyo Trip", "start_date": "2025-09-01" }
  *   201: { "id": "itn_123", "message": "Itinerary created successfully" }
  */
-export const createItinerary = async (req: AuthenticatedRequest, res: Response) => {
+export const createItinerary = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証チェック
     // 旅程作成は認証済みユーザーのみが実行可能で、不正な旅程作成を防ぐ
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
 
@@ -52,7 +52,7 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
     // Rails 実装に合わせて body 全体を JSON 文字列として保存する（互換性維持）
     const dataString = JSON.stringify(payload);
 
-    console.debug("Received payload:", payload); // デバッグ用: 受け取ったペイロードを表示
+    console.debug('Received payload:', payload); // デバッグ用: 受け取ったペイロードを表示
 
     const MAX_ATTEMPTS = 10;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -86,45 +86,53 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
           return itinerary;
         });
 
-        console.debug("Created itinerary with ID:", created.id); // デバッグ用: 作成した旅のしおりのIDを表示
-        return res.status(201).json({ 
-          id: created.id, 
-          message: "Itinerary created successfully" 
+        console.debug('Created itinerary with ID:', created.id); // デバッグ用: 作成した旅のしおりのIDを表示
+        return res.status(201).json({
+          id: created.id,
+          message: 'Itinerary created successfully',
         });
       } catch (err) {
         // Prisma の一意制約違反 (P2002) が返ることがある → 別IDで再試行
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
           // 衝突（非常に稀） → 再試行
           if (attempt === MAX_ATTEMPTS) {
-            console.error("Failed to generate unique id after multiple attempts."); // デバッグ用: 複数回の試行後に失敗したことを表示
-            return res.status(500).json({ errors: ["Failed to generate unique id (too many collisions)"] });
+            console.error(
+              'Failed to generate unique id after multiple attempts.'
+            ); // デバッグ用: 複数回の試行後に失敗したことを表示
+            return res.status(500).json({
+              errors: ['Failed to generate unique id (too many collisions)'],
+            });
           }
           continue;
         }
 
         // その他のエラーは 422 相当で返す（Rails 実装は save failure で 422）
-        console.error("create itinerary error:", err);
-        return res.status(422).json({ errors: [String((err as Error).message || err)] });
+        console.error('create itinerary error:', err);
+        return res
+          .status(422)
+          .json({ errors: [String((err as Error).message || err)] });
       }
     }
 
     // 到達しないはず
-    console.error("Unexpected error: Failed to create itinerary."); // デバッグ用: 予期しないエラーを表示
-    return res.status(500).json({ errors: ["Failed to create itinerary"] });
+    console.error('Unexpected error: Failed to create itinerary.'); // デバッグ用: 予期しないエラーを表示
+    return res.status(500).json({ errors: ['Failed to create itinerary'] });
   } catch (error) {
     console.error('Create itinerary error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to create itinerary' 
+      message: 'Failed to create itinerary',
     });
   }
 };
 
-
 // TODO: 非常に大きな関数なので分割する。
 /**
  * 指定されたIDの旅のしおりを取得する
- * 
+ *
  * @summary 認証済みユーザーが自分の旅程を取得、または共有設定によりアクセス可能な旅程を取得
  * @auth Bearer JWT (Cookie: access_token) - 共有設定がある場合は認証不要
  * @middleware
@@ -146,7 +154,10 @@ export const createItinerary = async (req: AuthenticatedRequest, res: Response) 
  *   GET /api/itineraries/itn_123
  *   200: { "title": "Tokyo Trip", "start_date": "2025-09-01", ... }
  */
-export const getItinerary = async (req: AuthenticatedRequest, res: Response) => {
+export const getItinerary = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
@@ -177,16 +188,17 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
     });
 
     if (!itinerary) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'not_found',
-        message: 'Itinerary not found' 
+        message: 'Itinerary not found',
       });
     }
 
     // アクセス制御ロジック
     // 旅程への不正アクセスを防ぐため、所有者・共有設定・認証状態を厳密にチェック
     const hasShareSettings = !!(itinerary as any).share;
-    const isOwner = itinerary.userId && req.user && itinerary.userId === req.user.id;
+    const isOwner =
+      itinerary.userId && req.user && itinerary.userId === req.user.id;
     const isAuthenticated = !!req.user;
 
     // 所有者の場合は常にアクセス可能
@@ -197,13 +209,13 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
       // 共有設定がある場合のアクセス制御
       // 他人の旅程にアクセスする場合は、共有設定に基づいた権限チェックが必要
       const share = (itinerary as any).share;
-      
+
       // 有効期限チェック
       // 期限切れの共有設定は無効化し、不正アクセスを防ぐ
       if (share.expiresAt && share.expiresAt < new Date()) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'forbidden',
-          message: 'Share has expired' 
+          message: 'Share has expired',
         });
       }
 
@@ -221,34 +233,34 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
         default:
           // 未知の公開範囲は拒否
           // 予期しない公開範囲設定による不正アクセスを防ぐ
-          return res.status(403).json({ 
+          return res.status(403).json({
             error: 'forbidden',
-            message: 'Access denied' 
+            message: 'Access denied',
           });
       }
     } else {
       // 共有設定がなく、所有者でもない場合はアクセス拒否
       // プライベートな旅程への不正アクセスを防ぐ
       if (!isAuthenticated) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           error: 'unauthorized',
-          message: 'User not authenticated' 
+          message: 'User not authenticated',
         });
       }
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'forbidden',
-        message: 'Access denied' 
+        message: 'Access denied',
       });
     }
 
     // itinerary.data が string (Rails の old style) なら JSON.parse して返し、
     // すでにオブジェクト（Prisma Json）ならそのまま返す。
     const stored = (itinerary as any).data;
-    if (typeof stored === "string") {
+    if (typeof stored === 'string') {
       try {
         const parsed = JSON.parse(stored);
         return res.status(200).json(parsed);
-      } catch (parseErr) {
+      } catch {
         // もし文字列だが JSON にパースできない場合はそのまま返す（互換性重視）
         return res.status(200).json(stored);
       }
@@ -256,10 +268,10 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
       return res.status(200).json(stored);
     }
   } catch (error) {
-    console.error("fetch itinerary error:", error);
-    return res.status(500).json({ 
+    console.error('fetch itinerary error:', error);
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to fetch itinerary' 
+      message: 'Failed to fetch itinerary',
     });
   }
 };
@@ -286,7 +298,7 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *       - includeShare?: boolean — 各旅程の共有設定情報を含めるか（デフォルト: false, オプション）
  *       - includeShared?: boolean — 共有された旅程も含めるか（デフォルト: false, オプション）
  * @returns
- *   - 200: 
+ *   - 200:
  *       {
  *         itineraries: Array<{
  *           id: string,                // 旅程ID
@@ -340,28 +352,31 @@ export const getItinerary = async (req: AuthenticatedRequest, res: Response) => 
  *   - includeShare: true にすると各旅程の共有設定情報（share）がレスポンスに含まれる
  *   - includeShared: true にすると自分が作成した旅程だけでなく、共有された旅程も一覧に含まれる
  */
-export const getUserItineraries = async (req: AuthenticatedRequest, res: Response) => {
+export const getUserItineraries = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証チェック
     // 旅程一覧取得は認証済みユーザーのみが実行可能で、他人の旅程情報の不正取得を防ぐ
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
 
     // Zodバリデーション済みクエリパラメータを取得
     const validatedQuery = (req as any).validatedQuery as GetItinerariesQuery;
-    const { 
-      page, 
-      limit, 
-      sort: sortField, 
-      order, 
-      shareScope, 
-      sharePermission, 
-      includeShare, 
-      includeShared 
+    const {
+      page,
+      limit,
+      sort: sortField,
+      order,
+      shareScope,
+      sharePermission,
+      includeShare,
+      includeShared,
     } = validatedQuery;
     const sortOrder = order === 'asc' ? 'asc' : 'desc';
 
@@ -385,12 +400,12 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
                   OR: [
                     { scope: 'PUBLIC_LINK' }, // 公開リンク - リンクを知っている人全員がアクセス可能
                     { scope: 'PUBLIC' }, // 全体公開 - 誰でもアクセス可能
-                  ]
-                }
-              }
-            ]
-          }
-        ]
+                  ],
+                },
+              },
+            ],
+          },
+        ],
       });
     } else {
       // 自分が作成したもののみアクセス可能
@@ -420,7 +435,10 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
       whereConditions.push({ share: shareFilter });
     }
 
-    const whereClause = whereConditions.length > 1 ? { AND: whereConditions } : whereConditions[0];
+    const whereClause =
+      whereConditions.length > 1
+        ? { AND: whereConditions }
+        : whereConditions[0];
 
     // 取得するフィールドを決定
     const selectFields: any = {
@@ -439,7 +457,7 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
           expiresAt: true,
           accessCount: true,
           lastAccessedAt: true,
-        }
+        },
       };
     }
 
@@ -463,10 +481,10 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
       const d = (it as any).data;
       let parsedData;
       if (typeof d === 'string') {
-        try { 
-          parsedData = JSON.parse(d); 
-        } catch { 
-          parsedData = d; 
+        try {
+          parsedData = JSON.parse(d);
+        } catch {
+          parsedData = d;
         }
       } else {
         parsedData = d;
@@ -516,16 +534,16 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
     });
   } catch (error) {
     console.error('Get user itineraries error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to get itineraries' 
+      message: 'Failed to get itineraries',
     });
   }
 };
 
 /**
  * 旅程を更新する
- * 
+ *
  * @summary 認証済みユーザーが自分の旅程を更新
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -553,7 +571,10 @@ export const getUserItineraries = async (req: AuthenticatedRequest, res: Respons
  *   Body: { "title": "Updated Tokyo Trip", ... }
  *   200: { "message": "Itinerary updated successfully" }
  */
-export const updateItinerary = async (req: AuthenticatedRequest, res: Response) => {
+export const updateItinerary = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
@@ -562,7 +583,7 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
     const payload = validatedBody;
 
     // ミドルウェアで所有権チェック済み
-    const existingItinerary = (req as any).existingItinerary;
+    // const existingItinerary = (req as any).existingItinerary;
 
     // データをJSON文字列として保存
     const dataString = JSON.stringify(payload);
@@ -572,21 +593,21 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
       data: { data: dataString },
     });
 
-    return res.status(200).json({ 
-      message: "Itinerary updated successfully" 
+    return res.status(200).json({
+      message: 'Itinerary updated successfully',
     });
   } catch (error) {
     console.error('Update itinerary error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to update itinerary' 
+      message: 'Failed to update itinerary',
     });
   }
 };
 
 /**
  * 旅程を削除する
- * 
+ *
  * @summary 認証済みユーザーが自分の旅程を削除
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -609,13 +630,16 @@ export const updateItinerary = async (req: AuthenticatedRequest, res: Response) 
  *   DELETE /api/itineraries/itn_123
  *   204: No Content
  */
-export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) => {
+export const deleteItinerary = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // ミドルウェアでバリデーション済み
     const { id } = req.params;
 
     // ミドルウェアで所有権チェック済み
-    const existingItinerary = (req as any).existingItinerary;
+    // const existingItinerary = (req as any).existingItinerary;
 
     // 旅程削除（関連する共有設定はカスケード削除で自動的に削除される）
     await prisma.itinerary.delete({
@@ -625,16 +649,16 @@ export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) 
     return res.status(204).send();
   } catch (error) {
     console.error('Delete itinerary error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to delete itinerary' 
+      message: 'Failed to delete itinerary',
     });
   }
 };
 
 /**
  * 旅程の所有者かどうかを確認する
- * 
+ *
  * @summary 指定された旅程IDが現在のユーザーのものかどうかを確認
  * @auth Bearer JWT (Cookie: access_token)
  * @middleware
@@ -652,13 +676,16 @@ export const deleteItinerary = async (req: AuthenticatedRequest, res: Response) 
  *   GET /api/itineraries/abc123/ownership
  *   200: { "isOwner": true, "message": "User is the owner of this itinerary" }
  */
-export const checkItineraryOwnership = async (req: AuthenticatedRequest, res: Response) => {
+export const checkItineraryOwnership = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     // 認証チェック
     if (!req.user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'unauthorized',
-        message: 'User not authenticated' 
+        message: 'User not authenticated',
       });
     }
 
@@ -677,7 +704,7 @@ export const checkItineraryOwnership = async (req: AuthenticatedRequest, res: Re
     if (!itinerary) {
       return res.status(404).json({
         error: 'not_found',
-        message: 'Itinerary not found'
+        message: 'Itinerary not found',
       });
     }
 
@@ -685,17 +712,15 @@ export const checkItineraryOwnership = async (req: AuthenticatedRequest, res: Re
 
     return res.status(200).json({
       isOwner,
-      message: isOwner 
-        ? 'User is the owner of this itinerary' 
-        : 'User is not the owner of this itinerary'
+      message: isOwner
+        ? 'User is the owner of this itinerary'
+        : 'User is not the owner of this itinerary',
     });
-
   } catch (error) {
     console.error('Check itinerary ownership error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'internal_server_error',
-      message: 'Failed to check itinerary ownership' 
+      message: 'Failed to check itinerary ownership',
     });
   }
 };
-

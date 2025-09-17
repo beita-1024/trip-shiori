@@ -1,24 +1,24 @@
 /**
  * イベント補完機能のルーター
- * 
+ *
  * 2つのイベントの間に新しいイベントを生成するAI機能を提供します。
  * ChatGPT APIを使用してJSON形式のイベントデータを生成し、スキーマ検証を行います。
- * 
+ *
  * @example
  * POST /api/events/complete
  * Body: { "event1": { time: "10:00", title: "出発" }, "event2": { time: "12:00", title: "到着" } }
  * Response: { time: "11:00", end_time: "11:30", title: "移動", description: "電車で移動", icon: "mdi-train" }
  */
-import express, { Request, Response } from "express";
-import { ChatGptClient } from "../adapters/chatGptClient";
-import { JsonCompleter } from "../services/jsonCompleter";
-import { ModelType } from "../types/modelType";
+import express, { Request, Response } from 'express';
+import { ChatGptClient } from '../adapters/chatGptClient';
+import { JsonCompleter } from '../services/jsonCompleter';
+import { ModelType } from '../types/modelType';
 
 const router = express.Router();
 
 /**
  * 2つのイベントの間に新しいイベントを生成する
- * 
+ *
  * @param req - Expressリクエストオブジェクト
  * @param req.body.event1 - 最初のイベントオブジェクト
  * @param req.body.event2 - 2番目のイベントオブジェクト
@@ -29,14 +29,14 @@ const router = express.Router();
  * POST /api/events/complete
  * Body: { "event1": { time: "10:00", title: "出発" }, "event2": { time: "12:00", title: "到着" } }
  */
-router.post("/complete", async (req: Request, res: Response) => {
+router.post('/complete', async (req: Request, res: Response) => {
   try {
     // リクエスト開始時刻を記録
     const startedAtMs = Date.now();
-    const userId = req.headers["x-user-id"] as string | undefined;
-    
+    const userId = req.headers['x-user-id'] as string | undefined;
+
     console.log(
-      `[eventsRouter] POST /api/events/complete start userId=${userId ?? "-"} body=`,
+      `[eventsRouter] POST /api/events/complete start userId=${userId ?? '-'} body=`,
       req.body
     );
 
@@ -46,18 +46,22 @@ router.post("/complete", async (req: Request, res: Response) => {
       // console.warn(
       //   `[eventsRouter] POST /api/events/complete missing required fields userId=${userId ?? "-"}`
       // );
-      return res.status(400).json({ error: "event1 and event2 are required in body" });
+      return res
+        .status(400)
+        .json({ error: 'event1 and event2 are required in body' });
     }
 
     // イベントデータをJSON文字列に変換（Rails実装との互換性のため）
     const input1 = JSON.stringify(event1);
     const input2 = JSON.stringify(event2);
-    console.debug(`[eventsRouter] Inputs stringified: input1=${input1}, input2=${input2}`);
+    console.debug(
+      `[eventsRouter] Inputs stringified: input1=${input1}, input2=${input2}`
+    );
 
     // ChatGPTクライアントの設定
     const chatClient = new ChatGptClient({
       model: (process.env.LLM_MODEL as any) ?? ModelType.GPT_4O_MINI,
-      systemContent: "あなたは有能なアシスタントです。",
+      systemContent: 'あなたは有能なアシスタントです。',
       temperature: 0.7,
       top_p: 0.9,
       n: 1,
@@ -67,15 +71,15 @@ router.post("/complete", async (req: Request, res: Response) => {
 
     // イベントデータのJSONスキーマ定義
     const jsonSchema = {
-      type: "object",
+      type: 'object',
       properties: {
-        time: { type: "string" },
-        end_time: { type: "string" },
-        title: { type: "string" },
-        description: { type: "string" },
-        icon: { type: "string" },
+        time: { type: 'string' },
+        end_time: { type: 'string' },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        icon: { type: 'string' },
       },
-      required: ["time", "end_time", "title", "description", "icon"],
+      required: ['time', 'end_time', 'title', 'description', 'icon'],
       additionalProperties: false,
     };
 
@@ -100,7 +104,7 @@ iconは必ず以下のいずれかで返してください。
       chatClient,
       jsonSchema,
       completionRule,
-      debug: process.env.DEBUG === "1",
+      debug: process.env.DEBUG === '1',
       dummy: !!dummy,
       maxAttempts: 5,
     });
@@ -114,13 +118,13 @@ iconは必ず以下のいずれかで返してください。
 
     // 成功ログ出力
     console.log(
-      `[eventsRouter] POST /api/events/complete success userId=${userId ?? "-"} durationMs=${Date.now() - startedAtMs}`
+      `[eventsRouter] POST /api/events/complete success userId=${userId ?? '-'} durationMs=${Date.now() - startedAtMs}`
     );
 
     // 検証済みのイベントオブジェクトを返却
     return res.json(resultObj);
   } catch (err: any) {
-    console.error("events.complete error:", err);
+    console.error('events.complete error:', err);
     return res.status(422).json({ error: String(err?.message ?? err) });
   }
 });

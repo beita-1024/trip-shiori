@@ -1,5 +1,9 @@
 import nodemailer from 'nodemailer';
-import { nodemailerConfig, emailConfig, EmailTemplate } from '../config/nodemailer';
+import {
+  nodemailerConfig,
+  emailConfig,
+  EmailTemplate,
+} from '../config/nodemailer';
 
 /**
  * メール送信用のトランスポーターを作成する
@@ -17,7 +21,9 @@ export function createEmailTransporter(): nodemailer.Transporter {
       auth: nodemailerConfig.auth,
     });
   } catch (error) {
-    throw new Error(`Email transporter creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Email transporter creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -39,7 +45,7 @@ export async function sendEmail(
   text?: string
 ): Promise<nodemailer.SentMessageInfo> {
   const transporter = createEmailTransporter();
-  
+
   try {
     const result = await transporter.sendMail({
       from: `${nodemailerConfig.from.name} <${nodemailerConfig.from.address}>`,
@@ -48,10 +54,12 @@ export async function sendEmail(
       html,
       text: text || html.replace(/<[^>]*>/g, ''), // HTMLタグを除去してテキスト版を生成
     });
-    
+
     return result;
   } catch (error) {
-    throw new Error(`Email sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Email sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -103,7 +111,7 @@ export function createVerificationEmailTemplate(
       </p>
     </div>
   `;
-  
+
   const text = `
 アカウント確認のお願い
 
@@ -120,7 +128,7 @@ ${verificationUrl}
 ---
 Trip Shiori チーム
   `;
-  
+
   return { subject, html, text };
 }
 
@@ -156,7 +164,7 @@ export function createPasswordResetEmailTemplate(
       </p>
     </div>
   `;
-  
+
   const text = `
 パスワードリセットのお願い
 
@@ -173,6 +181,6 @@ ${resetUrl}
 ---
 Trip Shiori チーム
   `;
-  
+
   return { subject, html, text };
 }

@@ -15,7 +15,6 @@ export function generateToken(
   expiresIn: string = jwtConfig.accessTokenExpiresIn
 ): string {
   try {
-
     // 参考: https://www.npmjs.com/package/jsonwebtoken
     // jwt.sign(payload, secretOrPrivateKey, [options, callback])
     // options:
@@ -23,13 +22,14 @@ export function generateToken(
     //  - expiresIn: expressed in seconds or a string describing a time span vercel/ms.
     // ...
 
-
     return jwt.sign(payload, jwtConfig.secret, {
       expiresIn,
       algorithm: jwtConfig.algorithm,
     } as jwt.SignOptions);
   } catch (error) {
-    throw new Error(`Token generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Token generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -47,7 +47,7 @@ export function verifyToken(token: string): JWTPayload {
     const decoded = jwt.verify(token, jwtConfig.secret, {
       algorithms: [jwtConfig.algorithm],
     }) as JWTPayload;
-    
+
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
@@ -55,7 +55,9 @@ export function verifyToken(token: string): JWTPayload {
     } else if (error instanceof jwt.JsonWebTokenError) {
       throw new Error('Invalid token');
     } else {
-      throw new Error(`Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }
@@ -98,7 +100,10 @@ export function generateRefreshToken(userId: string, email: string): string {
  * @example
  * const { accessToken, refreshToken } = generateTokenPair('user123', 'user@example.com');
  */
-export function generateTokenPair(userId: string, email: string): {
+export function generateTokenPair(
+  userId: string,
+  email: string
+): {
   accessToken: string;
   refreshToken: string;
 } {

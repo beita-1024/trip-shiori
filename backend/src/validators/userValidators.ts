@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { passwordSchema, changePasswordSchema, type ChangePasswordRequest } from './commonSchemas';
+import {
+  passwordSchema,
+  changePasswordSchema,
+  type ChangePasswordRequest,
+} from './commonSchemas';
 
 /**
  * ユーザープロフィール更新のバリデーションスキーマ
