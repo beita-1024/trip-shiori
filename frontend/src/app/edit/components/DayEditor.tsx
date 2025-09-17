@@ -78,7 +78,7 @@ export default function DayEditor({
     newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
     // 目標位置に挿入
     const targetEvents = [...newDays[bDay].events];
-    const insertIndex = aDay === bDay && aIndex < bIndex ? bIndex : bIndex;
+    const insertIndex = bIndex;
     targetEvents.splice(insertIndex, 0, activeEvent);
     newDays[bDay] = { ...newDays[bDay], events: targetEvents };
     onItineraryChange({ ...itinerary, days: newDays });

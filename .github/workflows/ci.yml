@@ -51,7 +51,7 @@ jobs:
           cat > .env << EOF
           POSTGRES_DB=app_db_test
           POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=test_password
+          POSTGRES_PASSWORD=postgres
           EOF
 
       - name: Setup PostgreSQL
@@ -62,7 +62,7 @@ jobs:
           
           # テスト用データベースを作成
           sudo -u postgres psql -c "CREATE DATABASE app_db_test;" || true
-          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'test_password';" || true
+          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';" || true
           
           # データベース接続確認
           timeout 30 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
