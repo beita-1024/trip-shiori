@@ -3,7 +3,9 @@
  */
 
 // 本番環境ではSMTP_USERおよびSMTP_PASSの設定が必須です。
-const port = Number.parseInt(process.env.SMTP_PORT ?? '587', 10);
+const rawPort = (process.env.SMTP_PORT ?? '').trim();
+const parsedPort = Number.parseInt(rawPort, 10);
+const port = Number.isNaN(parsedPort) ? 587 : parsedPort;
 const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 if (
   process.env.NODE_ENV === 'production' &&

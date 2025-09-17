@@ -4,8 +4,34 @@
  * 旅程編集機能のHTTPリクエストを処理するコントローラーです。
  */
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { ItineraryEditService } from '../services/itineraryEditService';
-import { ItineraryEditRequest } from '../types/itineraryTypes';
+
+/**
+ * 旅程編集リクエストのZodスキーマ
+ */
+const EditSchema = z.object({
+  originalItinerary: z.object({
+    title: z.string(),
+    subtitle: z.string().optional(),
+    description: z.string().optional(),
+    days: z.array(
+      z.object({
+        date: z.date().optional(),
+        events: z.array(
+          z.object({
+            title: z.string(),
+            time: z.string(),
+            end_time: z.string(),
+            description: z.string(),
+            icon: z.string(),
+          })
+        ),
+      })
+    ),
+  }),
+  editPrompt: z.string().trim().min(1, 'editPrompt is required'),
+});
 
 /**
  * 旅程編集サービスインスタンス
@@ -27,35 +53,19 @@ export async function editItinerary(
   res: Response
 ): Promise<void> {
   try {
-    // リクエストボディの検証
-    const { originalItinerary, editPrompt } = req.body as ItineraryEditRequest;
-
-    if (!originalItinerary) {
-      res.status(400).json({
-        error: 'originalItinerary is required',
+    // リクエストボディ最終検証（Zod）
+    const parsed = EditSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(422).json({
+        type: '/errors/invalid_request',
+        title: 'Unprocessable Entity',
+        status: 422,
+        detail: '入力が不正です',
+        errors: parsed.error.issues,
       });
       return;
     }
-
-    if (!editPrompt || typeof editPrompt !== 'string') {
-      res.status(400).json({
-        error: 'editPrompt is required and must be a string',
-      });
-      return;
-    }
-
-    // 旅程データの基本検証
-    if (!Array.isArray(originalItinerary.days)) {
-      res.status(400).json({
-        error: 'Invalid itinerary format: days array is required',
-      });
-      return;
-    }
-
-    // タイトルが未定義の場合は空文字に設定
-    if (originalItinerary.title === undefined) {
-      originalItinerary.title = '';
-    }
+    const { originalItinerary, editPrompt } = parsed.data;
 
     // リクエストの詳細デバッグログ
     console.log('=== 旅程編集リクエスト詳細 ===');
