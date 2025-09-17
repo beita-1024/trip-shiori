@@ -51,16 +51,19 @@ export function addSecurityHeaders(req: any, res: any, next: any): void {
  */
 export function createRateLimit(windowMs: number, maxRequests: number) {
   const requests = new Map<string, { count: number; resetTime: number }>();
+  let lastCleanup = 0;
 
   return (req: any, res: any, next: any): void => {
-    const clientId = req.ip || req.connection.remoteAddress;
+    // NOTE: reverse proxy 環境では app.set('trust proxy', true) 前提
+    const clientId = req.ip ?? req.socket?.remoteAddress ?? 'unknown';
     const now = Date.now();
 
-    // 古いエントリをクリーンアップ
-    for (const [key, value] of requests.entries()) {
-      if (now > value.resetTime) {
-        requests.delete(key);
+    // 古いエントリのクリーンアップ（最短でも100ms間隔）
+    if (now - lastCleanup > 100) {
+      for (const [key, value] of requests) {
+        if (now > value.resetTime) requests.delete(key);
       }
+      lastCleanup = now;
     }
 
     const clientData = requests.get(clientId);
@@ -81,11 +84,13 @@ export function createRateLimit(windowMs: number, maxRequests: number) {
       next();
     } else if (clientData.count >= maxRequests) {
       // レート制限に達した
+      const retryAfterSec = Math.ceil((clientData.resetTime - now) / 1000);
+      res.setHeader('Retry-After', retryAfterSec.toString());
       res.status(429).json({
         error: 'Too Many Requests',
         message:
           'レート制限に達しました。しばらく時間をおいてから再試行してください。',
-        retryAfter: Math.ceil((clientData.resetTime - now) / 1000),
+        retryAfter: retryAfterSec,
       });
     } else {
       // リクエスト数を増加

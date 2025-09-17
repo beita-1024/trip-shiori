@@ -3,8 +3,8 @@
  */
 
 // 本番環境ではSMTP_USERおよびSMTP_PASSの設定が必須です。
-// const port = parseInt(process.env.SMTP_PORT || '587', 10);
-// const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+const port = Number.parseInt(process.env.SMTP_PORT ?? '587', 10);
+const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 if (
   process.env.NODE_ENV === 'production' &&
   (!process.env.SMTP_USER || !process.env.SMTP_PASS)
@@ -17,10 +17,10 @@ export const nodemailerConfig = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
 
   /** SMTPポート */
-  port: parseInt(process.env.SMTP_PORT || '587'),
+  port,
 
   /** セキュア接続 */
-  secure: process.env.SMTP_SECURE === 'true',
+  secure,
 
   /** 認証情報 */
   auth: {

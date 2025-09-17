@@ -220,8 +220,10 @@ ${jsonStr2}
       userId,
     });
 
-    // 引用符の正規化（全角引用符を半角に変換）
-    const normalized = raw.replace(/[""]/g, '"').replace(/'/g, '"');
+    // 曲がった引用符（U+201C/U+201D/U+2018/U+2019）と全角（U+FF02/U+FF07）のみを ASCII に正規化
+    const normalized = raw
+      .replace(/[\u201C\u201D\uFF02]/g, '"') // " " ＂ → "
+      .replace(/[\u2018\u2019\uFF07]/g, "'"); // ' ' ＇ → '
 
     if (this.debug) {
       console.log('=== raw response ===');

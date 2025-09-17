@@ -13,10 +13,14 @@ import { ItineraryEditRequest } from '../types/itineraryTypes';
 const itineraryEditService = new ItineraryEditService();
 
 /**
- * 旅程を編集する
- *
- * @param req - Expressリクエスト
- * @param res - Expressレスポンス
+ * @summary 旅程を編集し、変更差分と説明を返す
+ * @auth 必須（Bearer JWT）。所有者のみ編集可（ルーター/ミドルウェアで検証想定）
+ * @params Body: { originalItinerary, editPrompt }（Zod等で検証）
+ * @returns 200: { success: true, data: { modifiedItinerary, diffPatch, changeDescription } }
+ * @errors 400/401/403/422/500（詳細はProblem Details相当のJSONで返却）
+ * @example
+ * POST /api/itineraries/:id/edit
+ * Body: { "originalItinerary": {...}, "editPrompt": "2日目に美術館を追加" }
  */
 export async function editItinerary(
   req: Request,
@@ -115,7 +119,8 @@ export async function editItinerary(
     // エラーレスポンス
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal server error',
+      error: 'internal_server_error',
+      message: '旅程の編集に失敗しました',
     });
   }
 }

@@ -7,7 +7,7 @@
  * @fileoverview データ送信時には_uidを削除して送信するようにしてください。
  */
 
-import type { Itinerary, ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
+import type { Itinerary, ItineraryWithUid, DayWithUid, EventWithUid, Event as ItinEvent } from "@/types";
 
 /**
  * 簡易 UID 生成関数
@@ -87,7 +87,7 @@ export function stripUids(it: ItineraryWithUid): Itinerary {
  * @example
  * const cleanEvent = stripEventUid(eventWithUid);
  */
-export function stripEventUid(event: EventWithUid): Event {
+export function stripEventUid(event: EventWithUid): ItinEvent {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _uid: _, ...rest } = event;
   return rest;

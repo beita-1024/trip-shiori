@@ -5,6 +5,11 @@ import { prisma } from '../config/prisma';
  *
  * @summary 有効期限が過ぎた共有設定を削除
  * @returns 削除された共有設定の数
+ * @auth 内部ジョブ専用（ユーザー起動不可）
+ * @idempotency 冪等（deleteManyのみ）。再実行しても追加削除は発生しない
+ * @errors 500（DB接続/タイムアウト）
+ * @example
+ * await cleanupExpiredShares();
  */
 export const cleanupExpiredShares = async (): Promise<number> => {
   try {
@@ -31,6 +36,11 @@ export const cleanupExpiredShares = async (): Promise<number> => {
  *
  * @summary 旅程が削除されたが共有設定が残っている場合のクリーンアップ
  * @returns 削除された共有設定の数
+ * @auth 内部ジョブ専用
+ * @idempotency 冪等（deleteMany）
+ * @errors 500（DB接続/タイムアウト）
+ * @example
+ * await cleanupOrphanedShares();
  */
 export const cleanupOrphanedShares = async (): Promise<number> => {
   try {
@@ -81,6 +91,10 @@ export const cleanupOrphanedShares = async (): Promise<number> => {
  * @summary 作成から指定日数経過した共有設定を削除
  * @param daysOld 削除対象となる日数（デフォルト: 365日）
  * @returns 削除された共有設定の数
+ * @idempotency 冪等（deleteMany）
+ * @errors 400（daysOld が負数/非有限）, 500（DB接続）
+ * @example
+ * await cleanupOldShares(365);
  */
 export const cleanupOldShares = async (
   daysOld: number = 365
@@ -113,6 +127,11 @@ export const cleanupOldShares = async (
  * @summary 期限切れ、孤立、古い共有設定のクリーンアップを一括実行
  * @param options クリーンアップオプション
  * @returns クリーンアップ結果のサマリー
+ * @auth 内部ジョブ/管理者ツール専用
+ * @idempotency 冪等（各 deleteMany を順次実行）
+ * @errors 400（oldDaysThreshold < 0）, 500（DB接続/タイムアウト）
+ * @example
+ * await runFullCleanup({ cleanupExpired: true, cleanupOrphaned: true, cleanupOld: true, oldDaysThreshold: 365 });
  */
 export const runFullCleanup = async (
   options: {

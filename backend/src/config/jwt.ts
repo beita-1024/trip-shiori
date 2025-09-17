@@ -3,11 +3,12 @@
  */
 
 const secret = process.env.JWT_SECRET;
-if (
-  process.env.NODE_ENV === 'production' &&
-  (!secret || secret === 'your_jwt_secret_key_here_change_this_in_production')
-) {
-  throw new Error('JWT_SECRET must be set in production');
+if (process.env.NODE_ENV === 'production') {
+  const s = secret ?? '';
+  const looksWeak = s.length < 32 || /secret|changeme|your[-_ ]?jwt/i.test(s);
+  if (!s || looksWeak) {
+    throw new Error('JWT_SECRET must be set in production');
+  }
 }
 
 export const jwtConfig = {
