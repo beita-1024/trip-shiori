@@ -1,0 +1,77 @@
+name: CI (Docker-based)
+
+
+on:
+  push:
+    branches: [ main, 'infra/*' ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create environment files
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # APIキーの安全な表示（デバッグ用）
+          if [ -n "${OPENAI_API_KEY}" ]; then
+            echo "OPENAI_API_KEY: ${OPENAI_API_KEY:0:3}...${OPENAI_API_KEY: -3}"
+          else
+            echo "Warning: OPENAI_API_KEY is not set"
+          fi
+          
+          # 環境変数テンプレートから生成
+          envsubst < .github/workflows/templates/backend.env.template > backend/.env
+          envsubst < .github/workflows/templates/backend.env.template > backend/.env.test
+          envsubst < .github/workflows/templates/frontend.env.template > frontend/.env
+          
+          # データベース環境変数ファイル作成
+          cat > .env << EOF
+          POSTGRES_DB=app_db_test
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=postgres
+          EOF
+
+      - name: Build Docker images
+        run: |
+          # 開発用イメージをビルド（テスト用）
+          docker compose -f docker-compose.yml build
+
+      - name: Start services
+        run: |
+          # データベースのみ起動
+          docker compose -f docker-compose.yml up -d db
+          
+          # データベースの起動を待機
+          timeout 60 bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
+          
+          # マイグレーション実行
+          docker compose -f docker-compose.yml run --rm backend npx prisma migrate deploy
+
+      - name: Run lint
+        run: |
+          # Docker内でlint実行
+          docker compose -f docker-compose.yml run --rm backend npm run lint
+          docker compose -f docker-compose.yml run --rm frontend npm run lint
+
+      - name: Run test
+        run: |
+          # データベース接続確認
+          echo "データベース接続確認中..."
+          timeout 30 bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
+          
+          # Docker内でテスト実行
+          docker compose -f docker-compose.yml run --rm backend npm test
+          docker compose -f docker-compose.yml run --rm frontend npm test
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # テスト後のクリーンアップ
+          docker compose -f docker-compose.yml down -v
