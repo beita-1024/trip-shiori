@@ -29,5 +29,22 @@ else
   npx prisma migrate dev --name init
 fi
 
-echo "✅ Migration complete. Starting app..."
-npm run dev
+echo "✅ Migration complete."
+
+# シードデータの実行（環境変数で制御）
+if [ "$RUN_SEED" = "true" ]; then
+  echo "🌱 Running seed data..."
+  npm run db:seed
+  echo "✅ Seed complete."
+fi
+
+echo "🚀 Starting app..."
+
+# 環境に応じて適切なコマンドを実行
+if [ "$NODE_ENV" = "production" ]; then
+  echo "🚀 Starting production server..."
+  npm start
+else
+  echo "🚀 Starting development server..."
+  npm run dev
+fi

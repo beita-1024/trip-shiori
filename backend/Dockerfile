@@ -54,10 +54,14 @@ COPY . .
 # Prismaクライアント生成
 RUN npx prisma generate
 
-# TypeScriptビルド
-RUN npm run build
+# TypeScriptビルド（詳細ログ付き）
+RUN npm run build || (echo "Build failed, showing TypeScript errors:" && npx tsc --noEmit)
+
+# ビルド結果を確認
+RUN ls -la dist/ && echo "Build completed successfully"
 
 # ===== 本番実行ステージ =====
+# OPTIMIZE: 必要に応じて node:22-alpine や distroless を使用し、さらに軽量化できる。
 FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
@@ -82,5 +86,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# 本番用コマンド
-CMD ["node", "dist/app.js"]
+# ビルド結果を確認
+RUN ls -la dist/ && echo "Runtime stage: dist directory contents verified"
+
+# 本番用コマンド（entrypoint.shを実行してマイグレーション後にアプリを起動）
+CMD ["sh", "/app/entrypoint.sh"]
