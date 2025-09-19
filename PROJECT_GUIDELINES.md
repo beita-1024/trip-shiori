@@ -108,10 +108,10 @@ hotfix/<summary-kebab>    # 緊急修正
 
 - **環境段**：
   - [ ] **保留**（`dev/stg/prod` の切り方を後で確定）
-- **デプロイ方法**：GitHub Actions → CapRover / AWS（リリース方式に準拠）
+- **デプロイ方法**：GitHub Actions → CapRover（caprover deploy によるソース送信/サーバー側ビルド）
 - **コンテナ戦略**：
   - [ ] **保留**（マルチステージ・rootless・最小ベース）
-- **イメージタグ**：**`latest` + `sha` の2本立てで開始**（SemVer は後で導入）
+- **イメージタグ**：**将来的にレジストリ運用へ移行する場合は `latest` + `sha` の2本立て**（SemVer は後で導入）
 - **IaC (Terraform)**：**CapRover 定着後に着手**
 - **シークレット管理**：
   - `.env.example` を整備し、`.env` はローカル管理

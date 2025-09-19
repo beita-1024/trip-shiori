@@ -50,6 +50,7 @@ RUN npm run build
 FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
+ENV NODE_ENV=production
 
 # 本番用依存関係のみインストール
 COPY package*.json ./
@@ -60,6 +61,10 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/package.json ./package.json
+
+# 非特権ユーザーで実行するため、ファイルの所有者を変更
+RUN chown -R node:node /app
+USER node
 
 # 環境変数の確認（デバッグ用）
 RUN echo "Environment Variables:" && env | grep NEXT_PUBLIC || echo "No NEXT_PUBLIC variables found"

@@ -14,7 +14,7 @@
 
 ## 構成図
 
-Next.js フロントエンド、Express(API)+Prisma、PostgreSQL、CI/CD（GitHub Actions→Docker Registry→CapRover）の構成図。
+Next.js フロントエンド、Express(API)+Prisma、PostgreSQL、CI/CD（GitHub Actions→CapRover）の構成図。
 
 ```mermaid
 graph TB
@@ -36,8 +36,8 @@ graph TB
     subgraph "CI/CD Pipeline"
         I[GitHub Repository] --> J[GitHub Actions]
         J --> K[Build & Test]
-        K --> L[Docker Image]
-        L --> M[Docker Registry]
+        K --> L[CapRover Deploy]
+        L --> M[Server-side Build]
         M --> N[CapRover Deployment]
     end
     
@@ -89,8 +89,8 @@ graph TB
 詳細は [環境変数設定ガイド](./docs/environment-variables.md) を参照してください。
 
 ### CI/CD パイプライン
-- GitHub Actions → Docker Registry → CapRover
-- イメージタグ運用（latest + sha）
+- GitHub Actions → CapRover（caprover deploy によるソース送信/サーバー側ビルド）
+- 将来的にレジストリ運用へ移行する場合はこの節を更新（タグ方針: latest + sha 等）
 
 ## プロジェクト基本方針
 - [プロジェクトガイドライン](./PROJECT_GUIDELINES.md) を参照
