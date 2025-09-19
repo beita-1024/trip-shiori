@@ -24,7 +24,11 @@ PORT=3000
 HOST=0.0.0.0
 
 # JWT認証
-JWT_SECRET=your-secret-key-here
+# 32バイト以上のランダム値を使用（例: 256bit）
+# 生成例（Linux/macOS）:
+#   openssl rand -base64 32 | tr -d '\n'
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+JWT_SECRET=REPLACE_WITH_STRONG_RANDOM_SECRET
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
@@ -66,6 +70,46 @@ NEXT_PUBLIC_API_URL=http://localhost:4002
 # フロントエンドURL（統一後）
 NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
 ```
+
+## 重要な環境変数の詳細
+
+### JWT_SECRET の設定
+
+JWT_SECRETは認証トークンの署名に使用される重要な秘密鍵です。セキュリティ上の理由から、以下の要件を満たす必要があります：
+
+#### 強度要件
+- **最小長**: 32バイト（256bit）以上
+- **エントロピー**: 高品質なランダム値を使用
+- **禁止パターン**: 以下のような推測されやすい値は使用禁止
+  - `secret`, `changeme`, `your-jwt`, `your_jwt`, `your jwt`, `yourjwt`
+  - デフォルト値やサンプル値
+
+#### 生成方法
+
+**Linux/macOS:**
+```bash
+# OpenSSLを使用
+openssl rand -base64 32 | tr -d '\n'
+
+# Node.jsを使用
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+**Windows (PowerShell):**
+```powershell
+# OpenSSLが利用可能な場合
+openssl rand -base64 32
+
+# PowerShellの場合
+[System.Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+#### 本番環境での検証
+本番環境（`NODE_ENV=production`）では、アプリケーション起動時にJWT_SECRETの強度が自動的に検証されます：
+- 長さが32文字未満の場合
+- 危険なパターンが含まれる場合
+
+これらの条件に該当する場合は、アプリケーションが起動時にエラーで終了します。
 
 ## 環境別設定
 
