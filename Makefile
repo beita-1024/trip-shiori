@@ -2,7 +2,7 @@
 COMPOSE ?= docker compose
 SERVICES ?= backend frontend
 ENV ?= dev
-# 例) make deploy ENV=stg
+# 例) make deploy-cap
 
 # CapRover環境変数の読み込み
 -include .env
@@ -55,7 +55,7 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   swagger-ui-stop \
   swagger-ui-local \
   snapshot \
-  deploy \
+  deploy-cap \
   init
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
@@ -299,7 +299,7 @@ define _deploy_cap
 	@echo "✅ Deployment completed for $(2)"
 endef
 
-.PHONY: deploy-cap-frontend deploy-cap-backend deploy
+.PHONY: deploy-cap-frontend deploy-cap-backend deploy-cap
 
 # Frontend デプロイ
 deploy-cap-frontend: ## CapRoverへ frontend をデプロイ

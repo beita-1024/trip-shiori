@@ -10,11 +10,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "5432:5432"
+    # 本番環境ではDBポートを外部公開しない（内部ネットワーク限定）
+    # ports:
+    #   - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./initdb:/docker-entrypoint-initdb.d
+      # 本番環境では初期化スクリプトのマウントを避ける（予期せぬ初期化を防止）
+      # - ./initdb:/docker-entrypoint-initdb.d
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -38,9 +40,9 @@ services:
       - NODE_ENV=production
     networks:
       - app-network
-    # ヘルスチェック
+    # ヘルスチェック（curl依存を排除）
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -62,9 +64,9 @@ services:
       - NODE_ENV=production
     networks:
       - app-network
-    # ヘルスチェック
+    # ヘルスチェック（curl依存を排除）
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3

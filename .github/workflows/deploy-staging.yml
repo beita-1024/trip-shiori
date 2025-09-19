@@ -10,7 +10,6 @@ on:
   push:
     branches:
       - main
-      - infra/add-cd-caprover
   workflow_dispatch:
     inputs:
       branch:
@@ -37,6 +36,7 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
+        working-directory: .
       
       - name: Deploy to CapRover
         env:

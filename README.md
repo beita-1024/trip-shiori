@@ -78,12 +78,12 @@ graph TB
 
 2. **デプロイ実行**
    ```bash
-   # 両方デプロイ
-   make deploy
+   # 両方デプロイ（Backend→Frontend の順で実行）
+   make deploy-cap
    
    # 個別デプロイ
-   make deploy-frontend
-   make deploy-backend
+   make deploy-cap-frontend
+   make deploy-cap-backend
    ```
 
 詳細は [環境変数設定ガイド](./docs/environment-variables.md) を参照してください。

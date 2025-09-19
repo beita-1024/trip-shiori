@@ -141,6 +141,9 @@ export function parseWithUids(data: { [key: string]: unknown }): ItineraryWithUi
         events: (day.events || []).map((e: unknown) => {
           const event = e as { _uid?: string; [key: string]: unknown };
           return {
+            // まず既存のイベントオブジェクトをスプレッドして追加フィールドを保持
+            ...event,
+            // その後で_uidと正規化したフィールドを上書き
             _uid: event?._uid || generateUid(),
             time: event.time as string || "",
             end_time: event.end_time as string || "",

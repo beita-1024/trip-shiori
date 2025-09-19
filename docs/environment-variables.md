@@ -62,7 +62,6 @@ DEBUG=1
 ```bash
 # API接続
 NEXT_PUBLIC_API_URL=http://localhost:4002
-NEXT_PUBLIC_API_BASE_URL=http://localhost:4002
 
 # フロントエンドURL（統一後）
 NEXT_PUBLIC_FRONTEND_URL=http://localhost:3001
@@ -117,7 +116,7 @@ CAPROVER_TOKEN_BE=your-backend-deploy-token
 
 1. プロジェクトルートに `.env` ファイルを作成
 2. 上記の環境変数を設定
-3. `make deploy` コマンドでデプロイ実行
+3. `make deploy-cap` コマンドでデプロイ実行（Backend→Frontend の順で実行）
 
 ## 設定ファイルの場所
 
