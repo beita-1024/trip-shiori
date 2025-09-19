@@ -13,9 +13,12 @@ RUN apt-get update \
     netcat-openbsd \
   && rm -rf /var/lib/apt/lists/*
 
+# npmを最新版に更新
+RUN npm install -g npm@latest
+
 # パッケージインストール（devDependenciesも含む）
-COPY package*.json ./
-RUN NODE_ENV=development npm ci
+COPY package.json package-lock.json ./
+RUN NODE_ENV=development npm install
 
 # アプリ本体コピー
 COPY . .
@@ -44,9 +47,12 @@ RUN apt-get update \
     ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
+# npmを最新版に更新
+RUN npm install -g npm@latest
+
 # パッケージインストール（devDependenciesも含む）
-COPY package*.json ./
-RUN NODE_ENV=development npm ci
+COPY package.json package-lock.json ./
+RUN NODE_ENV=development npm install
 
 # アプリ本体コピー
 COPY . .
@@ -74,7 +80,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # パッケージインストール（本番用のみ）
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN NODE_ENV=production npm ci --only=production
 
 # ビルド済みファイルをコピー
