@@ -13,35 +13,42 @@ export const corsConfig = {
       const isDevelopment =
         process.env.NODE_ENV === 'development' ||
         process.env.NODE_ENV === 'dev';
-      const clientOrigin = process.env.CLIENT_ORIGIN;
-      if (!isDevelopment && !clientOrigin) {
+      const frontendUrl = process.env.FRONTEND_URL;
+
+      if (!isDevelopment && !frontendUrl) {
         // 起動時に落とすのがより安全だが、ここでは拒否しておく
         return callback(
-          new Error('CORS misconfiguration: CLIENT_ORIGIN is not set'),
+          new Error('CORS misconfiguration: FRONTEND_URL is not set'),
           false
         );
       }
 
-      // 本番環境では CLIENT_ORIGIN のみを許可
+      // 本番環境では FRONTEND_URL のみを許可
       if (!isDevelopment) {
         // オリジンが未定義の場合（Postman等のツール）は許可
         if (!origin) {
           return callback(null, true);
         }
 
-        // CLIENT_ORIGIN と一致する場合のみ許可
-        if (origin === clientOrigin) {
+        // FRONTEND_URL と一致する場合のみ許可
+        if (origin === frontendUrl) {
           return callback(null, true);
         }
 
         // 許可されていないオリジン
+        console.error('CORS: Origin not allowed:', {
+          origin,
+          expected: frontendUrl,
+          isDevelopment,
+          nodeEnv: process.env.NODE_ENV,
+        });
         callback(new Error('Not allowed by CORS'));
         return;
       }
 
       // 開発環境では追加のオリジンを許可
       const allowedOrigins = [
-        clientOrigin, // フロントエンド
+        frontendUrl, // フロントエンド
         'http://localhost:8081', // Swagger UI
         'http://localhost:3000', // ローカルSwagger UI
         'http://127.0.0.1:8081', // Swagger UI (127.0.0.1)
@@ -67,6 +74,12 @@ export const corsConfig = {
       }
 
       // 許可されていないオリジン
+      console.error('CORS: Origin not allowed (dev):', {
+        origin,
+        allowedOrigins,
+        isDevelopment,
+        nodeEnv: process.env.NODE_ENV,
+      });
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,

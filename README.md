@@ -14,7 +14,7 @@
 
 ## 構成図
 
-Next.js フロントエンド、Express(API)+Prisma、PostgreSQL、CI/CD（GitHub Actions→Docker Registry→CapRover）の構成図。
+Next.js フロントエンド、Express(API)+Prisma、PostgreSQL、CI/CD（GitHub Actions→CapRover）の構成図。
 
 ```mermaid
 graph TB
@@ -36,8 +36,8 @@ graph TB
     subgraph "CI/CD Pipeline"
         I[GitHub Repository] --> J[GitHub Actions]
         J --> K[Build & Test]
-        K --> L[Docker Image]
-        L --> M[Docker Registry]
+        K --> L[CapRover Deploy]
+        L --> M[Server-side Build]
         M --> N[CapRover Deployment]
     end
     
@@ -63,10 +63,34 @@ graph TB
 <!-- TODO: 詳細を埋める -->
 
 ## デプロイ方法
-- CI/CD の流れ（GitHub Actions → CapRover / AWS）
-<!-- TODO: 詳細を埋める -->
-- イメージタグ運用（latest + sha）
-<!-- TODO: 詳細を埋める -->
+
+### CapRover デプロイ
+
+1. **環境変数設定**
+   ```bash
+   # プロジェクトルートに .env ファイルを作成
+   CAPROVER_URL=https://captain.your-domain.com
+   CAPROVER_APP_FE=your-frontend-app-name
+   CAPROVER_TOKEN_FE=your-frontend-deploy-token
+   CAPROVER_APP_BE=your-backend-app-name
+   CAPROVER_TOKEN_BE=your-backend-deploy-token
+   ```
+
+2. **デプロイ実行**
+   ```bash
+   # 両方デプロイ（Backend→Frontend の順で実行）
+   make deploy-cap
+   
+   # 個別デプロイ
+   make deploy-cap-frontend
+   make deploy-cap-backend
+   ```
+
+詳細は [環境変数設定ガイド](./docs/environment-variables.md) を参照してください。
+
+### CI/CD パイプライン
+- GitHub Actions → CapRover（caprover deploy によるソース送信/サーバー側ビルド）
+- 将来的にレジストリ運用へ移行する場合はこの節を更新（タグ方針: latest + sha 等）
 
 ## プロジェクト基本方針
 - [プロジェクトガイドライン](./PROJECT_GUIDELINES.md) を参照

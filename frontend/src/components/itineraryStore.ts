@@ -13,8 +13,8 @@
 import { useEffect, useState, useRef } from "react";
 import type { Itinerary, ItineraryWithUid, Event, EventWithUid } from "@/types";
 import defaultItinerary from "@/lib/defaultItinerary";
-import { attachUids, parseWithUids, serializeWithUids, generateUid, stripUids, stripEventUid } from "./uiUid";
-import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
+import { attachUids, parseWithUids, serializeWithUids, generateUid } from "./uiUid";
+import { buildApiUrl, ITINERARY_ENDPOINTS, API_BASE_URL } from "@/lib/api";
 
 /** TODO: LocalStorageは遅いので、別の保存方法を検討する。*/
 /** TODO: Undo/Redoにもデバウンス処理を入れる。 */
@@ -106,8 +106,8 @@ export async function aiEditItineraryImpl(
   editPrompt: string
 ): Promise<{success: boolean, changeDescription?: string, error?: string}> {
   try {
-    // _uidを削除してAPIに送信するデータを準備
-    const cleanItinerary = stripUids(itinerary) as Itinerary;
+    // APIに送信するデータを準備（Itinerary型なので_uidは含まれていない）
+    const cleanItinerary = itinerary;
     
     console.debug("=== AI旅程編集 デバッグ情報 ===");
     console.debug("編集プロンプト:", editPrompt);
@@ -140,7 +140,7 @@ export async function aiEditItineraryImpl(
       // 変更された旅程データに_uidを付与して更新
       const modifiedItinerary = attachUids(result.data.modifiedItinerary);
       const normalized = normalizeItineraryTimes(modifiedItinerary);
-      setItinerary(normalized);
+      setItinerary(normalized as ItineraryWithUid);
       
       return {
         success: true,
@@ -201,8 +201,8 @@ export async function aiCompleteEventImpl(
     console.debug("event1 type:", typeof event1);
     console.debug("event2 type:", typeof event2);
 
-    const cleanEvent1 = stripEventUid(event1);
-    const cleanEvent2 = stripEventUid(event2);
+    const cleanEvent1 = event1;
+    const cleanEvent2 = event2;
 
     console.debug("cleanEvent1:", cleanEvent1);
     console.debug("cleanEvent2:", cleanEvent2);
@@ -293,8 +293,8 @@ export function resetItineraryImpl(setItinerary: (next: Itinerary) => void): voi
   try {
     const next = attachUids(defaultItinerary);
     const normalized = normalizeItineraryTimes(next);
-    setItinerary(normalized);
-    const serialized = JSON.stringify(serializeWithUids(normalized));
+    setItinerary(normalized as ItineraryWithUid);
+    const serialized = JSON.stringify(serializeWithUids(normalized as ItineraryWithUid));
     localStorage.setItem(STORAGE_KEY, serialized);
   } catch (e) {
     console.error("Failed to reset itinerary:", e);
@@ -315,8 +315,8 @@ export function resetToEmptyItineraryImpl(setItinerary: (next: Itinerary) => voi
     const emptyItinerary = createEmptyItinerary();
     const next = attachUids(emptyItinerary);
     const normalized = normalizeItineraryTimes(next);
-    setItinerary(normalized);
-    const serialized = JSON.stringify(serializeWithUids(normalized));
+    setItinerary(normalized as ItineraryWithUid);
+    const serialized = JSON.stringify(serializeWithUids(normalized as ItineraryWithUid));
     localStorage.setItem(STORAGE_KEY, serialized);
   } catch (e) {
     console.error("Failed to reset to empty itinerary:", e);
@@ -342,10 +342,9 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
     
-    const stripped = stripUids(itinerary) as Itinerary;
     const payload = {
-      ...stripped,
-      days: (stripped.days || []).map((d: { date?: Date }) => ({
+      ...itinerary,
+      days: (itinerary.days || []).map((d: { date?: Date }) => ({
         ...d,
         date: d?.date ? (d.date as Date).toISOString() : undefined,
       })),
@@ -391,10 +390,9 @@ export async function saveItineraryImpl(itinerary: Itinerary, id: string): Promi
  */
 export async function shareItineraryImpl(itinerary: Itinerary): Promise<string | null> {
   try {
-    const stripped = stripUids(itinerary) as Itinerary;
     const payload = {
-      ...stripped,
-      days: (stripped.days || []).map((d: { date?: Date }) => ({
+      ...itinerary,
+      days: (itinerary.days || []).map((d: { date?: Date }) => ({
         ...d,
         date: d?.date ? (d.date as Date).toISOString() : undefined,
       })),
@@ -459,7 +457,7 @@ export async function shareItineraryImpl(itinerary: Itinerary): Promise<string |
  */
 export async function loadSharedItineraryImpl(id: string, setItinerary: (next: Itinerary) => void): Promise<boolean> {
   try {
-    const resp = await fetch(`http://localhost:4002/api/itineraries/${id}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/itineraries/${id}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -476,11 +474,11 @@ export async function loadSharedItineraryImpl(id: string, setItinerary: (next: I
       }
     }
 
-    const next = parseWithUids(data);
+    const next = parseWithUids(data as { [key: string]: unknown });
     const normalized = normalizeItineraryTimes(next);
-    setItinerary(normalized);
+    setItinerary(normalized as ItineraryWithUid);
     try {
-      const serialized = JSON.stringify(serializeWithUids(normalized));
+      const serialized = JSON.stringify(serializeWithUids(normalized as ItineraryWithUid));
       localStorage.setItem(STORAGE_KEY, serialized);
     } catch (e) {
       console.warn("Failed to persist loaded itinerary:", e);
@@ -571,7 +569,7 @@ export default function useItineraryStore(itineraryId?: string): [
       if (!raw) {
         const init = attachUids(defaultItinerary);
         const normalized = normalizeItineraryTimes(init);
-        setItinerary(normalized);
+        setItinerary(normalized as ItineraryWithUid);
         setPast([]);
         setFuture([]);
         return;
@@ -579,14 +577,14 @@ export default function useItineraryStore(itineraryId?: string): [
       const parsed = JSON.parse(raw);
       const loaded = parseWithUids(parsed);
       const normalized = normalizeItineraryTimes(loaded);
-      setItinerary(normalized);
+      setItinerary(normalized as ItineraryWithUid);
       setPast([]);
       setFuture([]);
     } catch (e) {
       console.error("LocalStorage から旅のしおりを読み込む際に失敗しました:", e);
       const fallback = attachUids(defaultItinerary);
       const normalized = normalizeItineraryTimes(fallback);
-      setItinerary(normalized);
+      setItinerary(normalized as ItineraryWithUid);
       setPast([]);
       setFuture([]);
     }
@@ -609,7 +607,7 @@ export default function useItineraryStore(itineraryId?: string): [
     saveTimeoutRef.current = window.setTimeout(() => {
       try {
         const normalized = normalizeItineraryTimes(itinerary);
-        const serialized = JSON.stringify(serializeWithUids(normalized));
+        const serialized = JSON.stringify(serializeWithUids(normalized as ItineraryWithUid));
         localStorage.setItem(STORAGE_KEY, serialized);
         setHasUnsavedChanges(false);
       } catch (e) {
@@ -656,16 +654,16 @@ export default function useItineraryStore(itineraryId?: string): [
 
   // フック内で itinerary / setItinerary を束縛したラッパーを返します
   const aiCompleteEvent = async (dayIndex: number, eventIndex: number) =>
-    await aiCompleteEventImpl(itinerary, setItineraryWithHistory, dayIndex, eventIndex);
+    await aiCompleteEventImpl(itinerary, setItineraryWithHistory as (next: Itinerary) => void, dayIndex, eventIndex);
 
   const aiEditItinerary = async (editPrompt: string) =>
-    await aiEditItineraryImpl(itinerary, setItineraryWithHistory, editPrompt);
+    await aiEditItineraryImpl(itinerary, setItineraryWithHistory as (next: Itinerary) => void, editPrompt);
 
-  const resetItinerary = () => resetItineraryImpl(setItineraryWithHistory);
+  const resetItinerary = () => resetItineraryImpl(setItineraryWithHistory as (next: Itinerary) => void);
 
   const shareItinerary = async () => await shareItineraryImpl(itinerary);
 
-  const loadSharedItinerary = async (id: string) => await loadSharedItineraryImpl(id, setItineraryWithHistory);
+  const loadSharedItinerary = async (id: string) => await loadSharedItineraryImpl(id, setItineraryWithHistory as (next: Itinerary) => void);
 
   const saveItinerary = async (id: string) => await saveItineraryImpl(itinerary, id);
 

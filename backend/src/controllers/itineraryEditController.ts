@@ -17,7 +17,7 @@ const EditSchema = z.object({
     description: z.string().optional(),
     days: z.array(
       z.object({
-        date: z.date().optional(),
+        date: z.coerce.date().optional(),
         events: z.array(
           z.object({
             title: z.string(),

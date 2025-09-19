@@ -11,7 +11,6 @@ import { ItineraryListItem, PaginationInfo } from "@/types";
 import { buildApiUrl, ITINERARY_ENDPOINTS } from "@/lib/api";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import defaultItinerary from "@/lib/defaultItinerary";
-import { stripUids } from "@/components/uiUid";
 
 /**
  * 旅程一覧機能のメインコンポーネント
@@ -257,10 +256,9 @@ export default function ItinerariesFeature() {
       setError(null);
 
       // デフォルトの旅程データを準備
-      const stripped = stripUids(defaultItinerary);
       const payload = {
-        ...stripped,
-        days: (stripped.days || []).map((d) => ({
+        ...defaultItinerary,
+        days: (defaultItinerary.days || []).map((d) => ({
           ...d,
           date: d?.date ? (d.date as Date).toISOString() : undefined,
         })),

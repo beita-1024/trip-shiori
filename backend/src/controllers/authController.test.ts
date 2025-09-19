@@ -50,7 +50,7 @@ describe('Password Reset Tests', () => {
       sendEmailWithTemplate,
       createVerificationEmailTemplate,
       createPasswordResetEmailTemplate,
-    } = require('../utils/email'); // eslint-disable-line @typescript-eslint/no-require-imports
+    } = require('../utils/email');
     sendEmailWithTemplate.mockResolvedValue({ messageId: 'test-message-id' });
     createVerificationEmailTemplate.mockReturnValue({
       subject: 'Test Subject',
@@ -181,14 +181,16 @@ describe('Password Reset Tests', () => {
 
       expect(response1.status).toBe(204);
 
-      // 最初のトークンを取得（少し待機してから検索）
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // 最初のトークンを取得
       const firstToken = await prisma.passwordResetToken.findUnique({
         where: { userId: testUserId },
       });
       expect(firstToken).toBeTruthy();
       const firstTokenHash = firstToken?.tokenHash;
-      const firstCreatedAt = firstToken?.createdAt;
+      const firstExpiresAt = firstToken?.expiresAt;
+
+      // 少し待機してから2回目のリクエスト（時間差を明確にする）
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // 2回目のリクエスト
       const response2 = await request(app)
@@ -198,15 +200,15 @@ describe('Password Reset Tests', () => {
 
       expect(response2.status).toBe(204);
 
-      // トークンが更新されていることを確認（少し待機してから検索）
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // トークンが更新されていることを確認
       const secondToken = await prisma.passwordResetToken.findUnique({
         where: { userId: testUserId },
       });
+
       expect(secondToken).toBeTruthy();
       expect(secondToken?.tokenHash).not.toBe(firstTokenHash);
-      expect(secondToken?.createdAt.getTime()).toBeGreaterThan(
-        firstCreatedAt?.getTime() || 0
+      expect(secondToken?.expiresAt.getTime()).toBeGreaterThan(
+        firstExpiresAt?.getTime() || 0
       );
     });
   });

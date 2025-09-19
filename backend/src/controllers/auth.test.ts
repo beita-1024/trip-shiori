@@ -2,9 +2,41 @@ import request from 'supertest';
 import app from '../app';
 import argon2 from 'argon2';
 import crypto from 'crypto';
-import { describe, test, expect, afterAll, beforeEach } from '@jest/globals';
+import {
+  describe,
+  test,
+  expect,
+  afterAll,
+  beforeEach,
+  jest,
+} from '@jest/globals';
 
 import { testPrisma as prisma } from '../config/prisma.test';
+
+// メール送信をモック化
+jest.mock('../utils/email', () => ({
+  sendEmailWithTemplate: jest.fn<any>().mockResolvedValue({
+    messageId: 'mock-message-id',
+    accepted: ['test@example.com'],
+    rejected: [],
+    pending: [],
+    response: '250 OK',
+  }),
+  createVerificationEmailTemplate: jest.fn(
+    (userName: string, verificationUrl: string) => ({
+      subject: 'アカウント確認のお願い',
+      html: `<p>こんにちは、${userName}さん</p><p><a href="${verificationUrl}">アカウントを確認する</a></p>`,
+      text: `こんにちは、${userName}さん\nアカウントを確認する: ${verificationUrl}`,
+    })
+  ),
+  createPasswordResetEmailTemplate: jest.fn(
+    (userName: string, resetUrl: string) => ({
+      subject: 'パスワードリセットのお願い',
+      html: `<p>こんにちは、${userName}さん</p><p><a href="${resetUrl}">パスワードをリセットする</a></p>`,
+      text: `こんにちは、${userName}さん\nパスワードをリセットする: ${resetUrl}`,
+    })
+  ),
+}));
 
 // 参考
 // Jest公式サイト: https://jestjs.io/docs/getting-started

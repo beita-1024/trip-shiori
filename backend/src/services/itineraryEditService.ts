@@ -76,7 +76,8 @@ export class ItineraryEditService {
         return;
       }
 
-      // 動的インポートでjsondiffpatchを読み込み
+      // NOTE: jsondiffpatchはES6モジュール形式で提供されているため、
+      // require()ではなく動的インポートを使用する必要がある
       const jsondiffpatch = await import('jsondiffpatch');
 
       // デフォルトエクスポートまたは名前付きエクスポートを確認

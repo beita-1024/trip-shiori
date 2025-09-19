@@ -109,7 +109,6 @@ export function serializeWithUids(it: ItineraryWithUid): { [key: string]: unknow
   return {
     ...it,
     days: it.days.map(d => ({
-      _uid: d._uid,
       ...d,
       date: d.date ? (d.date as Date).toISOString() : undefined,
     })),
@@ -134,14 +133,27 @@ export function parseWithUids(data: { [key: string]: unknown }): ItineraryWithUi
     title: data.title as string,
     subtitle: data.subtitle as string | undefined,
     description: data.description as string | undefined,
-    days: (data.days as unknown[] || []).map((d: { _uid?: string; date?: string; events?: unknown[] }) => ({
-      _uid: d?._uid || generateUid(),
-      date: d?.date ? new Date(d.date) : undefined,
-      events: (d.events || []).map((e: { _uid?: string; [key: string]: unknown }) => ({
-        _uid: e?._uid || generateUid(),
-        ...e,
-      })),
-    })),
+    days: (data.days as unknown[] || []).map((d: unknown) => {
+      const day = d as { _uid?: string; date?: string; events?: unknown[] };
+      return {
+        _uid: day?._uid || generateUid(),
+        date: day?.date ? new Date(day.date) : undefined,
+        events: (day.events || []).map((e: unknown) => {
+          const event = e as { _uid?: string; [key: string]: unknown };
+          return {
+            // まず既存のイベントオブジェクトをスプレッドして追加フィールドを保持
+            ...event,
+            // その後で_uidと正規化したフィールドを上書き
+            _uid: event?._uid || generateUid(),
+            time: event.time as string || "",
+            end_time: event.end_time as string || "",
+            title: event.title as string || "",
+            description: event.description as string || "",
+            icon: event.icon as string || "",
+          };
+        }),
+      };
+    }),
   };
 }
 

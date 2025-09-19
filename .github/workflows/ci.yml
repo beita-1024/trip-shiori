@@ -1,8 +1,8 @@
-name: CI
+name: CI (Docker-based)
+
 
 on:
   push:
-    # CI変更時もチェックしたいのでinfraブランチもチェックする。
     branches: [ main, 'infra/*' ]
     tags: [ 'v*' ]
   pull_request:
@@ -11,42 +11,20 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          # 遅い場合はキャッシュを有効にすることも検討する。
-          #   cache: 'npm'
-          #   cache-dependency-path: |
-          #     frontend/package-lock.json
-          #     backend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd frontend && npm ci
-          cd ../backend && npm ci
-
       - name: Create environment files
         env:
-          # 本番環境用の機密情報のみGitHub Secretsから取得
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          # APIキーの安全な表示（デバッグ用）
-          if [ -n "${OPENAI_API_KEY}" ]; then
-            echo "OPENAI_API_KEY: ${OPENAI_API_KEY:0:3}...${OPENAI_API_KEY: -3}"
-          else
-            echo "Warning: OPENAI_API_KEY is not set"
-          fi
-          
-          # 環境変数テンプレートから生成
-          envsubst < .github/workflows/templates/backend.env.template > backend/.env
-          envsubst < .github/workflows/templates/backend.env.template > backend/.env.test
+          # 環境変数テンプレートから生成（Docker用）
+          envsubst < .github/workflows/templates/backend.docker.env.template > backend/.env
+          envsubst < .github/workflows/templates/backend.docker.env.template > backend/.env.test
           envsubst < .github/workflows/templates/frontend.env.template > frontend/.env
-          
+
           # データベース環境変数ファイル作成
           cat > .env << EOF
           POSTGRES_DB=app_db_test
@@ -54,45 +32,38 @@ jobs:
           POSTGRES_PASSWORD=postgres
           EOF
 
-      - name: Setup PostgreSQL
+      - name: Build Docker images
         run: |
-          # PostgreSQLサービスを起動
-          sudo systemctl start postgresql
-          sudo systemctl enable postgresql
-          
-          # テスト用データベースを作成
-          sudo -u postgres psql -c "CREATE DATABASE app_db_test;" || true
-          sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';" || true
-          
-          # データベース接続確認
-          timeout 30 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
-          
-          # データベースマイグレーション実行
-          cd backend && npx prisma migrate deploy --schema=./prisma/schema.prisma
+          # 開発用イメージをビルド（テスト用）
+          docker compose -f docker-compose.yml build
 
-      - name: Run lint
+      - name: Start services
         run: |
-          # ファイル権限を修正
-          sudo chown -R $USER:$USER .
-          chmod -R 755 .
+          # データベースのみ起動
+          docker compose -f docker-compose.yml up -d db
           
-          # キャッシュディレクトリを事前作成
-          mkdir -p frontend/.next/cache/eslint
-          mkdir -p backend/node_modules/.cache
+          # データベースの起動を待機
+          timeout 60 bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
           
-          # 直接npmコマンドを実行
-          cd backend && npm run lint
-          cd ../frontend && npm run lint
+          # マイグレーション実行
+          docker compose -f docker-compose.yml run --rm backend npx prisma migrate deploy
 
       - name: Run test
         run: |
           # データベース接続確認
           echo "データベース接続確認中..."
-          timeout 30 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
+          timeout 30 bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U postgres; do echo "データベースの起動を待機中..."; sleep 2; done'
           
-          # テスト用データベースのマイグレーション実行
-          cd backend && npx prisma migrate deploy --schema=./prisma/schema.prisma
-          
-          # 直接npmコマンドを実行
-          cd backend && npm test
-          cd ../frontend && npm test
+          # Makefileを使用してテスト実行
+          make test
+
+      - name: Run lint
+        run: |
+          # Makefileを使用してlint実行
+          make lint
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # テスト後のクリーンアップ
+          docker compose -f docker-compose.yml down -v

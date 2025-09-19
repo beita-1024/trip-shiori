@@ -2,18 +2,31 @@
 COMPOSE ?= docker compose
 SERVICES ?= backend frontend
 ENV ?= dev
-# 例) make deploy ENV=stg
+# 例) make deploy-cap
+
+# CapRover環境変数の読み込み
+-include .env
+
+# 環境別のComposeファイル設定
+DEV_COMPOSE_FILES = -f docker-compose.yml
+PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
 
 .DEFAULT_GOAL := help
 .PHONY: \
   help \
   up \
+  up-dev \
+  up-prod \
   down \
+  down-dev \
+  down-prod \
   restart \
   restart-backend \
   restart-frontend \
   restart-db \
   build \
+  build-dev \
+  build-prod \
   logs \
   logs-backend \
   logs-frontend \
@@ -42,7 +55,7 @@ ENV ?= dev
   swagger-ui-stop \
   swagger-ui-local \
   snapshot \
-  deploy \
+  deploy-cap \
   init
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
@@ -69,120 +82,149 @@ help: ## コマンド一覧
 #     - \033[0mで色リセット
 
 
-up: ## Compose起動（バックグラウンド）
-	$(COMPOSE) up -d
+up: ## 開発環境でCompose起動（バックグラウンド）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) up -d
 
-down: ## 停止＆ネットワーク片付け
-	$(COMPOSE) down
+up-dev: ## 開発環境でCompose起動（バックグラウンド）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) up -d
 
-restart: ## サービス再起動（down + up）
-	$(COMPOSE) down
-	$(COMPOSE) up -d
+up-prod: ## 本番環境でCompose起動（バックグラウンド）
+	$(COMPOSE) $(PROD_COMPOSE_FILES) up -d
 
-restart-backend: ## backendサービスのみ再起動
-	$(COMPOSE) restart backend
+down: ## 開発環境を停止＆ネットワーク片付け
+	$(COMPOSE) $(DEV_COMPOSE_FILES) down
 
-restart-frontend: ## frontendサービスのみ再起動
-	$(COMPOSE) restart frontend
+down-dev: ## 開発環境を停止＆ネットワーク片付け
+	$(COMPOSE) $(DEV_COMPOSE_FILES) down
 
-restart-db: ## dbサービスのみ再起動
-	$(COMPOSE) restart db
+down-prod: ## 本番環境を停止＆ネットワーク片付け
+	$(COMPOSE) $(PROD_COMPOSE_FILES) down
 
-build: ## イメージビルド
-	$(COMPOSE) build
+restart: ## 開発環境のサービス再起動（down + up）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) down
+	$(COMPOSE) $(DEV_COMPOSE_FILES) up -d
 
-logs: ## 全サービスのログ追跡
-	$(COMPOSE) logs -f --tail=100
+restart-backend: ## backendサービスのみ再起動（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) restart backend
 
-logs-backend: ## backendサービスのログ追跡
-	$(COMPOSE) logs -f --tail=100 backend
+restart-frontend: ## frontendサービスのみ再起動（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) restart frontend
 
-logs-frontend: ## frontendサービスのログ追跡
-	$(COMPOSE) logs -f --tail=100 frontend
+restart-db: ## dbサービスのみ再起動（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) restart db
 
-logs-db: ## dbサービスのログ追跡
-	$(COMPOSE) logs -f --tail=100 db
+build: ## 開発環境のイメージビルド
+	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-ps: ## 稼働状況
-	$(COMPOSE) ps
+build-dev: ## 開発環境のイメージビルド
+	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-sh-backend: ## backendのシェル
-	$(COMPOSE) exec backend sh
+build-prod: ## 本番環境のイメージビルド
+	$(COMPOSE) $(PROD_COMPOSE_FILES) build
 
-sh-frontend: ## frontendのシェル
-	$(COMPOSE) exec frontend sh
+logs: ## 全サービスのログ追跡（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) logs -f --tail=100
 
-# NOTE: $(if $(CI),,|| true) はCI環境では失敗検知を潰さないため
+logs-backend: ## backendサービスのログ追跡（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) logs -f --tail=100 backend
 
-lint: ## まとめてlint
-	$(COMPOSE) exec backend npm run lint $(if $(CI),,|| true)
-	$(COMPOSE) exec frontend npm run lint $(if $(CI),,|| true)
+logs-frontend: ## frontendサービスのログ追跡（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) logs -f --tail=100 frontend
 
-test: ## 全テスト実行（backend + frontend）
-	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
-	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
+logs-db: ## dbサービスのログ追跡（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) logs -f --tail=100 db
 
-test-backend: ## backendの全テスト実行
-	$(COMPOSE) exec backend npm test -- --watch=false $(if $(CI),,|| true)
+ps: ## 稼働状況（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) ps
 
-test-frontend: ## frontendの全テスト実行
-	$(COMPOSE) exec frontend npm test -- --watch=false $(if $(CI),,|| true)
+sh-backend: ## backendのシェル（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend sh
 
-test-main: ## メインE2Eテスト実行（全API統合テスト）
-	$(COMPOSE) exec backend npm test src/app.test.ts -- --watch=false $(if $(CI),,|| true)
+sh-frontend: ## frontendのシェル（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec frontend sh
 
-test-auth: ## 認証・ユーザー管理APIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/auth.test.ts -- --watch=false $(if $(CI),,|| true)
+lint: ## まとめてlint（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm run lint
 
-test-shared: ## 共有旅程アクセスAPIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/sharedItineraryController.test.ts -- --watch=false $(if $(CI),,|| true)
+test: ## 全テスト実行（backend + frontend）（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --watch=false
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm test -- --watch=false
 
-test-copy: ## 旅程複製・マイグレーションAPIテスト実行
-	$(COMPOSE) exec backend npm test src/controllers/itineraryCopyController.test.ts -- --watch=false $(if $(CI),,|| true)
+test-backend: ## backendの全テスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --watch=false
 
-test-password-reset: ## パスワードリセット機能テスト実行
-	$(COMPOSE) exec backend npm test src/controllers/authController.test.ts -- --watch=false $(if $(CI),,|| true)
+test-frontend: ## frontendの全テスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm test -- --watch=false
+
+test-main: ## メインE2Eテスト実行（全API統合テスト）（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test src/app.test.ts -- --watch=false
+
+test-auth: ## 認証・ユーザー管理APIテスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test src/controllers/auth.test.ts -- --watch=false
+
+test-shared: ## 共有旅程アクセスAPIテスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test src/controllers/sharedItineraryController.test.ts -- --watch=false
+
+test-copy: ## 旅程複製・マイグレーションAPIテスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test src/controllers/itineraryCopyController.test.ts -- --watch=false
+
+test-password-reset: ## パスワードリセット機能テスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test src/controllers/authController.test.ts -- --watch=false
 
 # テスト実行オプション（詳細ログ付き）
-test-verbose: ## 全テスト実行（詳細ログ付き）
-	$(COMPOSE) exec backend npm test -- --watch=false --verbose $(if $(CI),,|| true)
-	$(COMPOSE) exec frontend npm test -- --watch=false --verbose $(if $(CI),,|| true)
+test-verbose: ## 全テスト実行（詳細ログ付き）（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --watch=false --verbose
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm test -- --watch=false --verbose
 
-test-coverage: ## 全テスト実行（カバレッジ付き）
-	$(COMPOSE) exec backend npm test -- --watch=false --coverage $(if $(CI),,|| true)
-	$(COMPOSE) exec frontend npm test -- --watch=false --coverage $(if $(CI),,|| true)
+test-coverage: ## 全テスト実行（カバレッジ付き）（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --watch=false --coverage
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm test -- --watch=false --coverage
 
 # 特定のテストスイート実行
-test-itinerary: ## 旅程関連APIテスト実行
-	$(COMPOSE) exec backend npm test -- --testNamePattern="旅程管理API|旅程共有機能API|公開旅程アクセスAPI|旅程複製・マイグレーションAPI" --watch=false $(if $(CI),,|| true)
+test-itinerary: ## 旅程関連APIテスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --testNamePattern="旅程管理API|旅程共有機能API|公開旅程アクセスAPI|旅程複製・マイグレーションAPI" --watch=false
 
-test-user: ## ユーザー関連APIテスト実行
-	$(COMPOSE) exec backend npm test -- --testNamePattern="ユーザー管理API|認証エンドポイント" --watch=false $(if $(CI),,|| true)
+test-user: ## ユーザー関連APIテスト実行（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --testNamePattern="ユーザー管理API|認証エンドポイント" --watch=false
 
+# 環境別の使用方法:
+# 開発環境:
+#   make up                    # 開発環境で起動（devステージ、ホットリロード）
+#   make up-dev               # 同上
+#   make down                 # 開発環境を停止
+#   make build                # 開発環境のイメージビルド
+#   make logs                 # 開発環境のログ確認
+#
+# 本番環境:
+#   make up-prod              # 本番環境で起動（runtimeステージ、最適化済み）
+#   make down-prod            # 本番環境を停止
+#   make build-prod           # 本番環境のイメージビルド
+#
 # テスト実行例:
-# make test                    # 全テスト実行
-# make test-backend           # backendの全テスト
-# make test-main              # メインE2Eテスト
-# make test-auth              # 認証APIテスト
-# make test-shared            # 共有旅程APIテスト
-# make test-copy              # 複製・マイグレーションAPIテスト
-# make test-verbose           # 詳細ログ付きテスト
-# make test-coverage          # カバレッジ付きテスト
+# make test                    # 全テスト実行（開発環境）
+# make test-backend           # backendの全テスト（開発環境）
+# make test-main              # メインE2Eテスト（開発環境）
+# make test-auth              # 認証APIテスト（開発環境）
+# make test-shared            # 共有旅程APIテスト（開発環境）
+# make test-copy              # 複製・マイグレーションAPIテスト（開発環境）
+# make test-verbose           # 詳細ログ付きテスト（開発環境）
+# make test-coverage          # カバレッジ付きテスト（開発環境）
 
-db-migrate: ## DBマイグレーション
-	$(COMPOSE) exec backend npm run db:migrate
+db-migrate: ## DBマイグレーション（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npm run db:migrate
 
-db-seed: ## 初期データ投入
-	$(COMPOSE) exec backend npm run db:seed
+db-seed: ## 初期データ投入（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npm run db:seed
 
-db-reset-seed: ## データベースリセット + 初期データ投入
+db-reset-seed: ## データベースリセット + 初期データ投入（開発環境）
 	@echo "データベースをリセットして初期データを投入します..."
-	$(COMPOSE) exec backend npx prisma migrate reset --force --skip-seed
-	$(COMPOSE) exec backend npm run db:seed
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npx prisma migrate reset --force --skip-seed
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npm run db:seed
 	@echo "データベースリセットとシードが完了しました"
 
-db-studio: ## Prisma Studio起動
-	$(COMPOSE) exec backend npx prisma studio
+db-studio: ## Prisma Studio起動（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npx prisma studio
 
 # INFO: set-cookieを受け取って使うには、127.0.0.1:8081じゃなくて、localhost:8081 でブラウザを開く必要がある。
 swagger-ui: ## Swagger UI起動（Docker使用）
@@ -231,12 +273,41 @@ snapshot: ## プロジェクトのスナップショットを親ディレクト�
 	echo "スナップショットが作成されました: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
 	ls -lh "$${PARENT_DIR}/$${ARCHIVE_NAME}"
 
-deploy: ## デプロイNoop（後で差し替え）
-	@echo "Deploy to $(ENV) - TODO"
 
-init: ## 初回セットアップ（DBマイグレーション + シード）
-	$(COMPOSE) up -d
+init: ## 初回セットアップ（DBマイグレーション + シード）（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) up -d
 	@echo "データベースの初期化を待機中..."
 	@sleep 10
-	$(COMPOSE) exec backend npm run db:migrate
-	$(COMPOSE) exec backend npm run db:seed
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npm run db:migrate
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec backend npm run db:seed
+
+
+# ===== CapRover デプロイ設定 =====
+# 現在のGitブランチを取得（デフォルト: 現在のブランチ）
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+
+# CapRover CLI Commands: https://caprover.com/docs/cli-commands.html
+# デプロイ用の共通関数定義
+# 引数: $(1) = App Token, $(2) = App Name
+define _deploy_cap
+	@echo "Deploying $(2) (branch=$(BRANCH)) to $(CAPROVER_URL) ..."
+	npx --yes caprover deploy \
+		--caproverUrl "$(CAPROVER_URL)" \
+		--caproverApp "$(2)" \
+		--appToken "$(1)" \
+		--branch "$(BRANCH)"
+	@echo "✅ Deployment completed for $(2)"
+endef
+
+.PHONY: deploy-cap-frontend deploy-cap-backend deploy-cap
+
+# Frontend デプロイ
+deploy-cap-frontend: ## CapRoverへ frontend をデプロイ
+	$(call _deploy_cap,$(CAPROVER_TOKEN_FE),$(CAPROVER_APP_FE))
+
+# Backend デプロイ
+deploy-cap-backend: ## CapRoverへ backend をデプロイ
+	$(call _deploy_cap,$(CAPROVER_TOKEN_BE),$(CAPROVER_APP_BE))
+
+# 両方デプロイ（Backend → Frontend の順序）
+deploy-cap: deploy-cap-backend deploy-cap-frontend ## 両方デプロイ（Backend → Frontend）

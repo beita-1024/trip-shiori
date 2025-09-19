@@ -40,9 +40,11 @@ app.use('/auth', authRouter);
 
 // テスト環境以外でのみサーバーを起動
 if (process.env.NODE_ENV !== 'test') {
-  const PORT = 3000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
+  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const HOST = process.env.HOST || '0.0.0.0';
+
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running at http://${HOST}:${PORT}`);
 
     // 共有設定のクリーンアップジョブを開始
     startShareCleanupJob();

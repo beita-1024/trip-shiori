@@ -140,11 +140,7 @@
     margin: 0;
   }
 
-  /* 印刷時の背景と色 */
-  body {
-    background: white !important;
-    color: black !important;
-  }
+  /* 印刷時の背景と色はglobals.cssに移動 */
 
   /* 印刷時に不要な要素を非表示 */
   .no-print {
