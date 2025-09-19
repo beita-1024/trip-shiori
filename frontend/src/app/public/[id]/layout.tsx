@@ -1,15 +1,17 @@
 import { Metadata } from 'next';
 import { buildApiUrl } from '@/lib/api';
 
+// NOTE: paramsはNext.jsの仕様でPromiseとなる（app routerのdynamic route対応）
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 /**
  * 公開旅程ページのメタデータを生成
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = params;
+  // 新しい書き方だとawaitをつける
+  const { id } = await params;
   
   try {
     // バックエンドAPIから旅程データを取得
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: {
         title: data.title || '旅のしおり',
         description: data.description || '共有された旅のしおりです',
-        url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/public/${id}`,
+        url: `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/public/${id}`,
         siteName: '旅のしおり',
         images: data.image ? [
           {

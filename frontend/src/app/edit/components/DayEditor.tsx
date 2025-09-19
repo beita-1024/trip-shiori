@@ -260,7 +260,18 @@ export default function DayEditor({
                                 onClick={() => {
                                   const newDays = [...itinerary.days];
                                   const newEvents = [...newDays[dayIndex].events];
-                                  const newEvent: Event = { title: "", time: "", end_time: "", description: "", icon: "" };
+                                  // 新しいイベントオブジェクトを作成
+                                  // - _uid: 一意の識別子としてcrypto.randomUUID()を使用
+                                  // - 各フィールドは空文字列で初期化（ユーザーが後で入力）
+                                  // - EventWithUid型に準拠した構造で作成
+                                  const newEvent: EventWithUid = { 
+                                    _uid: crypto.randomUUID(), 
+                                    title: "", 
+                                    time: "", 
+                                    end_time: "", 
+                                    description: "", 
+                                    icon: "" 
+                                  };
                                   newEvents.splice(eventIndex + 1, 0, newEvent);
                                   newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
                                   onItineraryChange({ ...itinerary, days: newDays });
@@ -287,7 +298,7 @@ export default function DayEditor({
                 type="button"
                 onClick={() => {
                   const newDays = [...itinerary.days];
-                  const newDay: Day = { date: undefined, events: [{ title: "", time: "", end_time: "", description: "", icon: "" }] };
+                  const newDay: DayWithUid = { _uid: crypto.randomUUID(), date: undefined, events: [{ _uid: crypto.randomUUID(), title: "", time: "", end_time: "", description: "", icon: "" }] };
                   newDays.splice(dayIndex + 1, 0, newDay);
                   onItineraryChange({ ...itinerary, days: newDays });
                 }}

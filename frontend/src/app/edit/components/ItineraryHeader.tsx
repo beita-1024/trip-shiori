@@ -2,20 +2,20 @@
 
 import React from "react";
 import { Card, InputWithPlaceholder, TextareaWithPlaceholder } from "@/components/Primitives";
-import type { Itinerary } from "@/types";
+import type { ItineraryWithUid } from "@/types";
 
 /**
  * 旅程の基本情報編集セクション
  * 
  * タイトル、サブタイトル、概要の編集機能を提供します。
  * 
- * @param props.itinerary - 旅程データ
+ * @param props.itinerary - 旅程データ（UID付き）
  * @param props.onItineraryChange - 旅程データ変更ハンドラー
  * @returns レンダリングされたItineraryHeaderコンポーネント
  */
 interface ItineraryHeaderProps {
-  itinerary: Itinerary;
-  onItineraryChange: (itinerary: Itinerary) => void;
+  itinerary: ItineraryWithUid;
+  onItineraryChange: (itinerary: ItineraryWithUid) => void;
 }
 
 export default function ItineraryHeader({ itinerary, onItineraryChange }: ItineraryHeaderProps) {

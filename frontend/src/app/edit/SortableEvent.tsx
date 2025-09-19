@@ -6,7 +6,9 @@ import { CSS } from "@dnd-kit/utilities";
 
 type Props = {
   id: string;
-  children: (bind: { attributes: Record<string, unknown>; listeners: Record<string, unknown> }) => React.ReactNode;
+  // NOTE: attributesは動的生成されるDOM属性のためunknown、
+  // listenersはSSR時や初期化前にundefinedになる可能性があるため、unknownにしている
+  children: (bind: { attributes: Record<string, unknown>; listeners: Record<string, unknown> | undefined }) => React.ReactNode;
 };
 
 /**

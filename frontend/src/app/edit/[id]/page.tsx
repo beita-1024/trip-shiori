@@ -38,7 +38,9 @@ export default function EditByIdPage({ params }: Props) {
         }
         if (!cancelled) {
           // Hook が読み込む LocalStorage に事前保存しておく
-          const next = parseWithUids(data);
+          // NOTE: APIレスポンスのunknown型を
+          // parseWithUidsが期待する型に変換（実行時エラーはparseWithUids内でハンドリング）
+          const next = parseWithUids(data as { [key: string]: unknown });
           try {
             const serialized = JSON.stringify(serializeWithUids(next));
             localStorage.setItem("itinerary", serialized);

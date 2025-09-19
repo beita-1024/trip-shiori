@@ -300,7 +300,12 @@ code, pre, kbd, samp {
   .fcab { display: none !important; }
   header { display: none !important; }
   .print-area { display: block !important; }
-  body { background: white !important; }
+  body { 
+    background: white !important;
+    color: black !important;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 /* 印刷プレビュー（ダイアログ内）用の簡易スタイル */
