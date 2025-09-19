@@ -63,10 +63,34 @@ graph TB
 <!-- TODO: 詳細を埋める -->
 
 ## デプロイ方法
-- CI/CD の流れ（GitHub Actions → CapRover / AWS）
-<!-- TODO: 詳細を埋める -->
+
+### CapRover デプロイ
+
+1. **環境変数設定**
+   ```bash
+   # プロジェクトルートに .env ファイルを作成
+   CAPROVER_URL=https://captain.your-domain.com
+   CAPROVER_APP_FE=your-frontend-app-name
+   CAPROVER_TOKEN_FE=your-frontend-deploy-token
+   CAPROVER_APP_BE=your-backend-app-name
+   CAPROVER_TOKEN_BE=your-backend-deploy-token
+   ```
+
+2. **デプロイ実行**
+   ```bash
+   # 両方デプロイ
+   make deploy
+   
+   # 個別デプロイ
+   make deploy-frontend
+   make deploy-backend
+   ```
+
+詳細は [環境変数設定ガイド](./docs/environment-variables.md) を参照してください。
+
+### CI/CD パイプライン
+- GitHub Actions → Docker Registry → CapRover
 - イメージタグ運用（latest + sha）
-<!-- TODO: 詳細を埋める -->
 
 ## プロジェクト基本方針
 - [プロジェクトガイドライン](./PROJECT_GUIDELINES.md) を参照
