@@ -40,14 +40,20 @@ export default function AuthRequiredDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-surface border border-ui rounded-lg p-6 max-w-md mx-4 shadow-xl">
+      <div
+        className="bg-surface border border-ui rounded-lg p-6 max-w-md mx-4 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-required-title"
+        aria-describedby="auth-required-desc"
+      >
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
             <i className="mdi mdi-lock text-primary text-xl" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-body">登録が必要です</h3>
-            <p className="text-sm text-muted">{featureName}をご利用いただくには登録が必要です</p>
+            <h3 id="auth-required-title" className="text-lg font-semibold text-body">登録が必要です</h3>
+            <p id="auth-required-desc" className="text-sm text-muted">{featureName}をご利用いただくには登録が必要です</p>
           </div>
         </div>
 

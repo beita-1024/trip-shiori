@@ -43,9 +43,10 @@ export default function AuthButtons(): React.JSX.Element {
   // ローディング中はスピナーを表示
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="status" aria-live="polite">
         <Spinner size="sm" />
         <span className="text-sm text-muted hidden sm:inline">読み込み中...</span>
+        <span className="sr-only sm:hidden">読み込み中...</span>
       </div>
     );
   }
@@ -70,6 +71,7 @@ export default function AuthButtons(): React.JSX.Element {
           onClick={handleLogout}
           className="text-sm"
           title="ログアウト"
+          aria-label="ログアウト"
         >
           <i className="mdi mdi-logout sm:hidden" />
           <span className="hidden sm:inline">ログアウト</span>
@@ -86,6 +88,7 @@ export default function AuthButtons(): React.JSX.Element {
         onClick={handleLogin}
         className="text-sm"
         title="ログイン"
+        aria-label="ログイン"
       >
         <i className="mdi mdi-login sm:hidden" />
         <span className="hidden sm:inline">ログイン</span>
@@ -95,6 +98,7 @@ export default function AuthButtons(): React.JSX.Element {
         onClick={handleRegister}
         className="text-sm"
         title="登録"
+        aria-label="登録"
       >
         <i className="mdi mdi-account-plus sm:hidden" />
         <span className="hidden sm:inline">登録</span>

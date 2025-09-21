@@ -49,15 +49,15 @@ const STORAGE_KEY = `tour_${TUTORIAL_VERSION}_done`;
 
 // チュートリアルのステップ定義
 const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    element: '[data-tour="welcome"]',
-    popover: {
-      title: 'ようこそ！',
-      description: 'AI旅のしおりアプリへようこそ！このチュートリアルで基本的な使い方をご案内します。',
-      side: 'bottom',
-      align: 'center'
-    }
-  },
+  // {
+  //   element: '[data-tour="welcome"]',
+  //   popover: {
+  //     title: 'ようこそ！',
+  //     description: 'AI旅のしおりアプリへようこそ！このチュートリアルで基本的な使い方をご案内します。',
+  //     side: 'bottom',
+  //     align: 'center'
+  //   }
+  // },
   {
     element: '[data-tour="basic-info-card"]',
     popover: {

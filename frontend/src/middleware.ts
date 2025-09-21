@@ -18,9 +18,7 @@ export function middleware(request: NextRequest) {
   if (pathname === '/') {
     // 認証クッキーの確認
     // バックエンドの認証システムに合わせてクッキー名を調整
-    const authCookie = request.cookies.get('auth-token') || 
-                      request.cookies.get('session') ||
-                      request.cookies.get('jwt');
+    const authCookie = request.cookies.get('access_token');
     
     // ボット向けのSEO対応（将来的なランディングページ用）
     const userAgent = request.headers.get('user-agent') || '';
