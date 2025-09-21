@@ -45,7 +45,7 @@ export default function AuthButtons(): React.JSX.Element {
     return (
       <div className="flex items-center gap-2">
         <Spinner size="sm" />
-        <span className="text-sm text-muted">読み込み中...</span>
+        <span className="text-sm text-muted hidden sm:inline">読み込み中...</span>
       </div>
     );
   }
@@ -56,8 +56,11 @@ export default function AuthButtons(): React.JSX.Element {
       <div className="flex items-center gap-3">
         {/* ユーザー名表示 */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-body font-medium">
+          <span className="text-sm text-body font-medium hidden sm:inline">
             こんにちは、{user.name}さん
+          </span>
+          <span className="text-sm text-body font-medium sm:hidden">
+            {user.name}
           </span>
         </div>
         
@@ -66,8 +69,10 @@ export default function AuthButtons(): React.JSX.Element {
           kind="destructive" 
           onClick={handleLogout}
           className="text-sm"
+          title="ログアウト"
         >
-          ログアウト
+          <i className="mdi mdi-logout sm:hidden" />
+          <span className="hidden sm:inline">ログアウト</span>
         </Button>
       </div>
     );
@@ -80,15 +85,19 @@ export default function AuthButtons(): React.JSX.Element {
         kind="ghost" 
         onClick={handleLogin}
         className="text-sm"
+        title="ログイン"
       >
-        ログイン
+        <i className="mdi mdi-login sm:hidden" />
+        <span className="hidden sm:inline">ログイン</span>
       </Button>
       <Button 
         kind="primary" 
         onClick={handleRegister}
         className="text-sm"
+        title="登録"
       >
-        登録
+        <i className="mdi mdi-account-plus sm:hidden" />
+        <span className="hidden sm:inline">登録</span>
       </Button>
     </div>
   );
