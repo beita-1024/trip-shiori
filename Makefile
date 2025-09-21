@@ -56,13 +56,15 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   swagger-ui-local \
   snapshot \
   deploy-cap \
-  init
+  init \
+  generate-favicons \
+  optimize-svgs
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' Makefile \
 		| awk 'BEGIN {FS=":.*?## "}; { \
-			printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2 \
+			printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 \
 		}'
 # INFO: shのコマンドは読みにくいのでメモで書いておく
 # grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST)
@@ -311,3 +313,24 @@ deploy-cap-backend: ## CapRoverへ backend をデプロイ
 
 # 両方デプロイ（Backend → Frontend の順序）
 deploy-cap: deploy-cap-backend deploy-cap-frontend ## 両方デプロイ（Backend → Frontend）
+
+generate-favicons: ## SVGからfaviconとPWAアイコンを生成
+	@echo "faviconとPWAアイコンを生成中..."
+	@./scripts/generate-favicons.sh
+	@echo "favicon生成が完了しました"
+
+optimize-svgs: ## docs/ux/design/orgの全SVGファイルを最適化してoptimizedディレクトリに出力
+	@echo "SVGファイルを最適化中..."
+	@mkdir -p docs/ux/design/optimized
+	@if [ -d "docs/ux/design/org" ] && [ "$$(ls -A docs/ux/design/org/*.svg 2>/dev/null)" ]; then \
+		for svg_file in docs/ux/design/org/*.svg; do \
+			if [ -f "$$svg_file" ]; then \
+				filename=$$(basename "$$svg_file"); \
+				echo "最適化中: $$filename"; \
+				npx --yes svgo --config=docs/ux/design/svgo.config.mjs "$$svg_file" -o "docs/ux/design/optimized/$$filename"; \
+			fi; \
+		done; \
+		echo "SVG最適化が完了しました"; \
+	else \
+		echo "docs/ux/design/orgディレクトリにSVGファイルが見つかりません"; \
+	fi
