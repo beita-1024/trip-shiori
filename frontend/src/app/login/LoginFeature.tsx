@@ -124,9 +124,9 @@ export default function LoginFeature() {
       });
 
       if (response.status === 204) {
-        // ログイン成功 - リダイレクト先または旅程一覧ページへ遷移
-        const destination = isSafeInternalPath(redirectTo) ? redirectTo! : "/itineraries";
-        router.push(destination);
+        // ログイン成功 - 認証状態をリフレッシュしてからリダイレクト
+        // ページ遷移前に認証状態を更新することで、遷移先でユーザー名が正しく表示される
+        window.location.href = isSafeInternalPath(redirectTo) ? redirectTo! : "/itineraries";
       } else {
         // エラーレスポンスの処理
         switch (response.status) {
