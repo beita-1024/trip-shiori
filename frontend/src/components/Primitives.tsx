@@ -19,11 +19,12 @@ type Classable = { className?: string };
  * - 例) <Card elevation={3} className="max-w-xl">…</Card>
  */
 export const Card: React.FC<
-  React.PropsWithChildren<{ elevation?: 1 | 2 | 3 | 4 | 5 } & Classable>
-> = ({ children, elevation = 1, className = "" }) => {
+  React.PropsWithChildren<{ elevation?: 1 | 2 | 3 | 4 | 5 } & Classable & React.HTMLAttributes<HTMLDivElement>>
+> = ({ children, elevation = 1, className = "", ...rest }) => {
   const elevCls = `elevation-${elevation}`;
   return (
     <div
+      {...rest}
       className={`bg-surface border border-ui rounded-lg bg-surface-pattern surface-pattern-primary ${elevCls} p-4 ${className}`}
     >
       {children}
