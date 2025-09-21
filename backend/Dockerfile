@@ -20,11 +20,14 @@ RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
 RUN NODE_ENV=development npm install
 
-# アプリ本体コピー
-COPY . .
+# Prismaスキーマファイルを先にコピー
+COPY prisma ./prisma
 
 # Prismaクライアント生成
 RUN npx prisma generate
+
+# アプリ本体コピー
+COPY . .
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
@@ -54,11 +57,14 @@ RUN npm install -g npm@latest
 COPY package.json package-lock.json ./
 RUN NODE_ENV=development npm install
 
-# アプリ本体コピー
-COPY . .
+# Prismaスキーマファイルを先にコピー
+COPY prisma ./prisma
 
 # Prismaクライアント生成
 RUN npx prisma generate
+
+# アプリ本体コピー
+COPY . .
 
 # TypeScriptビルド（詳細ログ付き）
 RUN npm run build || (echo "Build failed, showing TypeScript errors:" && npx tsc --noEmit)
@@ -84,6 +90,10 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 # npm v9+ は --only=production より --omit=dev を推奨
 RUN npm ci --omit=dev
+
+# Prismaスキーマファイルをコピー
+COPY prisma ./prisma
+
 # Prisma Client を本番 node_modules に対して確実に生成
 RUN npx prisma generate
 
