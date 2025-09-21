@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeToggle from "@/components/ThemeToggle";
 import AuthButtons from "@/components/AuthButtons";
+import TutorialButton from "@/components/TutorialButton";
+import { Logo } from "@/components/Logo";
 
 // INFO: components.jsonで以下の設定をしない代わりに、ここで読む
 // "tailwind": {
@@ -24,8 +26,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI旅のしおりアプリ",
-  description: "AI旅のしおりアプリ",
+  title: "AI旅のしおり",
+  description: "AIが生成する旅のしおりアプリ",
+  manifest: "/site.webmanifest",
+  themeColor: "#0ea5e9",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
+    other: [
+      { rel: "mask-icon", url: "/mask-icon.svg", color: "#0ea5e9" },
+    ],
+  },
 };
 export default function RootLayout({
   children,
@@ -40,12 +54,13 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-app text-body`}>
         <ThemeProviderClient>
-          {/* ヘッダ（固定 or レイアウト内） */}
-          <header className="w-full border-b border-ui bg-surface/70 backdrop-blur-sm mb-4">
+          {/* ヘッダ（固定位置） */}
+          <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-ui bg-surface/70 backdrop-blur-sm">
             <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-              <div className="text-lg font-medium accent">{String(metadata.title ?? "デフォルトタイトル")}</div>
+              <Logo />
               {/* 認証ボタンとテーマトグルを右側に配置 */}
               <div className="flex items-center gap-3">
+                <TutorialButton />
                 <AuthButtons />
                 <ThemeToggle />
               </div>
@@ -53,7 +68,7 @@ export default function RootLayout({
           </header>
           
           {/* ページ本体 */}
-          <main className="min-h-screen"> {/* ヘッダーとページ本体の間隔を開けるためにmt-4を追加 */}
+          <main className="min-h-screen pt-16"> {/* 固定ヘッダーの高さ分のパディングを追加 */}
             {children}
           </main>
         </ThemeProviderClient>

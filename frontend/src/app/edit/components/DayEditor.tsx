@@ -38,6 +38,7 @@ interface DayEditorProps {
   loadingKeys: Set<string>;
   setLoadingKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   isGuestMode?: boolean;
+  onAuthRequired?: (featureName: string) => boolean;
 }
 
 export default function DayEditor({ 
@@ -46,7 +47,8 @@ export default function DayEditor({
   onAiCompleteEvent,
   loadingKeys,
   setLoadingKeys,
-  isGuestMode = false
+  isGuestMode = false,
+  onAuthRequired
 }: DayEditorProps) {
   // ドラッグアンドドロップ用のセンサー
   const sensors = useSensors(useSensor(PointerSensor));
@@ -87,7 +89,7 @@ export default function DayEditor({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       {itinerary.days.map((day: DayWithUid, dayIndex: number) => (
-        <Card key={day._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4">
+        <Card key={day._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4" data-tour="day-editor">
           <section className="mb-4">
             <DateInputWithWeekday
               id={`day-${dayIndex}-date`}
@@ -227,7 +229,11 @@ export default function DayEditor({
                                 type="button"
                                 disabled={isLoading || day.events.length === 0 || eventIndex >= day.events.length - 1 || isGuestMode}
                                 onClick={async () => {
-                                  if (isGuestMode) return;
+                                  // 認証チェック
+                                  if (onAuthRequired && onAuthRequired("AI補完機能")) {
+                                    return;
+                                  }
+                                  
                                   setLoadingKeys((prev) => {
                                     const next = new Set(prev);
                                     next.add(loadingKey);
@@ -245,6 +251,7 @@ export default function DayEditor({
                                 }}
                                 title={isGuestMode ? "AI機能はログイン後にご利用いただけます" : undefined}
                                 className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
+                                data-tour="ai-feature"
                               >
                                 {isLoading ? (
                                   <Spinner size="sm" className="sm:mr-2" />
@@ -276,6 +283,7 @@ export default function DayEditor({
                                   newDays[dayIndex] = { ...newDays[dayIndex], events: newEvents };
                                   onItineraryChange({ ...itinerary, days: newDays });
                                 }}
+                                data-tour="event-add"
                               >
                                 <PlusIcon className="w-4 h-4 sm:mr-2" aria-hidden />
                                 <span className="hidden sm:inline">この下にイベントを追加</span>

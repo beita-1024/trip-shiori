@@ -6,6 +6,9 @@ import { Button, Spinner } from "@/components/Primitives";
 import useItineraryStore from "@/components/itineraryStore";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import TriFoldPrintPreview from "@/components/TriFoldPrintPreview";
+import DemoLabel from "@/components/DemoLabel";
+import AuthRequiredDialog from "@/components/AuthRequiredDialog";
+import { useTutorial } from "@/hooks/useTutorial";
 
 // 分割されたコンポーネントをインポート
 import ItineraryHeader from "./components/ItineraryHeader";
@@ -41,6 +44,9 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(!isGuestMode);
   
+  // チュートリアル機能
+  const { startTutorial, isFirstTime, isLoading: tutorialLoading, TutorialButton } = useTutorial();
+  
   // useItineraryStore によって LocalStorage からのロードと自動保存が行われます
   // itineraryIdが提供されている場合、WebAPI自動保存も有効になります
   const [
@@ -73,6 +79,10 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   const [showToast, setShowToast] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [showExitDialog, setShowExitDialog] = React.useState(false);
+  
+  // 認証必須ダイアログの状態
+  const [showAuthDialog, setShowAuthDialog] = React.useState(false);
+  const [authRequiredFeature, setAuthRequiredFeature] = React.useState<string>("");
 
   // AI補完ボタンのローディング状態を管理（イベント単位）
   const [loadingKeys, setLoadingKeys] = React.useState<Set<string>>(new Set());
@@ -81,6 +91,20 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
 
   // AI対話ダイアログのテキストエリアの参照
   const aiTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /**
+   * 初回アクセス時にチュートリアルを自動開始（/editページのみ）
+   */
+  useEffect(() => {
+    if (isGuestMode && isFirstTime && !tutorialLoading && !authLoading) {
+      // 少し遅延させてDOMの準備を待つ
+      const timer = setTimeout(() => {
+        startTutorial();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isGuestMode, isFirstTime, tutorialLoading, authLoading, startTutorial]);
 
   /**
    * トースト通知を表示する関数
@@ -94,9 +118,33 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   }, []);
 
   /**
+   * 認証が必要な機能を呼び出そうとした際のハンドラー
+   */
+  const handleAuthRequired = useCallback((featureName: string) => {
+    if (isGuestMode && !isAuthenticated) {
+      setAuthRequiredFeature(featureName);
+      setShowAuthDialog(true);
+      return true; // 認証が必要
+    }
+    return false; // 認証済み
+  }, [isGuestMode, isAuthenticated]);
+
+  /**
+   * 登録ページへの遷移
+   */
+  const handleRegister = useCallback(() => {
+    router.push('/register');
+  }, [router]);
+
+  /**
    * 共有リンク生成の処理
    */
   const handleShareItinerary = useCallback(async () => {
+    // 認証チェック
+    if (handleAuthRequired("共有機能")) {
+      return;
+    }
+
     setShareError("");
     setShowShareDialog(true);
     setShareLoading(true);
@@ -113,12 +161,17 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
     } finally {
       setShareLoading(false);
     }
-  }, [shareItinerary]);
+  }, [shareItinerary, handleAuthRequired]);
 
   /**
    * AI対話送信の処理
    */
   const handleAiEditSubmit = useCallback(async () => {
+    // 認証チェック
+    if (handleAuthRequired("AI編集機能")) {
+      return;
+    }
+
     if (!aiInput.trim()) {
       showToastMessage("編集内容を入力してください", 2000);
       return;
@@ -144,7 +197,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
     } finally {
       setAiLoading(false);
     }
-  }, [aiInput, aiEditItinerary, showToastMessage]);
+  }, [aiInput, aiEditItinerary, showToastMessage, handleAuthRequired]);
 
   /**
    * キーボードショートカットの処理
@@ -350,18 +403,20 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   return (
     <main>
       <div className="no-print">
-        {/* 戻るボタン */}
-        <div className="max-w-2xl mx-auto mb-4">
-          <Button
-            kind="ghost"
-            type="button"
-            onClick={handleBackToList}
-            className="flex items-center gap-2"
-          >
-            <i className="mdi mdi-arrow-left" aria-hidden />
-            旅程一覧に戻る
-          </Button>
-        </div>
+        {/* 戻るボタン（/edit/:idページのみ表示） */}
+        {itineraryId && (
+          <div className="max-w-2xl mx-auto mb-4">
+            <Button
+              kind="ghost"
+              type="button"
+              onClick={handleBackToList}
+              className="flex items-center gap-2"
+            >
+              <i className="mdi mdi-arrow-left" aria-hidden />
+              旅程一覧に戻る
+            </Button>
+          </div>
+        )}
 
         {/* 基本情報編集セクション */}
         <ItineraryHeader 
@@ -377,6 +432,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
           loadingKeys={loadingKeys}
           setLoadingKeys={setLoadingKeys}
           isGuestMode={isGuestMode}
+          onAuthRequired={handleAuthRequired}
         />
 
         {/* 操作パネル */}
@@ -388,7 +444,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
 
       {/* FCAB: Floating Center Actions Bar */}
       <FloatingActionBar
-        onBackToList={handleBackToList}
+        onBackToList={itineraryId ? handleBackToList : undefined}
         onUndo={() => undo()}
         onRedo={() => redo()}
         onSave={() => handleSaveItinerary()}
@@ -450,6 +506,19 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
         data={itinerary}
         isOpen={showTriFoldPrintPreview}
         onClose={() => setShowTriFoldPrintPreview(false)}
+      />
+
+      {/* デモ版ラベル（ゲストモード時のみ表示） */}
+      {isGuestMode && (
+        <DemoLabel onRegisterClick={handleRegister} />
+      )}
+
+      {/* 認証必須ダイアログ */}
+      <AuthRequiredDialog
+        isOpen={showAuthDialog}
+        onClose={() => setShowAuthDialog(false)}
+        onRegister={handleRegister}
+        featureName={authRequiredFeature}
       />
     </main>
   );
