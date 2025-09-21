@@ -9,7 +9,7 @@ import { ActionIconButton } from "@/components/Primitives";
  * 画面下部に固定表示されるクイックアクションボタン群を提供します。
  * ゲストモードではAI機能と共有機能は無効化されます。
  * 
- * @param props.onBackToList - 旅程一覧に戻るハンドラー
+ * @param props.onBackToList - 旅程一覧に戻るハンドラー（/edit/:idページのみ）
  * @param props.onUndo - Undoハンドラー
  * @param props.onRedo - Redoハンドラー
  * @param props.onSave - 保存ハンドラー
@@ -24,7 +24,7 @@ import { ActionIconButton } from "@/components/Primitives";
  * @returns レンダリングされたFloatingActionBarコンポーネント
  */
 interface FloatingActionBarProps {
-  onBackToList: () => void;
+  onBackToList?: () => void;
   onUndo: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   onRedo: (event?: React.MouseEvent<HTMLButtonElement>) => void;
   onSave: (event?: React.MouseEvent<HTMLButtonElement>) => void;
@@ -57,13 +57,15 @@ export default function FloatingActionBar({
 }: FloatingActionBarProps) {
   return (
     <div className="fcab" role="toolbar" aria-label="クイックアクション">
-      <ActionIconButton 
-        icon="mdi-arrow-left" 
-        kind="ghost"
-        elevation={2}
-        dataTip="旅程一覧に戻る" 
-        onClick={onBackToList}
-      />
+      {/* {onBackToList && (
+        <ActionIconButton 
+          icon="mdi-arrow-left" 
+          kind="ghost"
+          elevation={2}
+          dataTip="旅程一覧に戻る" 
+          onClick={onBackToList}
+        />
+      )} */}
       <ActionIconButton 
         icon="mdi-undo" 
         kind="ghost"
@@ -97,8 +99,10 @@ export default function FloatingActionBar({
         kind="ghost"
         elevation={2}
         dataTip="印刷プレビューを開く Ctrl+Alt+P" 
-        onClick={onPrintPreview} 
+        onClick={onPrintPreview}
+        data-tour="print-feature"
       />
+      {/* 共有ボタンをコメントアウト
       <ActionIconButton
         icon="mdi-link-variant"
         kind="ghost"
@@ -108,6 +112,7 @@ export default function FloatingActionBar({
         disabled={isGuestMode}
         className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
       />
+      */}
       <ActionIconButton 
         icon="mdi-robot" 
         kind="ghost"
@@ -116,6 +121,7 @@ export default function FloatingActionBar({
         onClick={onAiDialog}
         disabled={isGuestMode}
         className={isGuestMode ? "opacity-50 cursor-not-allowed" : ""}
+        data-tour="ai-edit-feature"
       />
     </div>
   );

@@ -20,13 +20,14 @@ interface ItineraryHeaderProps {
 
 export default function ItineraryHeader({ itinerary, onItineraryChange }: ItineraryHeaderProps) {
   return (
-    <Card elevation={1} className="max-w-2xl mx-auto mb-4">
+    <Card elevation={1} className="max-w-2xl mx-auto mb-4" data-tour="basic-info-card">
       <InputWithPlaceholder
         id="title"
         value={itinerary.title}
         onChange={(e) => onItineraryChange({ ...itinerary, title: e.target.value })}
         placeholder="タイトルを入力してください"
         className="my-2"
+        data-tour="basic-info-edit"
       />
       <InputWithPlaceholder
         id="subtitle"
