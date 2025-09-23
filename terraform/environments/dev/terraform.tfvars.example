@@ -1,0 +1,53 @@
+# ===== 開発環境用変数値の例 =====
+# 
+# 使用方法:
+# 1. このファイルをコピー: cp terraform.tfvars.example terraform.tfvars
+# 2. 実際の値に変更: nano terraform.tfvars
+# 3. デプロイ実行: make deploy-gcp-dev
+#
+# 注意: terraform.tfvars は機密情報を含むため、Gitにコミットしないでください
+
+# ===== 基本設定（変更不要） =====
+project_id   = "portfolio-472821"
+project_name = "trip-shiori-dev"
+region       = "asia-northeast1"
+zone         = "asia-northeast1-a"
+
+# ===== データベース設定（必須: 実際の値に変更） =====
+database_name     = "trip_shiori"
+database_user     = "trip_shiori_user"
+database_password = "your-secure-dev-password-here"  # 強力なパスワードを設定（例: openssl rand -base64 32）
+
+# ===== JWT設定（必須: 実際の値に変更） =====
+jwt_secret = "your-dev-jwt-secret-here"  # 32文字以上のランダム文字列（例: openssl rand -hex 32）
+
+# ===== Dockerイメージ（変更不要） =====
+backend_image  = "gcr.io/portfolio-472821/trip-shiori-backend:latest"
+frontend_image = "gcr.io/portfolio-472821/trip-shiori-frontend:latest"
+
+# ===== アプリケーション設定（変更不要） =====
+app_name = "Trip Shiori"
+
+# ===== SMTP設定（メール送信機能用） =====
+# Gmailを使用する場合の設定例
+smtp_host     = "smtp.gmail.com"
+smtp_port     = "587"
+smtp_user     = "your-email@gmail.com"  # 実際のメールアドレス
+smtp_password = "your-app-password"      # Gmailアプリパスワード（2段階認証が必要）
+smtp_secure   = "false"
+
+# その他のSMTPプロバイダー例:
+# Outlook: smtp.live.com, port: 587
+# Yahoo: smtp.mail.yahoo.com, port: 587
+# SendGrid: smtp.sendgrid.net, port: 587
+
+# ===== OpenAI設定（AI機能用） =====
+openai_api_key = "sk-your-openai-api-key-here"  # OpenAI APIキー（https://platform.openai.com/api-keys で取得）
+
+# ===== フロントエンド環境変数設定例 =====
+# 以下の環境変数はTerraformで自動設定されます（参考用）
+# NEXT_PUBLIC_API_URL=https://trip-shiori-dev-backend-xxxxx-uc.a.run.app
+# NEXT_PUBLIC_FRONTEND_URL=https://trip-shiori-dev-frontend-xxxxx-uc.a.run.app
+# NEXT_PUBLIC_APP_NAME=Trip Shiori
+# NEXT_PUBLIC_VERSION=1.0.0
+# NEXT_PUBLIC_DEBUG=false
