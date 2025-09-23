@@ -314,6 +314,197 @@ deploy-cap-backend: ## CapRoverへ backend をデプロイ
 # 両方デプロイ（Backend → Frontend の順序）
 deploy-cap: deploy-cap-backend deploy-cap-frontend ## 両方デプロイ（Backend → Frontend）
 
+# ===== Terraform + GCP デプロイ設定 =====
+# 環境変数
+TF_ENV ?= dev
+TF_DIR = terraform/environments/$(TF_ENV)
+GCP_PROJECT = portfolio-472821
+GCP_REGION = asia-northeast1
+
+# Dockerイメージ設定（Git SHA方式）
+GIT_SHA = $(shell git rev-parse --short HEAD)
+BACKEND_IMAGE = gcr.io/$(GCP_PROJECT)/trip-shiori-backend:$(GIT_SHA)
+FRONTEND_IMAGE = gcr.io/$(GCP_PROJECT)/trip-shiori-frontend:$(GIT_SHA)
+
+.PHONY: \
+  tf-init \
+  tf-plan \
+  tf-apply \
+  tf-destroy \
+  tf-output \
+  tf-validate \
+  gcp-auth \
+  docker-build \
+  docker-push \
+  deploy-gcp-dev \
+  deploy-gcp-prod \
+  deploy-gcp-full \
+  destroy-gcp-dev \
+  destroy-gcp-prod \
+  destroy-gcp
+
+# ===== Terraform基本操作 =====
+tf-init: ## Terraform初期化
+	@echo "Terraform（$(TF_ENV)環境）の初期化を実行します..."
+	cd $(TF_DIR) && terraform init
+
+tf-validate: ## Terraform設定の検証
+	@echo "Terraform設定の検証を実行します..."
+	cd $(TF_DIR) && terraform validate
+
+tf-plan: ## Terraformプラン実行
+	@echo "Terraformプラン（$(TF_ENV)環境）の作成を実行します..."
+	cd $(TF_DIR) && terraform plan
+
+tf-apply: ## Terraform適用
+	@echo "Terraform構成（$(TF_ENV)環境）の適用を実行します..."
+	cd $(TF_DIR) && terraform apply -auto-approve
+
+tf-destroy: ## Terraformリソース削除
+	@echo "Terraformリソース（$(TF_ENV)環境）の削除を実行します..."
+	cd $(TF_DIR) && terraform destroy
+
+tf-output: ## Terraform出力表示
+	@echo "Terraform出力（$(TF_ENV)環境）:"
+	cd $(TF_DIR) && terraform output
+
+# ===== GCP認証 =====
+gcp-auth: ## GCP認証設定
+	@echo "GCP認証を設定します..."
+	gcloud auth login
+	gcloud config set project $(GCP_PROJECT)
+	gcloud auth configure-docker
+
+# ===== Docker操作 =====
+docker-build: ## Dockerイメージビルド（Git SHA方式）
+	@echo "Dockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
+	docker build -t $(BACKEND_IMAGE) ./backend
+	docker build -t $(FRONTEND_IMAGE) ./frontend
+
+docker-build-with-env: ## 環境変数付きでDockerイメージビルド（Git SHA方式）
+	@echo "環境変数付きでDockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
+	docker build -t $(BACKEND_IMAGE) ./backend || (echo "❌ バックエンドイメージのビルドに失敗しました" && exit 1)
+	@echo "フロントエンドの環境変数を設定中..."
+	@$(eval BACKEND_URL := $(if $(filter prod,$(TF_ENV)),https://api.trip.beita.dev,$(if $(filter dev,$(TF_ENV)),https://dev-api.trip.beita.dev,https://$(TF_ENV)-api.trip.beita.dev)))
+	@$(eval FRONTEND_URL := $(if $(filter prod,$(TF_ENV)),https://app.trip.beita.dev,$(if $(filter dev,$(TF_ENV)),https://dev-app.trip.beita.dev,https://$(TF_ENV)-app.trip.beita.dev)))
+	@echo "Backend URL: $(BACKEND_URL)"
+	@echo "Frontend URL: $(FRONTEND_URL)"
+	docker build \
+		--build-arg NEXT_PUBLIC_API_URL="$(BACKEND_URL)" \
+		--build-arg NEXT_PUBLIC_FRONTEND_URL="$(FRONTEND_URL)" \
+		--build-arg NEXT_PUBLIC_APP_NAME="Trip Shiori" \
+		--build-arg NEXT_PUBLIC_VERSION="1.0.0" \
+		--build-arg NEXT_PUBLIC_DEBUG="false" \
+		-t $(FRONTEND_IMAGE) ./frontend || (echo "❌ フロントエンドイメージのビルドに失敗しました" && exit 1)
+
+docker-push: ## Dockerイメージプッシュ（Git SHA方式）
+	@echo "DockerイメージをGCRへプッシュします（Git SHA: $(GIT_SHA)）..."
+	docker push $(BACKEND_IMAGE)
+	docker push $(FRONTEND_IMAGE)
+
+# ===== 統合デプロイ =====
+deploy-gcp-dev: ## GCP開発環境デプロイ
+	@echo "GCP開発環境へデプロイを開始します..."
+	$(MAKE) tf-init TF_ENV=dev
+	$(MAKE) tf-validate TF_ENV=dev
+	$(MAKE) tf-plan TF_ENV=dev
+	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	$(MAKE) tf-apply TF_ENV=dev
+	@echo "開発環境へのデプロイが完了しました"
+
+deploy-gcp-dev-full: ## GCP開発環境フルデプロイ（環境変数付きビルド）
+	@echo "GCP開発環境へのフルデプロイを開始します..."
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "1/6: Terraform初期化..."
+	$(MAKE) tf-init TF_ENV=dev || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	@echo "2/6: Terraform設定検証..."
+	$(MAKE) tf-validate TF_ENV=dev || (echo "❌ Terraform設定検証に失敗しました" && exit 1)
+	@echo "3/6: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=dev || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "4/6: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "5/6: Terraformプランを実行します..."
+	$(MAKE) tf-plan TF_ENV=dev || (echo "❌ Terraformプランに失敗しました" && exit 1)
+	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	@echo "6/6: Terraformを適用します..."
+	$(MAKE) tf-apply TF_ENV=dev || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ フルデプロイが完了しました"
+
+deploy-gcp-prod: ## GCP本番環境デプロイ
+	@echo "GCP本番環境へデプロイを開始します..."
+	$(MAKE) tf-init TF_ENV=prod
+	$(MAKE) tf-validate TF_ENV=prod
+	$(MAKE) tf-plan TF_ENV=prod
+	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	$(MAKE) tf-apply TF_ENV=prod
+	@echo "本番環境へのデプロイが完了しました"
+
+deploy-gcp-prod-full: ## GCP本番環境フルデプロイ（環境変数付きビルド）
+	@echo "GCP本番環境へのフルデプロイを開始します..."
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "1/6: Terraform初期化..."
+	$(MAKE) tf-init TF_ENV=prod || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	@echo "2/6: Terraform設定検証..."
+	$(MAKE) tf-validate TF_ENV=prod || (echo "❌ Terraform設定検証に失敗しました" && exit 1)
+	@echo "3/6: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=prod || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "4/6: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "5/6: Terraformプランを実行します..."
+	$(MAKE) tf-plan TF_ENV=prod || (echo "❌ Terraformプランに失敗しました" && exit 1)
+	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	@echo "6/6: Terraformを適用します..."
+	$(MAKE) tf-apply TF_ENV=prod || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ 本番環境フルデプロイが完了しました"
+
+deploy-gcp-full: ## フルデプロイ（環境変数付きビルド→プッシュ→Terraform適用）
+	@echo "GCPへのフルデプロイを開始します..."
+	@echo "Git SHA: $(GIT_SHA)"
+	$(MAKE) gcp-auth
+	$(MAKE) tf-init TF_ENV=$(TF_ENV)
+	$(MAKE) tf-validate TF_ENV=$(TF_ENV)
+	@echo "環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=$(TF_ENV)
+	@echo "Dockerイメージをプッシュします..."
+	$(MAKE) docker-push
+	@echo "Terraformプランを実行します..."
+	$(MAKE) tf-plan TF_ENV=$(TF_ENV)
+	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	@echo "Terraformを適用します..."
+	$(MAKE) tf-apply TF_ENV=$(TF_ENV)
+	@echo "フルデプロイが完了しました"
+
+# ===== リソース削除 =====
+destroy-gcp-dev: ## GCP開発環境リソース削除
+	@echo "GCP開発環境のリソース削除を開始します..."
+	@echo "⚠️  警告: この操作は開発環境のすべてのリソースを削除します"
+	@echo "続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "操作がキャンセルされました" && exit 1)
+	$(MAKE) tf-destroy TF_ENV=dev
+	@echo "開発環境のリソース削除が完了しました"
+
+destroy-gcp-prod: ## GCP本番環境リソース削除
+	@echo "GCP本番環境のリソース削除を開始します..."
+	@echo "⚠️  警告: この操作は本番環境のすべてのリソースを削除します"
+	@echo "⚠️  注意: データベースのデータも失われます"
+	@echo "続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "操作がキャンセルされました" && exit 1)
+	$(MAKE) tf-destroy TF_ENV=prod
+	@echo "本番環境のリソース削除が完了しました"
+
+destroy-gcp: ## GCP環境リソース削除（環境指定）
+	@echo "GCP環境（$(TF_ENV)）のリソース削除を開始します..."
+	@echo "⚠️  警告: この操作は$(TF_ENV)環境のすべてのリソースを削除します"
+	@echo "続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "操作がキャンセルされました" && exit 1)
+	$(MAKE) tf-destroy TF_ENV=$(TF_ENV)
+	@echo "$(TF_ENV)環境のリソース削除が完了しました"
+
 generate-favicons: ## SVGからfaviconとPWAアイコンを生成
 	@echo "faviconとPWAアイコンを生成中..."
 	@./scripts/generate-favicons.sh
@@ -334,3 +525,292 @@ optimize-svgs: ## docs/ux/design/orgの全SVGファイルを最適化してoptim
 	else \
 		echo "docs/ux/design/orgディレクトリにSVGファイルが見つかりません"; \
 	fi
+
+# ===== GCP Cloud Run ログ取得 =====
+logs-gcp-frontend: ## GCP Cloud Run フロントエンドのログ取得
+	@echo "Cloud Run フロントエンドのログを取得します..."
+	gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trip-shiori-$(TF_ENV)-frontend" \
+		--project=$(GCP_PROJECT) \
+		--limit=50 \
+		--format="table(timestamp,severity,textPayload)"
+
+logs-gcp-backend: ## GCP Cloud Run バックエンドのログ取得
+	@echo "Cloud Run バックエンドのログを取得します..."
+	gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trip-shiori-$(TF_ENV)-backend" \
+		--project=$(GCP_PROJECT) \
+		--limit=50 \
+		--format="table(timestamp,severity,textPayload)"
+
+logs-gcp: logs-gcp-frontend logs-gcp-backend ## GCP Cloud Run 全サービスのログ取得
+
+# ===== CloudFlare DNS設定 =====
+# ドメイン設定
+DEV_FRONTEND_DOMAIN = dev-app.trip.beita.dev
+DEV_BACKEND_DOMAIN = dev-api.trip.beita.dev
+PROD_FRONTEND_DOMAIN = app.trip.beita.dev
+PROD_BACKEND_DOMAIN = api.trip.beita.dev
+
+# 動的ドメイン取得関数
+# 引数: $(1) = サービス名, $(2) = 環境
+define _get_cloud_run_url
+	@$(GCLOUD) run services describe $(1) --region=$(GCP_REGION) --format='value(status.url)' 2>/dev/null || echo "サービス $(1) が見つかりません"
+endef
+
+# 環境別のCloud Run URL取得
+get-dev-frontend-url: ## 開発環境フロントエンドのCloud Run URL取得
+	@$(call _get_cloud_run_url,$(DEV_FRONTEND_SERVICE),dev)
+
+get-dev-backend-url: ## 開発環境バックエンドのCloud Run URL取得
+	@$(call _get_cloud_run_url,$(DEV_BACKEND_SERVICE),dev)
+
+get-prod-frontend-url: ## 本番環境フロントエンドのCloud Run URL取得
+	@$(call _get_cloud_run_url,$(PROD_FRONTEND_SERVICE),prod)
+
+get-prod-backend-url: ## 本番環境バックエンドのCloud Run URL取得
+	@$(call _get_cloud_run_url,$(PROD_BACKEND_SERVICE),prod)
+
+.PHONY: \
+  dns-info-dev \
+  dns-info-prod \
+  dns-info \
+  get-dev-frontend-url \
+  get-dev-backend-url \
+  get-prod-frontend-url \
+  get-prod-backend-url
+
+# ===== Cloud Run ドメインマッピング =====
+# Cloud Runサービス名（環境別）
+DEV_FRONTEND_SERVICE = trip-shiori-dev-frontend
+DEV_BACKEND_SERVICE = trip-shiori-dev-backend
+PROD_FRONTEND_SERVICE = trip-shiori-prod-frontend
+PROD_BACKEND_SERVICE = trip-shiori-prod-backend
+
+# gcloud設定
+GCLOUD_TRACK ?= beta
+GCLOUD ?= gcloud $(GCLOUD_TRACK)
+GCP_REGION ?= asia-northeast1
+
+.PHONY: \
+  domain-mapping-create-dev \
+  domain-mapping-create-prod \
+  domain-mapping-create \
+  domain-mapping-info-dev \
+  domain-mapping-info-prod \
+  domain-mapping-info \
+  domain-mapping-status \
+  domain-mapping-list
+
+# 開発環境のDNS設定情報表示
+dns-info-dev: ## 開発環境のDNS設定情報表示
+	@echo "=== 開発環境のCloudFlare DNS設定情報 ==="
+	@echo ""
+	@echo "以下のCNAMEレコードをCloudFlareのDNS設定に追加してください："
+	@echo ""
+	@echo "フロントエンド:"
+	@echo "  Type: CNAME"
+	@echo "  Name: dev-app"
+	@echo "  Target: $$($(GCLOUD) run services describe $(DEV_FRONTEND_SERVICE) --region=$(GCP_REGION) --format='value(status.url)' 2>/dev/null | sed 's|https://||')"
+	@echo "  TTL: Auto"
+	@echo ""
+	@echo "バックエンド:"
+	@echo "  Type: CNAME"
+	@echo "  Name: dev-api"
+	@echo "  Target: $$($(GCLOUD) run services describe $(DEV_BACKEND_SERVICE) --region=$(GCP_REGION) --format='value(status.url)' 2>/dev/null | sed 's|https://||')"
+	@echo "  TTL: Auto"
+	@echo ""
+	@echo "CloudFlareの設定:"
+	@echo "  SSL/TLS: Full (strict)"
+	@echo "  Always Use HTTPS: ON"
+	@echo "  HTTP/2: ON"
+	@echo "  HTTP/3: ON"
+
+# 本番環境のDNS設定情報表示
+dns-info-prod: ## 本番環境のDNS設定情報表示
+	@echo "=== 本番環境のCloudFlare DNS設定情報 ==="
+	@echo ""
+	@echo "以下のCNAMEレコードをCloudFlareのDNS設定に追加してください："
+	@echo ""
+	@echo "フロントエンド:"
+	@echo "  Type: CNAME"
+	@echo "  Name: app"
+	@echo "  Target: $$($(GCLOUD) run services describe $(PROD_FRONTEND_SERVICE) --region=$(GCP_REGION) --format='value(status.url)' 2>/dev/null | sed 's|https://||')"
+	@echo "  TTL: Auto"
+	@echo ""
+	@echo "バックエンド:"
+	@echo "  Type: CNAME"
+	@echo "  Name: api"
+	@echo "  Target: $$($(GCLOUD) run services describe $(PROD_BACKEND_SERVICE) --region=$(GCP_REGION) --format='value(status.url)' 2>/dev/null | sed 's|https://||')"
+	@echo "  TTL: Auto"
+	@echo ""
+	@echo "CloudFlareの設定:"
+	@echo "  SSL/TLS: Full (strict)"
+	@echo "  Always Use HTTPS: ON"
+	@echo "  HTTP/2: ON"
+	@echo "  HTTP/3: ON"
+
+# 環境別のDNS設定情報表示
+dns-info: ## 環境別のDNS設定情報表示
+	@if [ "$(TF_ENV)" = "dev" ]; then \
+		$(MAKE) dns-info-dev; \
+	elif [ "$(TF_ENV)" = "prod" ]; then \
+		$(MAKE) dns-info-prod; \
+	else \
+		echo "エラー: TF_ENVは 'dev' または 'prod' を指定してください"; \
+		exit 1; \
+	fi
+
+# ===== Cloud Run ドメインマッピング実装 =====
+
+# 開発環境のドメインマッピング作成
+# 参考：https://cloud.google.com/run/docs/mapping-custom-domains?hl=ja#gcloud
+domain-mapping-create-dev: ## 開発環境のCloud Runドメインマッピング作成
+	@echo "開発環境のドメインマッピングを作成します..."
+	@echo "フロントエンド: $(DEV_FRONTEND_DOMAIN) -> $(DEV_FRONTEND_SERVICE)"
+	@echo "バックエンド: $(DEV_BACKEND_DOMAIN) -> $(DEV_BACKEND_SERVICE)"
+	@echo ""
+	@echo "フロントエンドのドメインマッピングを作成中..."
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(DEV_FRONTEND_SERVICE) \
+		--domain=$(DEV_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo ""
+	@echo "バックエンドのドメインマッピングを作成中..."
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(DEV_BACKEND_SERVICE) \
+		--domain=$(DEV_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo ""
+	@echo "✅ 開発環境のドメインマッピング作成が完了しました"
+	@echo "次のステップ: make domain-mapping-info-dev でDNS設定情報を確認してください"
+
+# 本番環境のドメインマッピング作成
+domain-mapping-create-prod: ## 本番環境のCloud Runドメインマッピング作成
+	@echo "本番環境のドメインマッピングを作成します..."
+	@echo "フロントエンド: $(PROD_FRONTEND_DOMAIN) -> $(PROD_FRONTEND_SERVICE)"
+	@echo "バックエンド: $(PROD_BACKEND_DOMAIN) -> $(PROD_BACKEND_SERVICE)"
+	@echo ""
+	@echo "フロントエンドのドメインマッピングを作成中..."
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(PROD_FRONTEND_SERVICE) \
+		--domain=$(PROD_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo ""
+	@echo "バックエンドのドメインマッピングを作成中..."
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(PROD_BACKEND_SERVICE) \
+		--domain=$(PROD_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo ""
+	@echo "✅ 本番環境のドメインマッピング作成が完了しました"
+	@echo "次のステップ: make domain-mapping-info-prod でDNS設定情報を確認してください"
+
+# 環境別のドメインマッピング作成
+domain-mapping-create: ## 環境別のCloud Runドメインマッピング作成
+	@if [ "$(TF_ENV)" = "dev" ]; then \
+		$(MAKE) domain-mapping-create-dev; \
+	elif [ "$(TF_ENV)" = "prod" ]; then \
+		$(MAKE) domain-mapping-create-prod; \
+	else \
+		echo "エラー: TF_ENVは 'dev' または 'prod' を指定してください"; \
+		exit 1; \
+	fi
+
+# 開発環境のDNS設定情報表示
+domain-mapping-info-dev: ## 開発環境のドメインマッピングDNS設定情報表示
+	@echo "=== 開発環境のCloud RunドメインマッピングDNS設定情報 ==="
+	@echo ""
+	@echo "フロントエンド ($(DEV_FRONTEND_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-dev を実行してください"
+	@echo ""
+	@echo "バックエンド ($(DEV_BACKEND_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-dev を実行してください"
+	@echo ""
+	@echo "CloudFlareの設定:"
+	@echo "  SSL/TLS: Full (strict)"
+	@echo "  Always Use HTTPS: ON"
+	@echo "  HTTP/2: ON"
+	@echo "  HTTP/3: ON"
+	@echo "  Proxy: 最初はOFF（DNS only）→ 証明書ACTIVE後にON"
+
+# 本番環境のDNS設定情報表示
+domain-mapping-info-prod: ## 本番環境のドメインマッピングDNS設定情報表示
+	@echo "=== 本番環境のCloud RunドメインマッピングDNS設定情報 ==="
+	@echo ""
+	@echo "フロントエンド ($(PROD_FRONTEND_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-prod を実行してください"
+	@echo ""
+	@echo "バックエンド ($(PROD_BACKEND_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-prod を実行してください"
+	@echo ""
+	@echo "CloudFlareの設定:"
+	@echo "  SSL/TLS: Full (strict)"
+	@echo "  Always Use HTTPS: ON"
+	@echo "  HTTP/2: ON"
+	@echo "  HTTP/3: ON"
+	@echo "  Proxy: 最初はOFF（DNS only）→ 証明書ACTIVE後にON"
+
+# 環境別のDNS設定情報表示
+domain-mapping-info: ## 環境別のドメインマッピングDNS設定情報表示
+	@if [ "$(TF_ENV)" = "dev" ]; then \
+		$(MAKE) domain-mapping-info-dev; \
+	elif [ "$(TF_ENV)" = "prod" ]; then \
+		$(MAKE) domain-mapping-info-prod; \
+	else \
+		echo "エラー: TF_ENVは 'dev' または 'prod' を指定してください"; \
+		exit 1; \
+	fi
+
+# ドメインマッピング状態確認
+domain-mapping-status: ## ドメインマッピングの状態確認
+	@echo "=== Cloud Runドメインマッピング状態確認 ==="
+	@echo ""
+	@echo "開発環境:"
+	@echo "フロントエンド ($(DEV_FRONTEND_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+	@echo ""
+	@echo "バックエンド ($(DEV_BACKEND_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+	@echo ""
+	@echo "本番環境:"
+	@echo "フロントエンド ($(PROD_FRONTEND_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+	@echo ""
+	@echo "バックエンド ($(PROD_BACKEND_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+
+# ドメインマッピング一覧表示
+domain-mapping-list: ## 全ドメインマッピングの一覧表示
+	@echo "=== Cloud Runドメインマッピング一覧 ==="
+	@$(GCLOUD) run domain-mappings list --region=$(GCP_REGION) --format='table(metadata.name,spec.routeName,status.conditions[].type,status.conditions[].status)'
