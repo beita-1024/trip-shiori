@@ -59,13 +59,13 @@ make deploy-gcp-prod
 make deploy-gcp-full
 ```
 
-#### スクリプトを使用
+#### 環境変数を使用
 ```bash
 # 開発環境
-./scripts/deploy-gcp.sh dev
+TF_ENV=dev make deploy-gcp-full
 
 # 本番環境
-./scripts/deploy-gcp.sh prod
+TF_ENV=prod make deploy-gcp-full
 ```
 
 #### 手動実行
@@ -98,10 +98,16 @@ terraform apply
 - `make docker-build` - Dockerイメージビルド
 - `make docker-push` - Dockerイメージプッシュ
 
+### 削除保護・状態管理
+- `make check-deletion-protection` - Cloud SQL削除保護チェック・無効化
+- `make sync-terraform-state` - Terraform状態同期
+
 ### 統合デプロイ
 - `make deploy-gcp-dev` - 開発環境デプロイ
 - `make deploy-gcp-prod` - 本番環境デプロイ
-- `make deploy-gcp-full` - フルデプロイ
+- `make deploy-gcp-prod-safe` - 本番環境安全デプロイ（データ保持・推奨）
+- `make deploy-gcp-prod-full` - 本番環境フルデプロイ（初回のみ・データ削除）
+- `make deploy-gcp-full` - フルデプロイ（環境指定）
 
 ## 🔧 設定ファイル
 
@@ -154,6 +160,34 @@ terraform apply
 3. **バックアップ**: 本番環境では自動バックアップが設定されています
 4. **ネットワーク**: VPCを使用してセキュアな通信を実現
 
+## 📋 デプロイ戦略
+
+### 初回デプロイ
+```bash
+# 本番環境の初回セットアップ（データベース新規作成）
+make deploy-gcp-prod-full
+```
+
+### 継続デプロイ
+```bash
+# 本番環境の安全な更新（データ保持）
+make deploy-gcp-prod-safe
+```
+
+### 開発環境
+```bash
+# 開発環境（データ削除OK）
+TF_ENV=dev make deploy-gcp-full
+```
+
+## ⚠️ 重要な違い
+
+| コマンド | 用途 | データベース | 削除保護 |
+|---------|------|-------------|----------|
+| `deploy-gcp-prod-full` | 初回セットアップ | 新規作成 | 無効化 |
+| `deploy-gcp-prod-safe` | 継続デプロイ | 更新のみ | 維持 |
+| `deploy-gcp-full` | 開発環境 | 新規作成 | 無効化 |
+
 ## 🔍 トラブルシューティング
 
 ### よくある問題
@@ -177,3 +211,117 @@ gcloud logging read "resource.type=cloudsql_database"
 - [Google Cloud Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
 - [Cloud Run公式ドキュメント](https://cloud.google.com/run/docs)
 - [Cloud SQL公式ドキュメント](https://cloud.google.com/sql/docs)
+
+## 🤖 GitHub Actions自動デプロイ
+
+### 初回設定
+
+#### 1. サービスアカウント作成
+```bash
+# 自動設定スクリプトを実行
+./scripts/setup-github-actions.sh
+```
+
+#### 2. GitHub Secrets設定
+1. GitHubリポジトリの Settings > Secrets and variables > Actions
+2. `GCP_SA_KEY` を追加
+3. スクリプトで生成されたBase64エンコードされたキーを設定
+
+#### 3. 自動デプロイのテスト
+```bash
+# ローカルで自動デプロイをテスト
+make deploy-gcp-prod-auto
+```
+
+### 自動デプロイの動作
+
+- **トリガー**: `main`ブランチへのプッシュ
+- **手動実行**: GitHub Actions画面から実行可能
+- **データ保護**: 本番環境のデータベースは保護される
+- **自動承認**: プラン確認をスキップして自動適用
+
+### 利用可能なコマンド
+
+| コマンド | 用途 | 認証 | プラン確認 |
+|---------|------|------|-----------|
+| `deploy-gcp-prod-safe` | 手動デプロイ | `gcloud auth login` | 必要 |
+| `deploy-gcp-prod-auto` | 自動デプロイ | サービスアカウント | スキップ |
+
+### トラブルシューティング
+
+#### 認証エラー
+```bash
+# サービスアカウントの権限確認
+gcloud projects get-iam-policy portfolio-472821 \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:github-actions@portfolio-472821.iam.gserviceaccount.com"
+```
+
+#### デプロイ失敗時
+```bash
+# ログ確認
+gcloud logging read "resource.type=cloud_run_revision" \
+    --project=portfolio-472821 \
+    --limit=50
+```
+
+### GitHub Actions用コマンド
+- `make setup-github-actions` - サービスアカウント設定
+- `make test-github-actions` - 自動デプロイテスト
+- `make verify-deployment` - デプロイ結果検証
+- `make deploy-gcp-dev-auto` - 開発環境自動デプロイ
+- `make deploy-auto` - 環境指定自動デプロイ
+
+### 環境指定デプロイ
+```bash
+# 開発環境
+TF_ENV=dev make deploy-auto
+
+# 本番環境
+TF_ENV=prod make deploy-auto
+```
+
+
+## 🚀 クイックスタート（GitHub Actions設定）
+
+### 1. Google Cloud Consoleでサービスアカウント作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → **IAMと管理** → **サービス アカウント**
+2. **「サービス アカウントを作成」**
+3. 名前: `ci-deployer`、説明: `GitHub Actions用`
+4. 権限を付与:
+   - `Cloud Run管理者` (`roles/run.admin`)
+   - `Artifact Registry書き込み` (`roles/artifactregistry.writer`)
+   - `サービスアカウントユーザー` (`roles/iam.serviceAccountUser`)
+5. **「完了」**
+
+### 2. サービスアカウントキーを生成
+
+1. 作成したサービスアカウントをクリック
+2. **「鍵」** タブ → **「鍵を追加」** → **「新しい鍵を作成」**
+3. **「JSON」** を選択 → **「作成」**
+4. **JSONファイルをダウンロード**（1回だけ入手可能）
+
+### 3. GitHub Secretsに設定
+
+1. GitHubリポジトリ → **Settings** → **Secrets and variables** → **Actions**
+2. **「New repository secret」**
+3. Name: `GCP_SA_KEY`、Value: ダウンロードしたJSONの内容
+4. **「Add secret」**
+
+### 4. 自動デプロイのテスト
+
+```bash
+# ローカルでテスト
+make deploy-gcp-prod-auto
+
+# GitHub Actionsでテスト
+# mainブランチにプッシュすると自動実行
+```
+
+### 5. 動作確認
+
+- **本番環境**: `main`ブランチへのプッシュで自動デプロイ
+- **開発環境**: `develop`ブランチへのプッシュで自動デプロイ
+- **手動実行**: GitHub Actions画面から実行可能
+
