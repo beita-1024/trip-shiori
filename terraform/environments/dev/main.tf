@@ -61,12 +61,9 @@ resource "google_sql_database_instance" "main" {
     }
 
     ip_configuration {
-      ipv4_enabled    = true
-      ssl_mode        = "ENCRYPTED_ONLY"
-      authorized_networks {
-        name  = "cloud-run"
-        value = "0.0.0.0/0"  # 開発環境用（本番では制限推奨）
-      }
+      ipv4_enabled   = false
+      private_network = google_compute_network.main.id
+      # Private Service Connect によりプライベート到達を確保
     }
   }
 
@@ -128,9 +125,10 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       
+      # Private IP を参照（type == "PRIVATE" を抽出）
       env {
         name  = "DATABASE_URL"
-        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.ip_address[0].ip_address}:5432/${var.database_name}?sslmode=require"
+        value = "postgresql://${var.database_user}:${var.database_password}@${[for ip in google_sql_database_instance.main.ip_address : ip.ip_address if ip.type == "PRIVATE"][0]}:5432/${var.database_name}?sslmode=require"
       }
       
       env {
