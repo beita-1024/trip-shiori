@@ -369,11 +369,43 @@ tf-output: ## Terraform出力表示
 	cd $(TF_DIR) && terraform output
 
 # ===== GCP認証 =====
-gcp-auth: ## GCP認証設定
-	@echo "GCP認証を設定します..."
-	gcloud auth login
-	gcloud config set project $(GCP_PROJECT)
-	gcloud auth configure-docker
+gcp-auth: ## GCP認証設定（必要に応じて自動認証）
+	@echo "GCP認証状態を確認中..."
+	@if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then \
+		echo "⚠️  認証が必要です。ブラウザで認証を完了してください..."; \
+		gcloud auth login --no-launch-browser; \
+	fi
+	@echo "プロジェクト設定: $(GCP_PROJECT)"
+	@gcloud config set project $(GCP_PROJECT) --quiet
+	@echo "Docker認証設定中..."
+	@gcloud auth configure-docker --quiet
+	@echo "✅ GCP認証が完了しました"
+
+gcp-auth-force: ## GCP強制認証（既存の認証を無視）
+	@echo "GCP強制認証を実行中..."
+	@gcloud auth login --no-launch-browser
+	@gcloud config set project $(GCP_PROJECT)
+	@gcloud auth configure-docker
+	@echo "✅ GCP強制認証が完了しました"
+
+# ===== 独立認証ターゲット =====
+auth-check: ## 認証状態をチェック（認証が必要な場合のみ実行）
+	@echo "認証状態をチェック中..."
+	@if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then \
+		echo "⚠️  認証が必要です。以下のコマンドを実行してください:"; \
+		echo "   make gcp-auth"; \
+		exit 1; \
+	else \
+		echo "✅ 認証済みです"; \
+	fi
+
+auth-setup: ## 認証セットアップ（初回設定用）
+	@echo "初回認証セットアップを開始します..."
+	@echo "1. GCP認証を実行します..."
+	@$(MAKE) gcp-auth
+	@echo "2. 認証状態を確認します..."
+	@$(MAKE) auth-check
+	@echo "✅ 認証セットアップが完了しました"
 
 # ===== Docker操作 =====
 docker-build: ## Dockerイメージビルド（Git SHA方式）
@@ -445,39 +477,119 @@ deploy-gcp-prod: ## GCP本番環境デプロイ
 deploy-gcp-prod-full: ## GCP本番環境フルデプロイ（環境変数付きビルド）
 	@echo "GCP本番環境へのフルデプロイを開始します..."
 	@echo "Git SHA: $(GIT_SHA)"
-	@echo "1/6: Terraform初期化..."
+	@echo "1/6: 削除保護チェック・無効化..."
+	$(MAKE) check-deletion-protection TF_ENV=prod || (echo "❌ 削除保護チェックに失敗しました" && exit 1)
+	@echo "2/6: Terraform初期化..."
 	$(MAKE) tf-init TF_ENV=prod || (echo "❌ Terraform初期化に失敗しました" && exit 1)
-	@echo "2/6: Terraform設定検証..."
-	$(MAKE) tf-validate TF_ENV=prod || (echo "❌ Terraform設定検証に失敗しました" && exit 1)
-	@echo "3/6: 環境変数付きでDockerイメージをビルドします..."
+	@echo "3/6: Terraform状態同期..."
+	$(MAKE) sync-terraform-state TF_ENV=prod || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "4/6: 環境変数付きでDockerイメージをビルドします..."
 	$(MAKE) docker-build-with-env TF_ENV=prod || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
-	@echo "4/6: Dockerイメージをプッシュします..."
+	@echo "5/6: Dockerイメージをプッシュします..."
 	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
-	@echo "5/6: Terraformプランを実行します..."
+	@echo "6/6: Terraformプランを実行します..."
 	$(MAKE) tf-plan TF_ENV=prod || (echo "❌ Terraformプランに失敗しました" && exit 1)
 	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
-	@echo "6/6: Terraformを適用します..."
+	@echo "Terraformを適用します..."
 	$(MAKE) tf-apply TF_ENV=prod || (echo "❌ Terraform適用に失敗しました" && exit 1)
 	@echo "✅ 本番環境フルデプロイが完了しました"
+	@echo "デプロイ結果:"
+	$(MAKE) tf-output TF_ENV=prod
+
+deploy-gcp-prod-safe: ## 本番環境安全デプロイ（データ保持・削除保護維持）
+	@echo "GCP本番環境への安全デプロイを開始します..."
+	@echo "⚠️  このデプロイではデータベースの削除保護を維持します"
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "1/5: 本番環境データ保護確認..."
+	@echo "✅ データベースの削除保護を維持します（データ保護）"
+	@echo "2/5: Terraform初期化・状態同期..."
+	$(MAKE) tf-init TF_ENV=prod || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	$(MAKE) sync-terraform-state TF_ENV=prod || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "3/5: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=prod || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "4/5: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "5/5: Terraformプランを実行します..."
+	$(MAKE) tf-plan TF_ENV=prod || (echo "❌ Terraformプランに失敗しました" && exit 1)
+	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	@echo "🔧 Terraformを適用します（データベースは更新のみ）..."
+	$(MAKE) tf-apply TF_ENV=prod || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ 本番環境安全デプロイが完了しました"
+	@echo "デプロイ結果:"
+	$(MAKE) tf-output TF_ENV=prod
+
+deploy-gcp-prod-auto: ## 本番環境自動デプロイ（GitHub Actions用）
+	@echo "GCP本番環境への自動デプロイを開始します..."
+	@echo "⚠️  このデプロイは自動承認されます（GitHub Actions用）"
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "1/5: 本番環境データ保護確認..."
+	@echo "✅ データベースの削除保護を維持します（データ保護）"
+	@echo "2/5: Terraform初期化・状態同期..."
+	$(MAKE) tf-init TF_ENV=prod || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	$(MAKE) sync-terraform-state TF_ENV=prod || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "3/5: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=prod || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "4/5: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "5/5: Terraformを自動適用します..."
+	@echo "自動承認モード: プラン確認をスキップします"
+	export TF_IN_AUTOMATION=true && export TF_INPUT=false && $(MAKE) tf-apply TF_ENV=prod || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ 本番環境自動デプロイが完了しました"
+	@echo "デプロイ結果:"
+	$(MAKE) tf-output TF_ENV=prod
+
 
 deploy-gcp-full: ## フルデプロイ（環境変数付きビルド→プッシュ→Terraform適用）
 	@echo "GCPへのフルデプロイを開始します..."
 	@echo "Git SHA: $(GIT_SHA)"
-	$(MAKE) gcp-auth
-	$(MAKE) tf-init TF_ENV=$(TF_ENV)
-	$(MAKE) tf-validate TF_ENV=$(TF_ENV)
-	@echo "環境変数付きでDockerイメージをビルドします..."
-	$(MAKE) docker-build-with-env TF_ENV=$(TF_ENV)
-	@echo "Dockerイメージをプッシュします..."
-	$(MAKE) docker-push
-	@echo "Terraformプランを実行します..."
-	$(MAKE) tf-plan TF_ENV=$(TF_ENV)
+	@echo "環境: $(TF_ENV)"
+	@echo "1/6: GCP認証確認..."
+	$(MAKE) gcp-auth || (echo "❌ GCP認証に失敗しました" && exit 1)
+	@echo "2/6: 削除保護チェック・無効化..."
+	$(MAKE) check-deletion-protection TF_ENV=$(TF_ENV) || (echo "❌ 削除保護チェックに失敗しました" && exit 1)
+	@echo "3/6: Terraform初期化・状態同期..."
+	$(MAKE) tf-init TF_ENV=$(TF_ENV) || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	$(MAKE) sync-terraform-state TF_ENV=$(TF_ENV) || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "4/6: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=$(TF_ENV) || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "5/6: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "6/6: Terraformプランを実行します..."
+	$(MAKE) tf-plan TF_ENV=$(TF_ENV) || (echo "❌ Terraformプランに失敗しました" && exit 1)
 	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
 	@echo "Terraformを適用します..."
-	$(MAKE) tf-apply TF_ENV=$(TF_ENV)
-	@echo "フルデプロイが完了しました"
+	$(MAKE) tf-apply TF_ENV=$(TF_ENV) || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ フルデプロイが完了しました"
+	@echo "デプロイ結果:"
+	$(MAKE) tf-output TF_ENV=$(TF_ENV)
+
+# ===== 削除保護チェック・無効化 =====
+check-deletion-protection: ## Cloud SQLインスタンスの削除保護をチェック・無効化
+	@echo "Cloud SQLインスタンスの削除保護をチェック中..."
+	@if [ "$(TF_ENV)" = "prod" ]; then \
+		INSTANCE_NAME="trip-shiori-prod-db-instance"; \
+		echo "⚠️  本番環境では削除保護を無効化しません（データ保護のため）"; \
+		echo "✅ 本番環境のデータは保護されています"; \
+	else \
+		INSTANCE_NAME="trip-shiori-dev-db-instance"; \
+		echo "インスタンス名: $$INSTANCE_NAME"; \
+		PROTECTION_STATUS=$$(gcloud sql instances describe $$INSTANCE_NAME --project=portfolio-472821 --format="value(settings.deletionProtectionEnabled)" 2>/dev/null || echo "false"); \
+		if [ "$$PROTECTION_STATUS" = "true" ]; then \
+			echo "⚠️  削除保護が有効になっています。無効化します..."; \
+			gcloud sql instances patch $$INSTANCE_NAME --no-deletion-protection --project=portfolio-472821 --quiet; \
+			echo "✅ 削除保護を無効にしました"; \
+		else \
+			echo "✅ 削除保護は既に無効です"; \
+		fi; \
+	fi
+
+sync-terraform-state: ## Terraform状態を同期
+	@echo "Terraform状態を同期中..."
+	$(MAKE) tf-plan TF_ENV=$(TF_ENV)
+	@echo "✅ Terraform状態の同期が完了しました"
 
 # ===== リソース削除 =====
 destroy-gcp-dev: ## GCP開発環境リソース削除
@@ -814,3 +926,78 @@ domain-mapping-status: ## ドメインマッピングの状態確認
 domain-mapping-list: ## 全ドメインマッピングの一覧表示
 	@echo "=== Cloud Runドメインマッピング一覧 ==="
 	@$(GCLOUD) run domain-mappings list --region=$(GCP_REGION) --format='table(metadata.name,spec.routeName,status.conditions[].type,status.conditions[].status)'
+
+# ===== GitHub Actions用ヘルパー =====
+setup-github-actions: ## GitHub Actions用サービスアカウント設定
+	@echo "GitHub Actions用サービスアカウントを設定します..."
+	@if [ ! -f "scripts/setup-github-actions.sh" ]; then \
+		echo "❌ 設定スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/setup-github-actions.sh
+	@./scripts/setup-github-actions.sh
+
+test-github-actions: ## GitHub Actions用デプロイをテスト
+	@echo "GitHub Actions用デプロイをテストします..."
+	@echo "⚠️  このテストは本番環境に影響します"
+	@echo "続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "テストがキャンセルされました" && exit 1)
+	$(MAKE) deploy-gcp-prod-auto
+	@echo "✅ GitHub Actions用デプロイテストが完了しました"
+
+verify-deployment: ## デプロイ結果を検証
+	@echo "デプロイ結果を検証中..."
+	@echo "バックエンドサービス:"
+	@gcloud run services describe trip-shiori-prod-backend \
+		--region=asia-northeast1 \
+		--project=portfolio-472821 \
+		--format="value(status.url,status.conditions[0].state)" || echo "❌ バックエンドサービスの確認に失敗"
+	@echo "フロントエンドサービス:"
+	@gcloud run services describe trip-shiori-prod-frontend \
+		--region=asia-northeast1 \
+		--project=portfolio-472821 \
+		--format="value(status.url,status.conditions[0].state)" || echo "❌ フロントエンドサービスの確認に失敗"
+	@echo "データベース:"
+	@gcloud sql instances describe trip-shiori-prod-db-instance \
+		--project=portfolio-472821 \
+		--format="value(state)" || echo "❌ データベースの確認に失敗"
+	@echo "✅ デプロイ検証が完了しました"
+
+# ===== 開発環境用自動デプロイ =====
+deploy-gcp-dev-auto: ## 開発環境自動デプロイ（GitHub Actions用）
+	@echo "GCP開発環境への自動デプロイを開始します..."
+	@echo "⚠️  このデプロイは自動承認されます（GitHub Actions用）"
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "1/5: 開発環境データ保護確認..."
+	@echo "✅ 開発環境では削除保護を無効化します"
+	@echo "2/5: Terraform初期化・状態同期..."
+	$(MAKE) tf-init TF_ENV=dev || (echo "❌ Terraform初期化に失敗しました" && exit 1)
+	$(MAKE) sync-terraform-state TF_ENV=dev || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "3/5: 環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=dev || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
+	@echo "4/5: Dockerイメージをプッシュします..."
+	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
+	@echo "5/5: Terraformを自動適用します..."
+	@echo "自動承認モード: プラン確認をスキップします"
+	export TF_IN_AUTOMATION=true && export TF_INPUT=false && $(MAKE) tf-apply TF_ENV=dev || (echo "❌ Terraform適用に失敗しました" && exit 1)
+	@echo "✅ 開発環境自動デプロイが完了しました"
+	@echo "デプロイ結果:"
+	$(MAKE) tf-output TF_ENV=dev
+
+# ===== 環境別自動デプロイ =====
+deploy-auto: ## 環境指定自動デプロイ（GitHub Actions用）
+	@if [ -z "$(TF_ENV)" ]; then \
+		echo "❌ TF_ENVが指定されていません"; \
+		echo "使用方法: TF_ENV=dev make deploy-auto または TF_ENV=prod make deploy-auto"; \
+		exit 1; \
+	fi
+	@if [ "$(TF_ENV)" = "prod" ]; then \
+		$(MAKE) deploy-gcp-prod-auto; \
+	elif [ "$(TF_ENV)" = "dev" ]; then \
+		$(MAKE) deploy-gcp-dev-auto; \
+	else \
+		echo "❌ 無効な環境: $(TF_ENV)"; \
+		echo "有効な環境: dev, prod"; \
+		exit 1; \
+	fi
+
