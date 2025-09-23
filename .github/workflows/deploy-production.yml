@@ -1,0 +1,112 @@
+# 本番環境用デプロイ
+# GCP Cloud Run + Cloud SQL構成
+name: Production Deploy
+
+# ワークフロートリガー設定
+# - push: mainブランチにプッシュ時
+# - workflow_dispatch: 手動実行時（ブランチ選択可能）
+on:
+  push:
+    branches:
+      # TODO: 後々対応するのでトリガーを無効にしておく
+      - xxxxx
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "デプロイ対象ブランチ"
+        required: true
+        default: "xxxxx"
+        type: string
+
+jobs:
+  deploy-gcp-production:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+      
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+          project_id: portfolio-472821
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Deploy to GCP Production
+        env:
+          GIT_SHA: ${{ github.sha }}
+          GCP_PROJECT_ID: portfolio-472821
+        run: |
+          set -euo pipefail
+          echo "Deploying to GCP Production..."
+          echo "Branch: ${{ github.event.inputs.branch || github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Trigger: ${{ github.event_name }}"
+          
+          # 環境変数の確認
+          if [ -z "$GCP_PROJECT_ID" ]; then
+            echo "❌ GCP_PROJECT_ID is not set"
+            exit 1
+          fi
+          
+          # 自動デプロイコマンドを使用
+          make deploy-gcp-prod-auto
+          
+          echo "✅ GCP Production deployment completed successfully"
+      
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          
+          # バックエンドサービスの確認
+          echo "Backend service status:"
+          gcloud run services describe trip-shiori-prod-backend \
+            --region=asia-northeast1 \
+            --project=portfolio-472821 \
+            --format="value(status.url,status.conditions[0].state)"
+          
+          # フロントエンドサービスの確認
+          echo "Frontend service status:"
+          gcloud run services describe trip-shiori-prod-frontend \
+            --region=asia-northeast1 \
+            --project=portfolio-472821 \
+            --format="value(status.url,status.conditions[0].state)"
+          
+          # データベースの確認
+          echo "Database status:"
+          gcloud sql instances describe trip-shiori-prod-db-instance \
+            --project=portfolio-472821 \
+            --format="value(state)"
+          
+          echo "✅ Deployment verification completed"
+      
+      - name: Post deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "Backend URL: https://api.trip.beita.dev"
+            echo "Frontend URL: https://app.trip.beita.dev"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
