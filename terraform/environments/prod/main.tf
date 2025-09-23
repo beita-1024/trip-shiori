@@ -65,20 +65,16 @@ resource "google_sql_database_instance" "main" {
     }
 
     ip_configuration {
-      ipv4_enabled    = true   # 一時的にパブリックIPを有効にしてプライベートIPを取得
+      ipv4_enabled    = false  # パブリックIPを無効化
+      private_network = google_compute_network.main.id  # プライベートネットワークに接続
       ssl_mode        = "ENCRYPTED_ONLY"
-      authorized_networks {
-        name  = "cloud-run"
-        value = "0.0.0.0/0"  # 一時的に全IPを許可
-      }
+      # authorized_networks は不要（プライベートネットワーク内のみアクセス可能）
     }
   }
 
-  deletion_protection = false  # 一時的に削除保護を無効
+  deletion_protection = true   # 本番環境では削除保護を有効（データ保護）
 
-  lifecycle {
-    ignore_changes = [settings[0].ip_configuration[0].authorized_networks]
-  }
+  # lifecycle.ignore_changes を削除してTerraform管理下に戻す
 }
 
 resource "google_sql_database" "main" {
@@ -152,7 +148,7 @@ resource "google_cloud_run_v2_service" "backend" {
       
       env {
         name  = "DATABASE_URL"
-        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.public_ip_address}:5432/${var.database_name}?sslmode=require"
+        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.private_ip_address}:5432/${var.database_name}?sslmode=require"
       }
       
       env {
@@ -176,7 +172,7 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
-        name  = "SMTP_PASSWORD"
+        name  = "SMTP_PASS"
         value = var.smtp_password
       }
       

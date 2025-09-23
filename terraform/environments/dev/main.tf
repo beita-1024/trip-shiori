@@ -154,11 +154,6 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
-        name  = "SMTP_PASSWORD"
-        value = var.smtp_password
-      }
-      
-      env {
         name  = "SMTP_PASS"
         value = var.smtp_password
       }
