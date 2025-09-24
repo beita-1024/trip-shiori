@@ -41,11 +41,29 @@ resource "google_compute_subnetwork" "main" {
   network       = google_compute_network.main.id
 }
 
+# VPC peering 用 予約レンジ
+resource "google_compute_global_address" "private_service_range" {
+  name          = "${var.project_name}-psr"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.main.id
+}
+
+# Service Networking 接続
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.main.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_service_range.name]
+}
+
 # ===== Cloud SQL (PostgreSQL) =====
 resource "google_sql_database_instance" "main" {
   name             = "${var.project_name}-db-instance"
   database_version = "POSTGRES_16"
   region           = var.region
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 
   settings {
     tier = "db-g1-small"  # 本番環境用（より高性能）
