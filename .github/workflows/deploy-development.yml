@@ -104,8 +104,8 @@ jobs:
         run: |
           if [ "${{ job.status }}" = "success" ]; then
             echo "✅ Development deployment successful!"
-            echo "Backend URL: https://api-dev.trip.beita.dev"
-            echo "Frontend URL: https://app-dev.trip.beita.dev"
+            echo "Backend URL: https://dev-api.trip.beita.dev"
+            echo "Frontend URL: https://dev-app.trip.beita.dev"
           else
             echo "❌ Development deployment failed!"
             exit 1
