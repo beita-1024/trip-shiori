@@ -77,3 +77,55 @@ db/*
 .DS_Store
 *.local/
 cookies.txt
+
+#--------------------------------------------------
+# Terraform
+#--------------------------------------------------
+# Terraform状態ファイル
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Terraform変数ファイル（機密情報を含む）
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Terraformプランファイル
+*.tfplan
+*.tfplan.*
+
+# Terraformログ
+terraform.log
+terraform.log.*
+
+#--------------------------------------------------
+# GCP (Google Cloud Platform)
+#--------------------------------------------------
+# Google Cloud認証情報
+gcp-key.json
+service-account-key.json
+
+# Google Cloud SDK設定
+.gcloud/
+
+#--------------------------------------------------
+# デプロイメント
+#--------------------------------------------------
+# デプロイ用の一時ファイル
+deploy-*.sh
+deploy-*.log
+
+# バックアップファイル
+*.backup
+*.bak
+*.old
+
+# セキュリティ関連
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx

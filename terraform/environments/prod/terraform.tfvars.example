@@ -1,0 +1,43 @@
+# ===== 本番環境用変数値の例 =====
+# 
+# 使用方法:
+# 1. このファイルをコピー: cp terraform.tfvars.example terraform.tfvars
+# 2. 実際の値に変更: nano terraform.tfvars
+# 3. デプロイ実行: make deploy-gcp-prod
+#
+# 注意: terraform.tfvars は機密情報を含むため、Gitにコミットしないでください
+# 本番環境では、より強力なパスワードとシークレットを使用してください
+
+# ===== 基本設定（変更不要） =====
+project_id   = "portfolio-472821"
+project_name = "trip-shiori-prod"
+region       = "asia-northeast1"
+zone         = "asia-northeast1-a"
+
+# ===== データベース設定（必須: 実際の値に変更） =====
+database_name     = "trip_shiori"
+database_user     = "trip_shiori_user"
+database_password = "your-secure-production-password-here"  # 本番用の強力なパスワード（例: openssl rand -base64 64）
+
+# ===== JWT設定（必須: 実際の値に変更） =====
+jwt_secret = "your-production-jwt-secret-here"  # 本番用の強力なシークレット（例: openssl rand -hex 64）
+
+# ===== Dockerイメージ（変更不要） =====
+backend_image  = "gcr.io/portfolio-472821/trip-shiori-backend:latest"
+frontend_image = "gcr.io/portfolio-472821/trip-shiori-frontend:latest"
+
+# ===== アプリケーション設定（変更不要） =====
+app_name = "Trip Shiori"
+
+# ===== SMTP設定（メール送信機能用） =====
+# 本番環境では専用のSMTPサービスを使用することを推奨
+smtp_host     = "smtp.gmail.com"  # または SendGrid, Mailgun などの専用サービス
+smtp_port     = "587"
+smtp_user     = "your-production-email@gmail.com"  # 本番用メールアドレス
+smtp_password = "your-production-app-password"     # 本番用アプリパスワード
+smtp_secure   = "false"
+
+# 本番環境推奨SMTPサービス:
+# - SendGrid: smtp.sendgrid.net, port: 587
+# - Mailgun: smtp.mailgun.org, port: 587
+# - Amazon SES: email-smtp.us-east-1.amazonaws.com, port: 587
