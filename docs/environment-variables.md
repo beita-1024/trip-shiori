@@ -139,6 +139,23 @@ NEXT_PUBLIC_API_URL=https://api.your-domain.com
 NEXT_PUBLIC_FRONTEND_URL=https://your-domain.com
 ```
 
+### Cloud SQL Private IP接続
+
+Cloud SQLのPrivate IP接続を使用する場合、以下の点に注意してください：
+
+```bash
+# ❌ 間違い: sslmode=requireは使用しない
+DATABASE_URL=postgresql://user:password@private-ip:5432/database?sslmode=require
+
+# ✅ 正しい: sslmodeパラメータを省略
+DATABASE_URL=postgresql://user:password@private-ip:5432/database
+
+# または明示的にdisableを指定
+DATABASE_URL=postgresql://user:password@private-ip:5432/database?sslmode=disable
+```
+
+**理由**: Cloud SQLのPrivate IP接続はTLSを提供しないため、`sslmode=require`を指定すると接続エラーが発生します。
+
 ## CapRover デプロイ環境変数
 
 ### 必須環境変数
@@ -202,6 +219,7 @@ CAPROVER_TOKEN_BE=your-backend-deploy-token
 3. **データベース接続エラー**
    - `DATABASE_URL`の形式が正しいか確認
    - データベースサーバーが起動しているか確認
+   - **Cloud SQL Private IP接続の場合**: `sslmode=require`は使用しない（TLSを提供しないため）
 
 4. **OpenAI API エラー**
    - `OPENAI_API_KEY`が設定されているか確認
