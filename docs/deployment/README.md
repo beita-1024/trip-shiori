@@ -9,6 +9,7 @@ Trip Shioriプロジェクトのデプロイメント関連ドキュメントで
 ### 環境設定
 - [環境比較](./environment-comparison.md) - 本番環境と開発環境の仕様比較
 - [ドメインマッピングガイド](./domain-mapping-guide.md) - Cloud Runドメインマッピングの設定方法
+- [コスト最適化](./cost-optimization.md) - 課金額削減のためのCloud Run設定
 
 ### デプロイメント
 - [GCPデプロイメント](./gcp-deployment.md) - GCP Cloud Runへのデプロイメント手順

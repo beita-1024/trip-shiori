@@ -58,7 +58,18 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   deploy-cap \
   init \
   generate-favicons \
-  optimize-svgs
+  optimize-svgs \
+  setup-github-actions \
+  setup-gcp-sa \
+  check-gcp-sa \
+  list-gcp-sa \
+  show-gcp-sa-permissions \
+  cleanup-github-actions \
+  cleanup-github-actions-dry-run \
+  cleanup-github-actions-7days \
+  cleanup-github-actions-30days \
+  cleanup-github-actions-all \
+  cleanup-github-actions-all-dry-run
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -368,6 +379,32 @@ tf-output: ## Terraform出力表示
 	@echo "Terraform出力（$(TF_ENV)環境）:"
 	cd $(TF_DIR) && terraform output
 
+tf-state-pull: ## GCSからローカルにTerraform状態を取得
+	@echo "GCSからTerraform状態（$(TF_ENV)環境）をローカルに取得します..."
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	mkdir -p $(TF_DIR)/.state-backups; \
+	cd $(TF_DIR) && terraform state pull > .state-backups/terraform-$(TF_ENV)-pulled-$$ts.tfstate
+	@echo "状態ファイルを $(TF_DIR)/.state-backups/ にバックアップ保存しました"
+
+tf-state-push: ## ローカルからGCSにTerraform状態を送信
+	@echo "⚠️ 極めて危険: リモート状態を置換します。まずバックアップを取得します..."
+	@$(MAKE) tf-state-backup TF_ENV=$(TF_ENV)
+	@echo "本当に terraform state push を実行しますか？実行するには 'I understand' と入力してください:"
+	@read confirm && [ "$$confirm" = "I understand" ] || (echo "中止しました" && exit 1)
+	cd $(TF_DIR) && terraform state push terraform.tfstate || (echo "❌ state push に失敗" && exit 1)
+	@echo "✅ リモート状態を置換しました（要注意）"
+
+tf-state-backup: ## Terraform状態をバックアップ
+	@echo "Terraform状態（$(TF_ENV)環境）をバックアップします..."
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	mkdir -p $(TF_DIR)/.state-backups; \
+	cd $(TF_DIR) && terraform state pull > .state-backups/terraform-$(TF_ENV)-backup-$$ts.tfstate
+	@echo "バックアップファイルを $(TF_DIR)/.state-backups/ に保存しました"
+
+tf-state-list: ## ローカルの状態ファイル一覧表示
+	@echo "ローカルのTerraform状態ファイル:"
+	@ls -la $(TF_DIR)/.state-backups/terraform*.tfstate 2>/dev/null || echo "状態ファイルが見つかりません"
+
 # ===== GCP認証 =====
 gcp-auth: ## GCP認証設定（必要に応じて自動認証）
 	@echo "GCP認証状態を確認中..."
@@ -576,10 +613,10 @@ check-deletion-protection: ## Cloud SQLインスタンスの削除保護をチ�
 	else \
 		INSTANCE_NAME="trip-shiori-dev-db-instance"; \
 		echo "インスタンス名: $$INSTANCE_NAME"; \
-		PROTECTION_STATUS=$$(gcloud sql instances describe $$INSTANCE_NAME --project=portfolio-472821 --format="value(settings.deletionProtectionEnabled)" 2>/dev/null || echo "false"); \
+		PROTECTION_STATUS=$$(gcloud sql instances describe $$INSTANCE_NAME --project=$(GCP_PROJECT) --format="value(settings.deletionProtectionEnabled)" 2>/dev/null || echo "false"); \
 		if [ "$$PROTECTION_STATUS" = "true" ]; then \
 			echo "⚠️  削除保護が有効になっています。無効化します..."; \
-			gcloud sql instances patch $$INSTANCE_NAME --no-deletion-protection --project=portfolio-472821 --quiet; \
+			gcloud sql instances patch $$INSTANCE_NAME --no-deletion-protection --project=$(GCP_PROJECT) --quiet; \
 			echo "✅ 削除保護を無効にしました"; \
 		else \
 			echo "✅ 削除保護は既に無効です"; \
@@ -930,12 +967,97 @@ domain-mapping-list: ## 全ドメインマッピングの一覧表示
 # ===== GitHub Actions用ヘルパー =====
 setup-github-actions: ## GitHub Actions用サービスアカウント設定
 	@echo "GitHub Actions用サービスアカウントを設定します..."
-	@if [ ! -f "scripts/setup-github-actions.sh" ]; then \
+	@if [ ! -f "scripts/setup-gcp-service-account.sh" ]; then \
 		echo "❌ 設定スクリプトが見つかりません"; \
 		exit 1; \
 	fi
-	@chmod +x scripts/setup-github-actions.sh
-	@./scripts/setup-github-actions.sh
+	@chmod +x scripts/setup-gcp-service-account.sh
+	@./scripts/setup-gcp-service-account.sh
+
+setup-gcp-sa: ## GCPサービスアカウント設定（GitHub Actions用）
+	@echo "GCPサービスアカウントを設定します..."
+	@if [ ! -f "scripts/setup-gcp-service-account.sh" ]; then \
+		echo "❌ 設定スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/setup-gcp-service-account.sh
+	@./scripts/setup-gcp-service-account.sh
+
+check-gcp-sa: ## GCPサービスアカウントの存在確認
+	@echo "GCPサービスアカウントの存在確認中..."
+	@SA_EMAIL="github-actions@$(GCP_PROJECT).iam.gserviceaccount.com"; \
+	gcloud iam service-accounts describe "$$SA_EMAIL" \
+		--project=$(GCP_PROJECT) \
+		--format="value(displayName,email)" || echo "❌ サービスアカウントが見つかりません"
+
+list-gcp-sa: ## GCPサービスアカウント一覧表示
+	@echo "GCPサービスアカウント一覧:"
+	@gcloud iam service-accounts list --project=$(GCP_PROJECT) \
+		--format="table(displayName,email,disabled)"
+
+show-gcp-sa-permissions: ## GCPサービスアカウントの権限表示
+	@echo "GitHub Actions用サービスアカウントの権限:"
+	@SA_EMAIL="github-actions@$(GCP_PROJECT).iam.gserviceaccount.com"; \
+	gcloud projects get-iam-policy $(GCP_PROJECT) \
+		--flatten="bindings[].members" \
+		--format="table(bindings.role)" \
+		--filter="bindings.members:serviceAccount:$$SA_EMAIL" || \
+		echo "❌ サービスアカウントが見つかりません"
+
+# ===== GitHub Actions 履歴管理 =====
+cleanup-github-actions: ## GitHub Actionsの履歴を削除（2日前まで）
+	@echo "GitHub Actionsの履歴を削除します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-dry-run: ## GitHub Actionsの履歴削除をドライラン実行
+	@echo "GitHub Actionsの履歴削除をドライラン実行します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DRY_RUN=true ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-7days: ## GitHub Actionsの履歴を削除（7日前まで）
+	@echo "GitHub Actionsの履歴を削除します（7日前まで）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=7 ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-30days: ## GitHub Actionsの履歴を削除（30日前まで）
+	@echo "GitHub Actionsの履歴を削除します（30日前まで）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=30 ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-all: ## GitHub Actionsの履歴を全て削除
+	@echo "GitHub Actionsの履歴を全て削除します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=all ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-all-dry-run: ## GitHub Actionsの履歴削除をドライラン実行（全て）
+	@echo "GitHub Actionsの履歴削除をドライラン実行します（全て）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=all DRY_RUN=true ./scripts/cleanup-github-actions.sh
 
 test-github-actions: ## GitHub Actions用デプロイをテスト
 	@echo "GitHub Actions用デプロイをテストします..."
@@ -949,17 +1071,17 @@ verify-deployment: ## デプロイ結果を検証
 	@echo "デプロイ結果を検証中..."
 	@echo "バックエンドサービス:"
 	@gcloud run services describe trip-shiori-prod-backend \
-		--region=asia-northeast1 \
-		--project=portfolio-472821 \
+		--region=$(GCP_REGION) \
+		--project=$(GCP_PROJECT) \
 		--format="value(status.url,status.conditions[0].state)" || echo "❌ バックエンドサービスの確認に失敗"
 	@echo "フロントエンドサービス:"
 	@gcloud run services describe trip-shiori-prod-frontend \
-		--region=asia-northeast1 \
-		--project=portfolio-472821 \
+		--region=$(GCP_REGION) \
+		--project=$(GCP_PROJECT) \
 		--format="value(status.url,status.conditions[0].state)" || echo "❌ フロントエンドサービスの確認に失敗"
 	@echo "データベース:"
 	@gcloud sql instances describe trip-shiori-prod-db-instance \
-		--project=portfolio-472821 \
+		--project=$(GCP_PROJECT) \
 		--format="value(state)" || echo "❌ データベースの確認に失敗"
 	@echo "✅ デプロイ検証が完了しました"
 

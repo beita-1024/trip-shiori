@@ -58,6 +58,11 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ===== Cloud SQL (PostgreSQL) =====
+# コスト最適化設定:
+# - ディスクサイズ: 100GB → 10GB (90%削減)
+# - ディスクタイプ: PD_SSD維持（本番環境では高性能を優先）
+# - バックアップ保持: 30日 → 7日 (約77%削減)
+# テキストデータのみのため、最小限のリソースで十分
 resource "google_sql_database_instance" "main" {
   name             = "${var.project_name}-db-instance"
   database_version = "POSTGRES_16"
@@ -68,16 +73,24 @@ resource "google_sql_database_instance" "main" {
   settings {
     tier = "db-g1-small"  # 本番環境用（より高性能）
     
-    disk_size = 100
-    disk_type = "PD_SSD"
+    # コスト削減: テキストデータのみのため最小ディスクサイズに変更
+    # disk_size = 100  # 元の設定（コメントアウト）
+    disk_size = 10     # コスト削減: テキストデータのみのため最小サイズ
+    disk_type = "PD_SSD"  # 本番環境では高性能SSDを維持
+    # disk_type = "PD_STANDARD"  # コスト削減案（コメントアウト）
     
     backup_configuration {
       enabled                        = true
       start_time                     = "03:00"
       point_in_time_recovery_enabled = true
       transaction_log_retention_days = 7
+      # コスト削減: バックアップ保持期間を30日から7日に短縮（約77%削減）
+      # backup_retention_settings {
+      #   retained_backups = 30  # 元の設定（コメントアウト）
+      #   retention_unit   = "COUNT"
+      # }
       backup_retention_settings {
-        retained_backups = 30
+        retained_backups = 7   # コスト削減: 30日→7日（約77%削減）
         retention_unit   = "COUNT"
       }
     }
@@ -89,7 +102,9 @@ resource "google_sql_database_instance" "main" {
     }
   }
 
-  deletion_protection = true   # 本番環境では削除保護を有効（データ保護）
+  # deletion_protection = true   # 本番環境では削除保護を有効（データ保護）
+  # TODO: 開発中なので一時的にfalseにしておく、リリース時にtrueにする。
+  deletion_protection = false
 
   # lifecycle.ignore_changes を削除してTerraform管理下に戻す
 }
@@ -140,6 +155,7 @@ resource "random_id" "service_suffix" {
 }
 
 # ===== Cloud Run (Backend) =====
+# 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
 resource "google_cloud_run_v2_service" "backend" {
   name     = "${var.project_name}-backend"
   location = var.region
@@ -164,9 +180,12 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       # Private IP を参照（type == "PRIVATE" を抽出）
+      # Private IP接続のためsslmodeは不要（Cloud SQL Private IPはTLSを提供しない）
+      # 接続の流れ: Cloud Run → VPC Connector → Cloud SQL (Private IP)
+      # セキュリティ: VPC内通信のため外部からの直接アクセス不可
       env {
         name  = "DATABASE_URL"
-        value = "postgresql://${var.database_user}:${var.database_password}@${[for ip in google_sql_database_instance.main.ip_address : ip.ip_address if ip.type == "PRIVATE"][0]}:5432/${var.database_name}?sslmode=require"
+        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.private_ip_address}:5432/${var.database_name}"
       }
       
       env {
@@ -214,6 +233,7 @@ resource "google_cloud_run_v2_service" "backend" {
           cpu    = "2"
           memory = "1Gi"
         }
+        cpu_idle = true  # CPU throttled設定（課金額削減対応）
       }
 
       startup_probe {
@@ -228,7 +248,7 @@ resource "google_cloud_run_v2_service" "backend" {
     }
 
     scaling {
-      min_instance_count = 1  # 本番環境では常時起動
+      min_instance_count = 0  # コスト削減のため常時起動を停止（課金額削減対応）
       max_instance_count = 100
     }
 
@@ -247,6 +267,7 @@ resource "google_cloud_run_v2_service" "backend" {
 }
 
 # ===== Cloud Run (Frontend) =====
+# 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
 resource "google_cloud_run_v2_service" "frontend" {
   name     = "${var.project_name}-frontend"
   location = var.region
@@ -284,11 +305,12 @@ resource "google_cloud_run_v2_service" "frontend" {
           cpu    = "2"
           memory = "1Gi"
         }
+        cpu_idle = true  # CPU throttled設定（課金額削減対応）
       }
     }
 
     scaling {
-      min_instance_count = 1  # 本番環境では常時起動
+      min_instance_count = 0  # コスト削減のため常時起動を停止（課金額削減対応）
       max_instance_count = 50
     }
   }

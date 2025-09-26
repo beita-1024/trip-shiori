@@ -42,6 +42,14 @@ reviews:
         Docs Consistency:
         - 変更内容とREADME/設計ドキュメントの整合性を確認
         - 手順やコマンドは再現可能か、抜けや過去情報がないかを指摘
+    - path: "**/*"
+      instructions: |
+        Evidence & References:
+        - 事実主張・ベストプラクティス・言語仕様・セキュリティ助言には、可能な限り一次情報のURLを1つ以上添えること
+          例: MDN / TypeScript Handbook / Node.js Docs / OWASP ASVS / Prisma Docs / RFC 等
+        - プロジェクト内規や設計判断に言及する場合は、リポジトリ内ドキュメント（README, ADR, 設計書）や該当コードへのパーマリンクを提示すること
+        - 指摘末尾に「参考: <URL>」の箇条書きを付すこと（複数可）
+        - URLはアフィリエイトや非公式まとめより公式・一次情報を優先
 
   # 仕上げ機能（自動生成系）—必要に応じてON/OFF
   finishing_touches:
