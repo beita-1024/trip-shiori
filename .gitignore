@@ -129,3 +129,4 @@ secrets/
 *.crt
 *.p12
 *.pfx
+github-actions-key.json
