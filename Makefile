@@ -385,9 +385,12 @@ tf-state-pull: ## GCSからローカルにTerraform状態を取得
 	@echo "状態ファイルが terraform.tfstate として保存されました"
 
 tf-state-push: ## ローカルからGCSにTerraform状態を送信
-	@echo "ローカルからGCSにTerraform状態（$(TF_ENV)環境）を送信します..."
-	cd $(TF_DIR) && terraform state push terraform.tfstate
-	@echo "状態ファイルがGCSに送信されました"
+	@echo "⚠️ 極めて危険: リモート状態を置換します。まずバックアップを取得します..."
+	@$(MAKE) tf-state-backup TF_ENV=$(TF_ENV)
+	@echo "本当に terraform state push を実行しますか？実行するには 'I understand' と入力してください:"
+	@read confirm && [ "$$confirm" = "I understand" ] || (echo "中止しました" && exit 1)
+	cd $(TF_DIR) && terraform state push terraform.tfstate || (echo "❌ state push に失敗" && exit 1)
+	@echo "✅ リモート状態を置換しました（要注意）"
 
 tf-state-backup: ## Terraform状態をバックアップ
 	@echo "Terraform状態（$(TF_ENV)環境）をバックアップします..."

@@ -21,7 +21,7 @@ log_error() {
 # 設定
 REPO_OWNER="beita-1024"
 REPO_NAME="trip-shiori"
-DAYS_AGO=${DAYS_AGO:-"all"}
+DAYS_AGO=${DAYS_AGO:-2}
 DRY_RUN=${DRY_RUN:-false}
 
 # 日付計算（全て削除の場合は日付制限なし）
@@ -67,13 +67,13 @@ log_info "ワークフロー実行履歴を取得中..."
 # 全ワークフロー実行を取得（完了したもののみ、ページネーション対応）
 if [ "$DAYS_AGO" = "all" ]; then
     # 全ての完了したワークフロー実行を取得
-    WORKFLOW_RUNS=$(gh api \
+    WORKFLOW_RUNS=$(gh api --paginate \
         -H "Accept: application/vnd.github+json" \
         "/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=100" \
         --jq '.workflow_runs[] | select(.status == "completed") | {id: .id, name: .name, created_at: .created_at, conclusion: .conclusion}')
 else
     # 指定日数より前のワークフロー実行を取得
-    WORKFLOW_RUNS=$(gh api \
+    WORKFLOW_RUNS=$(gh api --paginate \
         -H "Accept: application/vnd.github+json" \
         "/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=100" \
         --jq '.workflow_runs[] | select(.status == "completed") | select(.created_at < "'"${CUTOFF_DATE}"'") | {id: .id, name: .name, created_at: .created_at, conclusion: .conclusion}')
