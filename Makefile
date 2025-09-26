@@ -381,8 +381,10 @@ tf-output: ## Terraform出力表示
 
 tf-state-pull: ## GCSからローカルにTerraform状態を取得
 	@echo "GCSからTerraform状態（$(TF_ENV)環境）をローカルに取得します..."
-	cd $(TF_DIR) && terraform state pull > terraform.tfstate
-	@echo "状態ファイルが terraform.tfstate として保存されました"
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	mkdir -p $(TF_DIR)/.state-backups; \
+	cd $(TF_DIR) && terraform state pull > .state-backups/terraform-$(TF_ENV)-pulled-$$ts.tfstate
+	@echo "状態ファイルを $(TF_DIR)/.state-backups/ にバックアップ保存しました"
 
 tf-state-push: ## ローカルからGCSにTerraform状態を送信
 	@echo "⚠️ 極めて危険: リモート状態を置換します。まずバックアップを取得します..."
@@ -394,12 +396,14 @@ tf-state-push: ## ローカルからGCSにTerraform状態を送信
 
 tf-state-backup: ## Terraform状態をバックアップ
 	@echo "Terraform状態（$(TF_ENV)環境）をバックアップします..."
-	cd $(TF_DIR) && terraform state pull > terraform-$(TF_ENV)-backup-$(shell date +%Y%m%d-%H%M%S).tfstate
-	@echo "バックアップファイルが作成されました"
+	@ts=$$(date +%Y%m%d-%H%M%S); \
+	mkdir -p $(TF_DIR)/.state-backups; \
+	cd $(TF_DIR) && terraform state pull > .state-backups/terraform-$(TF_ENV)-backup-$$ts.tfstate
+	@echo "バックアップファイルを $(TF_DIR)/.state-backups/ に保存しました"
 
 tf-state-list: ## ローカルの状態ファイル一覧表示
 	@echo "ローカルのTerraform状態ファイル:"
-	@ls -la $(TF_DIR)/terraform*.tfstate 2>/dev/null || echo "状態ファイルが見つかりません"
+	@ls -la $(TF_DIR)/.state-backups/terraform*.tfstate 2>/dev/null || echo "状態ファイルが見つかりません"
 
 # ===== GCP認証 =====
 gcp-auth: ## GCP認証設定（必要に応じて自動認証）
@@ -609,10 +613,10 @@ check-deletion-protection: ## Cloud SQLインスタンスの削除保護をチ�
 	else \
 		INSTANCE_NAME="trip-shiori-dev-db-instance"; \
 		echo "インスタンス名: $$INSTANCE_NAME"; \
-		PROTECTION_STATUS=$$(gcloud sql instances describe $$INSTANCE_NAME --project=portfolio-472821 --format="value(settings.deletionProtectionEnabled)" 2>/dev/null || echo "false"); \
+		PROTECTION_STATUS=$$(gcloud sql instances describe $$INSTANCE_NAME --project=$(GCP_PROJECT) --format="value(settings.deletionProtectionEnabled)" 2>/dev/null || echo "false"); \
 		if [ "$$PROTECTION_STATUS" = "true" ]; then \
 			echo "⚠️  削除保護が有効になっています。無効化します..."; \
-			gcloud sql instances patch $$INSTANCE_NAME --no-deletion-protection --project=portfolio-472821 --quiet; \
+			gcloud sql instances patch $$INSTANCE_NAME --no-deletion-protection --project=$(GCP_PROJECT) --quiet; \
 			echo "✅ 削除保護を無効にしました"; \
 		else \
 			echo "✅ 削除保護は既に無効です"; \
@@ -981,21 +985,23 @@ setup-gcp-sa: ## GCPサービスアカウント設定（GitHub Actions用）
 
 check-gcp-sa: ## GCPサービスアカウントの存在確認
 	@echo "GCPサービスアカウントの存在確認中..."
-	@gcloud iam service-accounts describe github-actions@portfolio-472821.iam.gserviceaccount.com \
-		--project=portfolio-472821 \
+	@SA_EMAIL="github-actions@$(GCP_PROJECT).iam.gserviceaccount.com"; \
+	gcloud iam service-accounts describe "$$SA_EMAIL" \
+		--project=$(GCP_PROJECT) \
 		--format="value(displayName,email)" || echo "❌ サービスアカウントが見つかりません"
 
 list-gcp-sa: ## GCPサービスアカウント一覧表示
 	@echo "GCPサービスアカウント一覧:"
-	@gcloud iam service-accounts list --project=portfolio-472821 \
+	@gcloud iam service-accounts list --project=$(GCP_PROJECT) \
 		--format="table(displayName,email,disabled)"
 
 show-gcp-sa-permissions: ## GCPサービスアカウントの権限表示
 	@echo "GitHub Actions用サービスアカウントの権限:"
-	@gcloud projects get-iam-policy portfolio-472821 \
+	@SA_EMAIL="github-actions@$(GCP_PROJECT).iam.gserviceaccount.com"; \
+	gcloud projects get-iam-policy $(GCP_PROJECT) \
 		--flatten="bindings[].members" \
 		--format="table(bindings.role)" \
-		--filter="bindings.members:github-actions@portfolio-472821.iam.gserviceaccount.com" || \
+		--filter="bindings.members:serviceAccount:$$SA_EMAIL" || \
 		echo "❌ サービスアカウントが見つかりません"
 
 # ===== GitHub Actions 履歴管理 =====
@@ -1065,17 +1071,17 @@ verify-deployment: ## デプロイ結果を検証
 	@echo "デプロイ結果を検証中..."
 	@echo "バックエンドサービス:"
 	@gcloud run services describe trip-shiori-prod-backend \
-		--region=asia-northeast1 \
-		--project=portfolio-472821 \
+		--region=$(GCP_REGION) \
+		--project=$(GCP_PROJECT) \
 		--format="value(status.url,status.conditions[0].state)" || echo "❌ バックエンドサービスの確認に失敗"
 	@echo "フロントエンドサービス:"
 	@gcloud run services describe trip-shiori-prod-frontend \
-		--region=asia-northeast1 \
-		--project=portfolio-472821 \
+		--region=$(GCP_REGION) \
+		--project=$(GCP_PROJECT) \
 		--format="value(status.url,status.conditions[0].state)" || echo "❌ フロントエンドサービスの確認に失敗"
 	@echo "データベース:"
 	@gcloud sql instances describe trip-shiori-prod-db-instance \
-		--project=portfolio-472821 \
+		--project=$(GCP_PROJECT) \
 		--format="value(state)" || echo "❌ データベースの確認に失敗"
 	@echo "✅ デプロイ検証が完了しました"
 

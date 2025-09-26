@@ -87,6 +87,9 @@ cookies.txt
 .terraform/
 .terraform.lock.hcl
 
+# Terraform状態バックアップディレクトリ
+terraform/environments/**/.state-backups/
+
 # Terraform変数ファイル（機密情報を含む）
 *.tfvars
 *.tfvars.json
