@@ -129,16 +129,55 @@
     display: none !important;
   }
 
-  /* 印刷専用エリアを表示 */
+  /* ===== 印刷専用エリアの表示制御 ===== */
   .printArea {
     display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* ===== 印刷専用エリア内のChrome対応 ===== */
+  /* 印刷専用エリア内の全要素をChrome印刷エンジンに対応
+   * 
+   * 対応理由：
+   * - 印刷専用エリアは画面に表示されず印刷時のみ使用
+   * - Chromeの印刷エンジンがこのエリア内でも余白を追加する可能性
+   * - 三つ折り印刷のレイアウトを正確に制御するため
+   * 
+   * 対応内容：
+   * - WebKit固有プロパティを全要素に適用
+   * - 標準のマージン・パディングもリセット
+   * - これにより印刷専用エリア内の余白を完全に防止 */
+  .printArea * {
+    /* WebKit固有のマージンプロパティ（Chrome印刷エンジン対応） */
+    -webkit-margin-before: 0 !important;    /* 要素の前のマージン */
+    -webkit-margin-after: 0 !important;     /* 要素の後のマージン */
+    -webkit-margin-start: 0 !important;     /* 要素の開始側マージン */
+    -webkit-margin-end: 0 !important;        /* 要素の終了側マージン */
+    
+    /* WebKit固有のパディングプロパティ（Chrome印刷エンジン対応） */
+    -webkit-padding-before: 0 !important;   /* 要素の前のパディング */
+    -webkit-padding-after: 0 !important;    /* 要素の後のパディング */
+    -webkit-padding-start: 0 !important;    /* 要素の開始側パディング */
+    -webkit-padding-end: 0 !important;      /* 要素の終了側パディング */
+    
+    /* 標準のマージン・パディングもリセット */
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* 印刷時のページ設定 */
+  /* 
   @page {
+    TriFoldItinerary.module.cssと競合するので
+    コメントアウト
     size: A4 landscape;
     margin: 0;
+    
   }
+  */
 
   /* 印刷時の背景と色はglobals.cssに移動 */
 
