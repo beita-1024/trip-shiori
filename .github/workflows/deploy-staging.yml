@@ -1,15 +1,18 @@
 
-# ステージング環境用デプロイ
+# 簡易確認環境用デプロイ
 # デバッグのしやすさを考えてCapRoverを選択
-name: Staging Deploy
+# 主にMakeからのデプロイをするが、
+# GCPからCapRover環境に移る可能性があるので、
+# Github Actionsのワークフローも残しておく
+name: CapRover Staging Deploy
 
 # ワークフロートリガー設定
-# - push: mainブランチまたはinfra/add-cd-caproverブランチにプッシュ時
+# - push: 無効化
 # - workflow_dispatch: 手動実行時（ブランチ選択可能）
 on:
   push:
     branches:
-      - main
+      - xxxxx # 開発用にMakeもしくは手動実行をするので無効にしておく。
   workflow_dispatch:
     inputs:
       branch:

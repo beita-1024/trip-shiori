@@ -1,21 +1,21 @@
 # 開発環境用デプロイ
 # GCP Cloud Run + Cloud SQL構成
-name: Development Deploy
+name: GCP Development Deploy
 
 # ワークフロートリガー設定
-# - push: developブランチにプッシュ時
+# - push: mainブランチにプッシュ時（開発環境/ステージング用）
 # - workflow_dispatch: 手動実行時（ブランチ選択可能）
 on:
   push:
     branches:
-      # TODO: 後々対応するのでトリガーを無効にしておく
-      - xxxxx
+      - main
+      - infra/*
   workflow_dispatch:
     inputs:
       branch:
         description: "デプロイ対象ブランチ"
         required: true
-        default: "xxxxx"
+        default: "main"
         type: string
 
 jobs:
@@ -48,8 +48,40 @@ jobs:
           node-version: '22'
           cache: 'npm'
       
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+      
       - name: Install dependencies
         run: npm ci
+      
+      - name: Generate terraform.tfvars
+        env:
+          GCP_PROJECT_ID: portfolio-472821
+          GCP_REGION: asia-northeast1
+          GCP_ZONE: asia-northeast1-a
+          DB_NAME: trip_shiori
+          DB_USER: trip_shiori_user
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_SECURE: "false"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DB_PASSWORD_DEV: ${{ secrets.DB_PASSWORD_DEV }}
+          JWT_SECRET_DEV: ${{ secrets.JWT_SECRET_DEV }}
+        run: |
+          set -euo pipefail
+          echo "🔧 terraform.tfvarsを生成中..."
+          ./scripts/generate-tfvars.sh dev
+          echo "✅ terraform.tfvarsが生成されました"
+      
+      - name: Check existing resources
+        run: |
+          echo "Checking existing GCP resources..."
+          gcloud compute networks list --filter="name:trip-shiori-dev-vpc" || echo "No existing VPC"
+          gcloud run services list --region=asia-northeast1 --filter="metadata.name:trip-shiori-dev-frontend" || echo "No existing Cloud Run services"
       
       - name: Deploy to GCP Development
         env:

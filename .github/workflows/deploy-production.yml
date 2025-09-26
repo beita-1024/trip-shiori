@@ -1,21 +1,20 @@
 # 本番環境用デプロイ
 # GCP Cloud Run + Cloud SQL構成
-name: Production Deploy
+name: GCP Production Deploy
 
 # ワークフロートリガー設定
-# - push: mainブランチにプッシュ時
+# - push: v*タグにプッシュ時（本番環境用）
 # - workflow_dispatch: 手動実行時（ブランチ選択可能）
 on:
   push:
-    branches:
-      # TODO: 後々対応するのでトリガーを無効にしておく
-      - xxxxx
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       branch:
         description: "デプロイ対象ブランチ"
         required: true
-        default: "xxxxx"
+        default: "main"
         type: string
 
 jobs:
@@ -28,16 +27,16 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
       
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
       - name: Setup Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
           project_id: portfolio-472821
-      
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
       
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
@@ -48,8 +47,34 @@ jobs:
           node-version: '22'
           cache: 'npm'
       
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.6.0'
+      
       - name: Install dependencies
         run: npm ci
+      
+      - name: Generate terraform.tfvars
+        env:
+          GCP_PROJECT_ID: portfolio-472821
+          GCP_REGION: asia-northeast1
+          GCP_ZONE: asia-northeast1-a
+          DB_NAME: trip_shiori
+          DB_USER: trip_shiori_user
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_SECURE: "false"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DB_PASSWORD_PROD: ${{ secrets.DB_PASSWORD_PROD }}
+          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET_PROD }}
+        run: |
+          set -euo pipefail
+          echo "🔧 terraform.tfvarsを生成中..."
+          ./scripts/generate-tfvars.sh prod
+          echo "✅ terraform.tfvarsが生成されました"
       
       - name: Deploy to GCP Production
         env:
@@ -61,6 +86,7 @@ jobs:
           echo "Branch: ${{ github.event.inputs.branch || github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
           echo "Trigger: ${{ github.event_name }}"
+          echo "Tag: ${{ github.ref_name }}"
           
           # 環境変数の確認
           if [ -z "$GCP_PROJECT_ID" ]; then
@@ -68,7 +94,7 @@ jobs:
             exit 1
           fi
           
-          # 自動デプロイコマンドを使用
+          # 本番環境自動デプロイコマンドを使用
           make deploy-gcp-prod-auto
           
           echo "✅ GCP Production deployment completed successfully"

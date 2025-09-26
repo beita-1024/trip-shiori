@@ -58,7 +58,18 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   deploy-cap \
   init \
   generate-favicons \
-  optimize-svgs
+  optimize-svgs \
+  setup-github-actions \
+  setup-gcp-sa \
+  check-gcp-sa \
+  list-gcp-sa \
+  show-gcp-sa-permissions \
+  cleanup-github-actions \
+  cleanup-github-actions-dry-run \
+  cleanup-github-actions-7days \
+  cleanup-github-actions-30days \
+  cleanup-github-actions-all \
+  cleanup-github-actions-all-dry-run
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -367,6 +378,25 @@ tf-destroy: ## Terraformリソース削除
 tf-output: ## Terraform出力表示
 	@echo "Terraform出力（$(TF_ENV)環境）:"
 	cd $(TF_DIR) && terraform output
+
+tf-state-pull: ## GCSからローカルにTerraform状態を取得
+	@echo "GCSからTerraform状態（$(TF_ENV)環境）をローカルに取得します..."
+	cd $(TF_DIR) && terraform state pull > terraform.tfstate
+	@echo "状態ファイルが terraform.tfstate として保存されました"
+
+tf-state-push: ## ローカルからGCSにTerraform状態を送信
+	@echo "ローカルからGCSにTerraform状態（$(TF_ENV)環境）を送信します..."
+	cd $(TF_DIR) && terraform state push terraform.tfstate
+	@echo "状態ファイルがGCSに送信されました"
+
+tf-state-backup: ## Terraform状態をバックアップ
+	@echo "Terraform状態（$(TF_ENV)環境）をバックアップします..."
+	cd $(TF_DIR) && terraform state pull > terraform-$(TF_ENV)-backup-$(shell date +%Y%m%d-%H%M%S).tfstate
+	@echo "バックアップファイルが作成されました"
+
+tf-state-list: ## ローカルの状態ファイル一覧表示
+	@echo "ローカルのTerraform状態ファイル:"
+	@ls -la $(TF_DIR)/terraform*.tfstate 2>/dev/null || echo "状態ファイルが見つかりません"
 
 # ===== GCP認証 =====
 gcp-auth: ## GCP認証設定（必要に応じて自動認証）
@@ -930,12 +960,95 @@ domain-mapping-list: ## 全ドメインマッピングの一覧表示
 # ===== GitHub Actions用ヘルパー =====
 setup-github-actions: ## GitHub Actions用サービスアカウント設定
 	@echo "GitHub Actions用サービスアカウントを設定します..."
-	@if [ ! -f "scripts/setup-github-actions.sh" ]; then \
+	@if [ ! -f "scripts/setup-gcp-service-account.sh" ]; then \
 		echo "❌ 設定スクリプトが見つかりません"; \
 		exit 1; \
 	fi
-	@chmod +x scripts/setup-github-actions.sh
-	@./scripts/setup-github-actions.sh
+	@chmod +x scripts/setup-gcp-service-account.sh
+	@./scripts/setup-gcp-service-account.sh
+
+setup-gcp-sa: ## GCPサービスアカウント設定（GitHub Actions用）
+	@echo "GCPサービスアカウントを設定します..."
+	@if [ ! -f "scripts/setup-gcp-service-account.sh" ]; then \
+		echo "❌ 設定スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/setup-gcp-service-account.sh
+	@./scripts/setup-gcp-service-account.sh
+
+check-gcp-sa: ## GCPサービスアカウントの存在確認
+	@echo "GCPサービスアカウントの存在確認中..."
+	@gcloud iam service-accounts describe github-actions@portfolio-472821.iam.gserviceaccount.com \
+		--project=portfolio-472821 \
+		--format="value(displayName,email)" || echo "❌ サービスアカウントが見つかりません"
+
+list-gcp-sa: ## GCPサービスアカウント一覧表示
+	@echo "GCPサービスアカウント一覧:"
+	@gcloud iam service-accounts list --project=portfolio-472821 \
+		--format="table(displayName,email,disabled)"
+
+show-gcp-sa-permissions: ## GCPサービスアカウントの権限表示
+	@echo "GitHub Actions用サービスアカウントの権限:"
+	@gcloud projects get-iam-policy portfolio-472821 \
+		--flatten="bindings[].members" \
+		--format="table(bindings.role)" \
+		--filter="bindings.members:github-actions@portfolio-472821.iam.gserviceaccount.com" || \
+		echo "❌ サービスアカウントが見つかりません"
+
+# ===== GitHub Actions 履歴管理 =====
+cleanup-github-actions: ## GitHub Actionsの履歴を削除（2日前まで）
+	@echo "GitHub Actionsの履歴を削除します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-dry-run: ## GitHub Actionsの履歴削除をドライラン実行
+	@echo "GitHub Actionsの履歴削除をドライラン実行します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DRY_RUN=true ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-7days: ## GitHub Actionsの履歴を削除（7日前まで）
+	@echo "GitHub Actionsの履歴を削除します（7日前まで）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=7 ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-30days: ## GitHub Actionsの履歴を削除（30日前まで）
+	@echo "GitHub Actionsの履歴を削除します（30日前まで）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=30 ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-all: ## GitHub Actionsの履歴を全て削除
+	@echo "GitHub Actionsの履歴を全て削除します..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=all ./scripts/cleanup-github-actions.sh
+
+cleanup-github-actions-all-dry-run: ## GitHub Actionsの履歴削除をドライラン実行（全て）
+	@echo "GitHub Actionsの履歴削除をドライラン実行します（全て）..."
+	@if [ ! -f "scripts/cleanup-github-actions.sh" ]; then \
+		echo "❌ スクリプトが見つかりません"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/cleanup-github-actions.sh
+	@DAYS_AGO=all DRY_RUN=true ./scripts/cleanup-github-actions.sh
 
 test-github-actions: ## GitHub Actions用デプロイをテスト
 	@echo "GitHub Actions用デプロイをテストします..."
