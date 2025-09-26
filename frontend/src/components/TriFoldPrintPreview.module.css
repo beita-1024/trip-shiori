@@ -168,16 +168,6 @@
     padding: 0 !important;
   }
 
-  /* 印刷時のページ設定 */
-  /* 
-  @page {
-    TriFoldItinerary.module.cssと競合するので
-    コメントアウト
-    size: A4 landscape;
-    margin: 0;
-    
-  }
-  */
 
   /* 印刷時の背景と色はglobals.cssに移動 */
 

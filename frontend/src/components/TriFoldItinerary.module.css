@@ -71,7 +71,7 @@
    ========================================================================== */
 
 .dayBlock {
-  margin-bottom: 4px;
+  /* margin-bottom: 4px; */
 }
 
 .dayTitle {
@@ -103,7 +103,6 @@
 .eventIcon {
   width: 40px;
   text-align: center;
-  margin: 0 8px;
   font-size: 24px;
   color: #000;
 }
@@ -168,11 +167,6 @@
    ========================================================================== */
 
 @media print {
-  /* 印刷時のページ設定 */
-  @page {
-    size: A4 landscape;
-    margin-top: 0 !important;
-  }
 
   /* 印刷時に不要な要素を非表示 */
   .no-print {
@@ -188,10 +182,11 @@
   .itinerary .eventIcon,
   .itinerary .coverTitle,
   .itinerary .coverSubtitle,
+  .itinerary .dayBlock .eventBlock,
   .itinerary .coverDescription {
     /* デバッグ用：ボーダーでマージン・パディングを確認 */
     /* NOTE: デバッグ用にこのコードはコメントアウトして残しておくこと */
-    /* border: 2px solid red !important;     */
+    /* border: 2px solid red !important; */
   }
 
   /* メインコンテナ */
@@ -212,7 +207,7 @@
     page-break-inside: auto !important;
     orphans: 3 !important;
     widows: 3 !important;
-    min-height: calc(297mm - 20mm) !important;
+    min-height: 210mm !important;
   }
   /*
    * HACK: 具体的なセレクタで詳細度を上げて確実に適用されるようにしている。
@@ -247,7 +242,7 @@
 
   /* 日別ブロック */
   .itinerary .dayBlock {
-    margin: 5px 12px !important;
+    margin: 12px 12px !important;
     
     /* 日ブロックは複数のイベントを含む大きな単位
      * カラム境界での分割を許可することで、3段組み内での自然な配置を実現 */
@@ -260,11 +255,13 @@
     font-size: 16px !important;
     border-bottom: 1px solid #ccc !important;
   }
-  
+  .itinerary .dayBlock .eventBlock {
+
+  }
   /* イベント表示サイズ調整 */
   .itinerary .dayBlock .eventBlock .eventHeadBlock .eventTitle {
     font-size: 14px !important;
-    margin: 0 0 4px 0 !important;
+    margin: 0 !important;
   }
   
   .itinerary .dayBlock .eventBlock .eventHeadBlock .eventTime {
@@ -275,7 +272,7 @@
   .itinerary .dayBlock .eventBlock .eventBodyBlock .eventDescription {
     font-size: 12px !important;
     line-height: 1.4 !important;
-    margin: 0 0 8px 0 !important;
+    margin: 4px 0 !important;
   }
   
   .itinerary .dayBlock .eventBlock .eventHeadBlock .eventIcon {
@@ -284,7 +281,7 @@
 
   /* イベントブロック分割制御 */
   .itinerary .dayBlock .eventBlock {
-    padding: 8px !important;
+    /* padding: 8px !important; */
     
     /* イベント単位での分割制御：時刻+アイコン+タイトル+説明文の一体性を保持 */
     break-inside: avoid-column;
