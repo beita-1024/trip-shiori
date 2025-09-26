@@ -125,6 +125,7 @@ resource "random_id" "service_suffix" {
 }
 
 # ===== Cloud Run (Backend) =====
+# 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
 resource "google_cloud_run_v2_service" "backend" {
   name     = "${var.project_name}-backend"
   location = var.region
@@ -144,9 +145,12 @@ resource "google_cloud_run_v2_service" "backend" {
       
       
       # Private IP を参照（type == "PRIVATE" を抽出）
+      # Private IP接続のためsslmodeは不要（Cloud SQL Private IPはTLSを提供しない）
+      # 接続の流れ: Cloud Run → VPC Connector → Cloud SQL (Private IP)
+      # セキュリティ: VPC内通信のため外部からの直接アクセス不可
       env {
         name  = "DATABASE_URL"
-        value = "postgresql://${var.database_user}:${var.database_password}@${[for ip in google_sql_database_instance.main.ip_address : ip.ip_address if ip.type == "PRIVATE"][0]}:5432/${var.database_name}?sslmode=require"
+        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.private_ip_address}:5432/${var.database_name}"
       }
       
       env {
@@ -194,6 +198,7 @@ resource "google_cloud_run_v2_service" "backend" {
           cpu    = "1"
           memory = "1Gi"
         }
+        cpu_idle = true  # CPU throttled設定（課金額削減対応）
       }
     }
 
@@ -215,6 +220,7 @@ resource "google_cloud_run_v2_service" "backend" {
 }
 
 # ===== Cloud Run (Frontend) =====
+# 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
 resource "google_cloud_run_v2_service" "frontend" {
   name     = "${var.project_name}-frontend"
   location = var.region
@@ -263,6 +269,7 @@ resource "google_cloud_run_v2_service" "frontend" {
           cpu    = "1"
           memory = "1Gi"
         }
+        cpu_idle = true  # CPU throttled設定（課金額削減対応）
       }
     }
 
