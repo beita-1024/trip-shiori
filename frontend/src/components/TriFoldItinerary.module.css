@@ -3,21 +3,33 @@
  * 
  * 旅のしおりを三つ折り印刷に適したレイアウトで表示するためのCSSモジュールです。
  * 印刷時はA4横向きで3段組みレイアウトが適用されます。
+ * 
+ * 期待される動作：
+ * １カラム4イベント配置される場合
+ * - 3程度のイベント → 1段目に3つ、2-3段目は空白
+ * - 5程度のイベント → 1段目に3つ、2段目に2つ、3段目は空白
+ * - 9程度のイベント → 1-3段目に3つずつ均等配置
+ * 
+ * column-fill: auto
+ *              左から順番にカラムを埋める
+ *              短いコンテンツは余ったカラムを空白にする
+ *              3イベント → 1段目に3つ、2段目・3段目は空白
  */
 
+/* INFO: 印刷用で末端のスタイルなので、!impotantを多用する方針で書く */
+/* TODO: TailwindCSS4で書かけば安定する？ */
 /* ==========================================================================
    基本レイアウト
    ========================================================================== */
 
-/* 三つ折り印刷のメインコンテナ */
+/* 共通設定 */
 .itinerary {
-  padding: 20px;
   font-family: Arial, sans-serif;
   background: white;
   color: black;
 }
 
-/* 丸四角の黒い実線ボーダー */
+/* 表紙ブロック */
 .coverBlock {
   border: 1px solid #000;
   border-radius: 8px;
@@ -29,7 +41,6 @@
    表紙ブロック
    ========================================================================== */
 
-/* 表紙ブロックのレイアウト */
 .coverContent {
   display: flex;
   flex-direction: column;
@@ -59,9 +70,8 @@
    日別レイアウト
    ========================================================================== */
 
-/* 全体のレイアウト調整 */
 .dayBlock {
-  margin-bottom: 4px;
+  /* margin-bottom: 4px; */
 }
 
 .dayTitle {
@@ -74,69 +84,78 @@
    イベントレイアウト
    ========================================================================== */
 
-/* イベントの塊 */
 .eventBlock {
   margin-bottom: 5px;
 }
 
-/* 1) event-head-block：時刻 + アイコン + タイトルの横並び */
+/* イベントヘッダー：時刻 + アイコン + タイトルの横並び */
 .eventHeadBlock {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
 }
 
-/* 時刻部分 */
 .eventTime {
   width: 60px;
   font-weight: bold;
 }
 
-/* アイコン部分 */
 .eventIcon {
   width: 40px;
   text-align: center;
-  margin: 0 8px;
   font-size: 24px;
   color: #000;
 }
 
-/* イベントタイトル */
 .eventTitle {
   flex: 1;
   font-size: 16px;
   font-weight: bold;
 }
 
-/* 2) event-body-block：空白 + SVG点線 + 本文 の横並び */
+/* イベント本文：空白 + SVG点線 + 詳細の横並び */
 .eventBodyBlock {
   display: flex;
   align-items: stretch;
 }
 
-/* 時刻と同じ幅のダミー要素（空白） */
 .eventTimePlaceholder {
   width: 60px;
   height: 0px;
 }
 
-/* SVGを用いた縦点線要素 */
 .verticalDottedLine {
   width: 40px;
   margin: 0 8px;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  height: 100%;
+  min-height: 20px; /* 最小高さを設定 */
+  position: relative;
+  /* 疑似要素で破線（長い線＋短い空白）を表現 */
 }
 
-.verticalDottedLine svg {
-  height: 100%;
+.verticalDottedLine::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  display: block;
+  /* 長い線＋短い空白の繰り返し（dash-pattern） */
+  border-left: 2px dashed #000;
+  border-left-style: dashed;
+  border-left-width: 2px;
+  /* dash-pattern: 長さ8px, 空白4px */
+  /* CSSのdash patternは直接指定できないため、SVG的な細かい制御は不可だが、dashedで近い表現 */
+  /* ただし、より明確にしたい場合はbackgroundでlinear-gradientを使う方法もある */
+  transform: translateX(-50%);
+  /* Safari等でdash間隔を調整したい場合は下記を追加 */
+  /* border-image: repeating-linear-gradient(to bottom, #000 0 8px, transparent 8px 12px) 1; */
 }
 
-/* イベントの詳細文章 */
+/* SVGは削除してCSSのみで点線を表現 */
+
 .eventDescription {
   flex: 1;
   font-size: 14px;
@@ -148,123 +167,137 @@
    ========================================================================== */
 
 @media print {
-  /* 印刷時のページ設定 */
-  @page {
-    size: A4 landscape;
-    margin: 10mm;
-  }
-
-  /* 印刷時の基本設定はglobals.cssに移動 */
 
   /* 印刷時に不要な要素を非表示 */
   .no-print {
     display: none !important;
   }
 
+  /* ===== 共通リセット設定 ===== */
+  /* より具体的なセレクタで詳細度を上げる */
+  .itinerary .dayBlock,
+  .itinerary .eventTitle,
+  .itinerary .eventTime,
+  .itinerary .eventDescription,
+  .itinerary .eventIcon,
+  .itinerary .coverTitle,
+  .itinerary .coverSubtitle,
+  .itinerary .dayBlock .eventBlock,
+  .itinerary .coverDescription {
+    /* デバッグ用：ボーダーでマージン・パディングを確認 */
+    /* NOTE: デバッグ用にこのコードはコメントアウトして残しておくこと */
+    /* border: 2px solid red !important; */
+  }
+
   /* メインコンテナ */
   .itinerary {
     background: white !important;
     color: black !important;
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0;
-    padding: 20px;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    outline: none !important;
+    
     /* 3段組み設定 */
-    column-count: 3;
-    column-gap: 25px;
-    /* column-fill: balance; */
-    column-fill: auto;
-    /* カラム間の区切り線 */
-    column-rule: 1px solid #ccc;
-    /* ページ分割制御 */
-    page-break-inside: auto;
-    orphans: 3;
-    widows: 3;
+    column-count: 3 !important;
+    column-gap: 25px !important;
+    column-fill: auto !important;
+    column-rule: 1px solid #ccc !important;
+    
+    display: block !important;
+    page-break-inside: auto !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+    min-height: 210mm !important;
   }
-
+  /*
+   * HACK: 具体的なセレクタで詳細度を上げて確実に適用されるようにしている。
+   * 対応方針はglobals.cssの@media printのコメントを参照。
+   */
   /* 表紙ブロック */
-  .coverBlock {
-    margin-bottom: 20px;
-    padding: 12px;
-    border: 1px solid #000;
-    border-radius: 6px;
+  .itinerary .coverBlock {
+    padding: 15px !important;
+    margin: 12px 12px !important;
+    border: 1px solid #000 !important;
+    border-radius: 6px !important;
+    
+    /* 表紙は旅のしおりの顔となる重要な要素のため、分割を禁止 */
+    break-inside: avoid;
+    break-after: auto;
   }
 
-  /* 印刷時の表紙タイトルサイズ調整 */
-  .coverTitle {
-    font-size: 18px;
-    margin-bottom: 8px;
+  /* 表紙タイトルサイズ調整 */
+  .itinerary .coverBlock .coverTitle {
+    font-size: 18px !important;
   }
   
-  .coverSubtitle {
-    font-size: 16px;
-    margin-bottom: 6px;
+  .itinerary .coverBlock .coverSubtitle {
+    font-size: 16px !important;
+    margin: 0 0 6px 0 !important;
   }
   
-  .coverDescription {
-    font-size: 14px;
-    line-height: 1.4;
-  }
-  
-  /* 印刷時のイベント表示サイズ調整 */
-  .dayTitle {
-    font-size: 16px;
-    margin-bottom: 12px;
-    margin-top: 15px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #ccc;
-  }
-  
-  .eventTitle {
-    font-size: 14px;
-    margin-bottom: 4px;
-  }
-  
-  .eventTime {
-    font-size: 12px;
-    font-weight: bold;
-  }
-  
-  .eventDescription {
-    font-size: 12px;
-    line-height: 1.4;
-    margin-bottom: 8px;
-  }
-  
-  .eventIcon {
-    font-size: 18px;
+  .itinerary .coverBlock .coverDescription {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
   }
 
-  /* 日ブロック */
-  .dayBlock {
-    margin-bottom: 15px;
+  /* 日別ブロック */
+  .itinerary .dayBlock {
+    margin: 12px 12px !important;
+    
+    /* 日ブロックは複数のイベントを含む大きな単位
+     * カラム境界での分割を許可することで、3段組み内での自然な配置を実現 */
+    break-inside: auto;
     page-break-inside: auto;
   }
 
-  /* イベントブロック */
-  .eventBlock {
-    margin-bottom: 10px;
-    padding: 6px 0;
-    /* イベント単位で段/ページの途中で切れないようにする */
-    -webkit-column-break-inside: avoid;
-    -moz-column-break-inside: avoid;
-    column-break-inside: avoid;
-    -webkit-page-break-inside: avoid;
-    page-break-inside: avoid;
+  /* 日別タイトル */
+  .itinerary .dayBlock .dayTitle {
+    font-size: 16px !important;
+    border-bottom: 1px solid #ccc !important;
+  }
+  .itinerary .dayBlock .eventBlock {
+
+  }
+  /* イベント表示サイズ調整 */
+  .itinerary .dayBlock .eventBlock .eventHeadBlock .eventTitle {
+    font-size: 14px !important;
+    margin: 0 !important;
+  }
+  
+  .itinerary .dayBlock .eventBlock .eventHeadBlock .eventTime {
+    font-size: 12px !important;
+    font-weight: bold !important;
+  }
+  
+  .itinerary .dayBlock .eventBlock .eventBodyBlock .eventDescription {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin: 4px 0 !important;
+  }
+  
+  .itinerary .dayBlock .eventBlock .eventHeadBlock .eventIcon {
+    font-size: 18px !important;
+  }
+
+  /* イベントブロック分割制御 */
+  .itinerary .dayBlock .eventBlock {
+    /* padding: 8px !important; */
+    
+    /* イベント単位での分割制御：時刻+アイコン+タイトル+説明文の一体性を保持 */
     break-inside: avoid-column;
-    break-inside: avoid;
-    /* ブロックとして扱い、幅を保つ */
+    page-break-inside: avoid;
+    
     display: block;
     width: 100%;
   }
 
   /* イベントヘッダー */
-  .eventHeadBlock {
+  .itinerary .dayBlock .eventBlock .eventHeadBlock {
     margin-bottom: 6px;
   }
 
   /* イベント本文 */
-  .eventBodyBlock {
+  .itinerary .dayBlock .eventBlock .eventBodyBlock {
     margin-bottom: 4px;
   }
 }
@@ -275,9 +308,9 @@
 
 @media screen {
   .itinerary {
+    padding: 0px;
     max-width: 800px;
     margin: 0 auto;
-    background: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
   }

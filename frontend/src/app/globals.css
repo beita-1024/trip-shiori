@@ -296,6 +296,56 @@ code, pre, kbd, samp {
 
 /* 印刷用: 非表示エリアと印刷対象エリアの切替 */
 @media print {
+  /* HACK: Chrome印刷エンジンの謎のマージンを強制リセット
+   * 
+   * 背景：
+   * - Chrome印刷エンジンが自動的にマージンを追加する問題
+   * - 通常のCSSでは制御できないWebKit固有プロパティ
+   * - 印刷時のみの特別な処理が必要
+   * 
+   * 対応方針：
+   * 1. 主要なHTML要素を個別に指定してWebKit固有プロパティをリセット
+   * 2. 標準のマージン・パディングも併せてリセット
+   * 3. 印刷する要素は詳細度を上げて確実に適用されるようにする
+   * 
+   * 注意：* セレクタはCSS Modulesで制限されるため、
+   * 主要な要素を個別に指定して対応 */
+  div,
+  span,
+  p,
+  h1, h2, h3, h4, h5, h6,
+  section,
+  article,
+  header,
+  footer,
+  body,
+  html,
+  main
+  {
+    /* WebKit固有のマージンプロパティ（Chrome印刷エンジンが使用） */
+    -webkit-margin-before: 0 !important;    /* 要素の前のマージン */
+    -webkit-margin-after: 0 !important;     /* 要素の後のマージン */
+    -webkit-margin-start: 0 !important;     /* 要素の開始側マージン */
+    -webkit-margin-end: 0 !important;       /* 要素の終了側マージン */
+    
+    /* 標準のマージン・パディングもリセット */
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
+  }
+
+  /* ブラウザのデフォルトスタイルを完全に上書き */
+  html, body {
+    margin: 0 !important;
+    /* padding: 0 !important; を削除してカラム内パディングを許可 */
+    background: white !important;
+    color: black !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
   .no-print { display: none !important; }
   .fcab { display: none !important; }
   header { display: none !important; }

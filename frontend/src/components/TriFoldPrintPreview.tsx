@@ -71,7 +71,7 @@ export default function TriFoldPrintPreview({
         <div className={styles.dialog}>
           {/* ヘッダー */}
           <div className={styles.header}>
-            <h2 className={styles.title}>三つ折り印刷プレビュー</h2>
+            <h2 className={styles.title}>プレビュー</h2>
             <button
               type="button"
               className={styles.closeButton}

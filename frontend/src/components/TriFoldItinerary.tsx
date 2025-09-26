@@ -164,19 +164,8 @@ export default function TriFoldItinerary({ data }: TriFoldItineraryProps): React
                 {/* 時刻と同じ幅のダミー要素 */}
                 <div className={styles.eventTimePlaceholder}></div>
 
-                {/* SVG を用いた縦点線要素 */}
+                {/* CSS を用いた縦点線要素 */}
                 <div className={styles.verticalDottedLine}>
-                  <svg viewBox="0 0 2 100" xmlns="http://www.w3.org/2000/svg">
-                    <line 
-                      x1="1" 
-                      y1="0" 
-                      x2="1" 
-                      y2="100" 
-                      stroke="#000" 
-                      strokeDasharray="4,4" 
-                      strokeWidth="2" 
-                    />
-                  </svg>
                 </div>
 
                 {/* イベントの詳細 */}
