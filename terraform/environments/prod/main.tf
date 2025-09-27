@@ -194,6 +194,16 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
+        name  = "JWT_ACCESS_EXPIRES_IN"
+        value = var.jwt_access_expires_in
+      }
+      
+      env {
+        name  = "JWT_REFRESH_EXPIRES_IN"
+        value = var.jwt_refresh_expires_in
+      }
+      
+      env {
         name  = "SMTP_HOST"
         value = var.smtp_host
       }

@@ -48,6 +48,18 @@ variable "jwt_secret" {
   sensitive   = true
 }
 
+variable "jwt_access_expires_in" {
+  description = "JWTアクセストークンの有効期限"
+  type        = string
+  default     = "120m"
+}
+
+variable "jwt_refresh_expires_in" {
+  description = "JWTリフレッシュトークンの有効期限"
+  type        = string
+  default     = "30d"
+}
+
 variable "backend_image" {
   description = "Backend用Dockerイメージ"
   type        = string
