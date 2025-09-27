@@ -102,6 +102,8 @@ database_password = "${DB_PASSWORD}"
 
 # JWT設定
 jwt_secret = "${JWT_SECRET}"
+jwt_access_expires_in = "120m"
+jwt_refresh_expires_in = "30d"
 
 # Dockerイメージ（デプロイ時に更新）
 backend_image  = "${BACKEND_IMAGE}"
