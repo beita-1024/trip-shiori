@@ -70,8 +70,8 @@
 ![GCP構成図](./docs/assets/GCP_構成図.png)
 
 - **フロントエンド**:
-  - Next.js 15: App Router・SSR/SSG・型安全なフルスタック開発で採用
-  - React 19: 最新のConcurrent Features・Server Componentsで採用
+  - Next.js 14: App Router・SSR/SSG・型安全なフルスタック開発で採用
+  - React 18: 最新のConcurrent Features・Server Componentsで採用
   - Tailwind CSS: ユーティリティファースト・一貫性のあるデザインシステムで採用
   - @dnd-kit: ドラッグ&ドロップ機能・アクセシビリティ対応で採用
   - @heroicons/react: 一貫性のあるアイコンセット・Tree Shaking対応で採用
