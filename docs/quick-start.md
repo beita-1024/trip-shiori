@@ -427,7 +427,7 @@ gcloud sql instances list
 ## 📚 詳細情報
 
 より詳細な情報が必要な場合は、以下を参照してください：
-- [GCP デプロイガイド](./gcp-deployment-guide.md)
+- [GCP デプロイガイド](./deployment/github-actions-setup.md)
 - [Terraform README](../../terraform/README.md)
 - [Next.js環境変数](https://nextjs.org/docs/basic-features/environment-variables)
 - [Prisma環境変数](https://www.prisma.io/docs/reference/database-reference/connection-urls)

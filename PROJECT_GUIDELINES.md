@@ -21,7 +21,7 @@
   - **GCP Cloud Run + Terraform (IaC)** で運用
 - **バージョニング**：Conventional Commits
 - **リポ構成**：**モノレポ + pnpm ワークスペース**
-  - **subtree 不使用**。CIで Docker イメージをビルド → GCP Container Registry → Cloud Run でデプロイ
+  - **subtree 不使用**。CIで Docker イメージをビルド → GCP Artifact Registry → Cloud Run でデプロイ
 
 ---
 
@@ -76,7 +76,7 @@
     fix(backend): /users POSTの400レスポンスをRFC7807形式へ
     refactor(infra): Actionsワークフローをマトリクス化
     ```
-- **PR運用**：PRテンプレ + 自動チェック必須 + Draft開始
+- **PR運用**：PRテンプレ + 自動チェック必須
   - CodeRabbit でファーストレビュー（自動コメント）→ 手動レビュー → マージ
 - **Git運用**：**Squash and merge 一択**
   - PRマージ：Squash and merge（履歴が一直線・読みやすい・リバートも楽）
@@ -119,7 +119,7 @@
   - **最小ベース**: node:22-bookworm-slim（軽量化済み）
   - **本番最適化**: 本番用依存関係のみ、ビルド済みファイルのみコピー
 - **イメージタグ**：**`latest` + `short_sha` の2本立て**（Terraformで自動生成）
-- **IaC (Terraform)**：**GCP Cloud Run + Container Registry で運用中**
+- **IaC (Terraform)**：**GCP Cloud Run + Artifact Registry で運用中**
 - **シークレット管理**：
   - `.env.example` を整備し、`.env` はローカル管理
   - OIDC + 環境側 KV（GitHub Secrets は最小限）**→ 詳細は後で Issue 化**
