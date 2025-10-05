@@ -136,6 +136,7 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - コメントは `[Must] / [Nice] / [Q]` の接頭辞で分類
 - PR本文に「コメント整理」「残件メモ」を追記（Issue化は必要時のみ）
 - 詳細運用は `PROJECT_GUIDELINES.md` を参照
+ - マージ時、残件があるPRにはラベルを付与（例: `has-remaining-items`）
 
 **参照**
 - `/PROJECT_GUIDELINES.md`: PR運用/レビュー方針・ライフサイクル
