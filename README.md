@@ -132,6 +132,11 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - **自動チェック**: gitleaks・markdownlint・languagetool（シークレット・文書品質）
 - **レビュー文化**: 丁寧でフレンドリー・事実ベース・一次情報参照
 
+#### CodeRabbitの使い方
+- コメントは `[Must] / [Nice] / [Q]` の接頭辞で分類
+- PR本文に「コメント整理」「残件メモ」を追記（Issue化は必要時のみ）
+- 詳細運用は `PROJECT_GUIDELINES.md` を参照
+
 **参照**
 - `/PROJECT_GUIDELINES.md`: PR運用/レビュー方針・ライフサイクル
 - `/.coderabbit.yaml`: CodeRabbitレビュー設定（強度/指摘方針/自動化）
