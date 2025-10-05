@@ -4,21 +4,24 @@
 **原則：軽量・実用・スピード優先**
 やらないことを明確にし、必要になった時に追加する。
 
-**保留**は、基本方針整備Issue１本にまとめて、必要になったら分割する。
-
 ---
 
 ## プロジェクト基本方針
 
 - **目的/非目的（Out of Scope）**：
-  - [ ] **保留**（トップのREADMEに最終的に1枚で掲載）
-- **非機能要件（暫定）**：**検討予定**
-  - [ ] **保留**
+  - **目的**: 旅行のしおり（旅程表）をドラッグ＆ドロップで直感的に編集し、A4三つ折り印刷に最適化されたPDFを即座に生成できるWebサービス
+  - **非目的（当面対応しない範囲）**:
+    - 旅行予約・決済機能（外部サービス連携は将来検討）
+    - 本格ナビ/地図/オフラインマップ提供
+    - 旅行SNS/レビュー集約プラットフォーム
+    - リアルタイム共同編集（現在はURL共有のみ）
+    - 多言語対応（日本語のみ）
+- **非機能要件（暫定）**： 保留
 - **リリース方式**：**継続デリバリ**
-  - 初期は **VPS (CapRover)** で運用 → 後に **AWS + Terraform (IaC)** へ移行
+  - **GCP Cloud Run + Terraform (IaC)** で運用
 - **バージョニング**：Conventional Commits
 - **リポ構成**：**モノレポ + pnpm ワークスペース**
-  - **subtree 不使用**。CIで Docker イメージをビルド → レジストリへ Push → CapRover/AWS で Pull
+  - **subtree 不使用**。CIで Docker イメージをビルド → GCP Artifact Registry → Cloud Run でデプロイ
 
 ---
 
@@ -35,22 +38,23 @@
 - **履歴方針**: Linear history（rebase pull 推奨／merge commit 禁止）
 
 ### ブランチ命名規約
-```
-feat/<summary-kebab>      # 新機能
-fix/<summary-kebab>       # バグ修正
-chore/<yyyymmdd-or-summary>  # 雑務・定期作業
-docs/<summary-kebab>      # ドキュメント
-infra/<summary-kebab>     # インフラ・CI/CD
-hotfix/<summary-kebab>    # 緊急修正
-```
+
+| 種別      | 命名例                              | 用途             |
+|:----------|:------------------------------------|:-----------------|
+| feat      | feat/{summary-kebab}                | 新機能           |
+| fix       | fix/{summary-kebab}                 | バグ修正         |
+| chore     | chore/{yyyymmdd-or-summary}         | 雑務・定期作業   |
+| docs      | docs/{summary-kebab}                | ドキュメント     |
+| infra     | infra/{summary-kebab}               | インフラ・CI/CD  |
+| hotfix    | hotfix/{summary-kebab}              | 緊急修正         |
 
 ### ライフサイクル
 1. **Issue作成**（タイトルは CC 準拠 or 自然文、ラベルで種別/優先度付与）
 2. **ブランチ切る**（Issue番号を含めてもOK：`feat/itinerary-share-#42`）
-3. **Draft PR**（早期にCodeRabbit回す）
-4. **必須チェック通過** → Ready for review
-5. **Squash merge** → `main`へ
-6. **タグ付け**（手動 or CI、自動化するなら `vX.Y.Z`）→ デプロイ
+3. **PR作成**（レビュー準備が整ってからPRを出す／Draft PRは使わない）
+4. **レビュー・CIチェック通過** → セキュリティホールや誤動作につながる部分などは必ず修正する。
+5. **Squash merge** → `main`へにマージ、`.github/workflows/deploy-development.yml`ワークフロートリガ→ステージングデプロイ
+6. **リリース時はタグ付け** `v*`で`.github/workflows/deploy-development.yml`トリガ→ 本番デプロイ
 
 ### タグ運用
 - **main 常に安定**（デプロイ可能状態を維持）
@@ -72,7 +76,7 @@ hotfix/<summary-kebab>    # 緊急修正
     fix(backend): /users POSTの400レスポンスをRFC7807形式へ
     refactor(infra): Actionsワークフローをマトリクス化
     ```
-- **PR運用**：PRテンプレ + 自動チェック必須 + Draft開始
+- **PR運用**：PRテンプレ + 自動チェック必須
   - CodeRabbit でファーストレビュー（自動コメント）→ 手動レビュー → マージ
 - **Git運用**：**Squash and merge 一択**
   - PRマージ：Squash and merge（履歴が一直線・読みやすい・リバートも楽）
@@ -107,15 +111,24 @@ hotfix/<summary-kebab>    # 緊急修正
 ## 環境・デプロイ
 
 - **環境段**：
-  - [ ] **保留**（`dev/stg/prod` の切り方を後で確定）
-- **デプロイ方法**：GitHub Actions → CapRover（caprover deploy によるソース送信/サーバー側ビルド）
+  - **dev/prod** の2段階構成（Terraformで環境分離）
+- **デプロイ方法**：GitHub Actions → GCP Cloud Run（Terraform + Docker）
 - **コンテナ戦略**：
-  - [ ] **保留**（マルチステージ・rootless・最小ベース）
-- **イメージタグ**：**将来的にレジストリ運用へ移行する場合は `latest` + `sha` の2本立て**（SemVer は後で導入）
-- **IaC (Terraform)**：**CapRover 定着後に着手**
+  - **マルチステージビルド**: dev/builder/runtime（3段階構成）
+  - **rootless実行**: 非特権ユーザー（node）で実行
+  - **最小ベース**: node:22-bookworm-slim（軽量化済み）
+  - **本番最適化**: 本番用依存関係のみ、ビルド済みファイルのみコピー
+- **イメージタグ**：**`latest` + `short_sha` の2本立て**（Terraformで自動生成）
+- **IaC (Terraform)**：**GCP Cloud Run + Artifact Registry で運用中**
 - **シークレット管理**：
   - `.env.example` を整備し、`.env` はローカル管理
   - OIDC + 環境側 KV（GitHub Secrets は最小限）**→ 詳細は後で Issue 化**
+  - **対応ファイル**:
+    - `backend/Dockerfile` - マルチステージビルド・rootless実行
+    - `frontend/Dockerfile` - マルチステージビルド・rootless実行
+    - `docker-compose.yml` - 開発環境設定（devステージ）
+    - `docker-compose.prod.yml` - 本番環境設定（runtimeステージ）
+    - `terraform/environments/*/main.tf` - イメージタグ自動生成（short_sha）
 
 ---
 
@@ -124,36 +137,81 @@ hotfix/<summary-kebab>    # 緊急修正
 - **TypeScript**：`"strict": true` / ESLint + Prettier / `@/` path alias 採用
 - **Next.js/React**：**データ取得は原則 Server**（Server Actions/Route Handlers 優先）
 - **Express(API)**：
-  - [ ] **保留**（OpenAPI / Idempotency / RateLimit / Pagination 規約）
-- **フロント構成**：`/app` ルータ、`components/ui`（UI）と `features/**`（機能）を分離
+  - **OpenAPI 3.1** で仕様書管理（`docs/api/openapi.yaml`）
+  - **zod** でバリデーション、**TSDoc** でエンドポイントドキュメント
+- **フロント構成**：`/app` ルータ、`components/`（UI）と機能別ディレクトリを分離
 - **バック構成**：
-  - [ ] **保留**（`/modules`：use-case / repo / entity、`/jobs`：cron/queue）
+  - **実装済み**: `/controllers`、`/services`、`/middleware`、`/validators`、`/jobs`
+  - **jobs**: cron/queue（shareCleanupJob実装済み）
+  - **modules**: use-case/repo/entityは未実装（現在はcontrollers/servicesで対応）
 - **コメント規約**：軽量運用。`NOTE: 本文` を基本。必要に応じ本文でタグ補足
+- **対応ファイル**:
+  - `backend/tsconfig.json` - TypeScript strict設定
+  - `frontend/tsconfig.json` - TypeScript strict設定・@/ path alias
+  - `backend/src/` - controllers/services/middleware/validators/jobs構成
+  - `frontend/src/app/` - Next.js App Router構成
+  - `frontend/src/components/` - UIコンポーネント構成
+  - `docs/api/openapi.yaml` - OpenAPI仕様書
 
 ---
 
 ## データ＆スキーマ運用
 
 - **DB選定/接続ポリシー**：
-  - [ ] **保留**（プール/タイムアウト）
-- **マイグレーション**：**Prisma Migrate**（運用詳細は保留）
+  - **データベース**: PostgreSQL 16（GCP Cloud SQL）
+  - **接続プール**: Prisma標準設定（デフォルト: 10接続、明示的設定なし）
+  - **タイムアウト**: 明示的設定なし（Prismaデフォルト使用）
+  - **環境分離**: dev（db-f1-micro）、prod（db-g1-small）
+  - **バックアップ**: 7日間保持、PITR有効
+  - **対応ファイル**:
+    - `backend/src/config/prisma.ts` - PrismaClient設定
+    - `terraform/environments/dev/main.tf` - 開発環境DB設定
+    - `terraform/environments/prod/main.tf` - 本番環境DB設定
+    - `backend/prisma/schema.prisma` - データベーススキーマ定義
+- **マイグレーション**：**Prisma Migrate**
 - **Seed 方針**：
-  - [ ] **保留**（`local/dev` 限定・冪等）
+  - **対象環境**: `local/dev` 限定（`RUN_SEED=true`で制御）
+  - **冪等性**: 既存データはスキップ、新規のみ作成
+  - **データ内容**: デモユーザー5名（認証済み状態）
+  - **実行タイミング**: コンテナ起動時（entrypoint.sh）
+  - **本番環境**: シード実行なし（セキュリティ考慮）
+  - **対応ファイル**:
+    - `backend/prisma/seed.ts` - シードデータ定義・実行ロジック
+    - `backend/entrypoint.sh` - コンテナ起動時のシード実行制御
 - **データライフサイクル**：
-  - [ ] **保留**（保持期間/匿名化/削除API）
+  - **保持期間**: 旅程データ1年間、認証トークン7日間
+  - **自動削除**: 期限切れ共有設定（cron job）、非アクティブユーザー（手動）
+  - **削除API**: ユーザー削除時はカスケード削除（関連データも削除）
+  - **匿名化**: 不要（旅程データにPII含まず）
+  - **バックアップ**: 7日間保持、PITR有効
+  - **対応ファイル**:
+    - `backend/src/jobs/shareCleanupJob.ts` - 共有設定の定期クリーンアップ（毎日2:00 AM）
+    - `backend/src/services/shareCleanupService.ts` - 期限切れ・孤立・古い共有設定の削除ロジック
+    - `backend/src/controllers/usersController.ts` - ユーザー削除API（カスケード削除）
+    - `backend/prisma/schema.prisma` - カスケード削除設定（onDelete: Cascade）
 
 ---
 
 ## API設計・互換性
 
-- **API バージョニング**：**`/v1` 形式へ移行**
+- **API バージョニング**：
+  - 現在は `/api/` プレフィックスで運用（将来的に `/v1/` への移行を検討）
 - **エラー設計（RFC7807 風）**：
-  - [ ] **保留**
+  - **zod** でバリデーション、統一エラーレスポンス形式
 - **リトライ/タイムアウト/`idempotency-key`**：
-  - [ ] **保留**
+  - **タイムアウト**: LLM API（60秒）、一般API（30秒）
+  - **idempotency**: TSDocで明記（冪等/非冪等の区別）
+  - **リトライ**: 未実装（LLM APIのみ実装済み）
 - **レート制御**：
-  - [ ] **保留**
+  - **Express ミドルウェア**で実装済み（IPベース、メモリストレージ）
+  - エンドポイント別に設定（認証: 15分/3-5回、一般: 60分/30-120回）
   - **LLM API のレート制御は早めに実施**（負荷/コスト対策）
+- **対応ファイル**:
+  - `backend/src/app.ts` - APIルーティング（/api/プレフィックス）
+  - `backend/src/middleware/rateLimit.ts` - レート制御ミドルウェア
+  - `backend/src/controllers/*Router.ts` - エンドポイント別レート制御設定
+  - `backend/src/adapters/chatGptClient.ts` - LLM APIタイムアウト設定
+  - `docs/api/openapi.yaml` - API仕様書
 
 ---
 
@@ -163,39 +221,48 @@ hotfix/<summary-kebab>    # 緊急修正
 - **入力/出力バリデーション**：**新規エンドポイントから `zod`/`valibot` を順次適用**
 - **依存監視**：**Dependabot + `npm audit` を使用**
 - **SAST/Secrets検出**：
-  - [ ] **保留**（CodeQL / Trivy / Gitleaks）
+  - **CodeRabbit統合**: gitleaks・checkov・markdownlint・languagetool
+  - **シークレット検出**: gitleaks（APIキー・パスワード・トークン等）
+  - **IaC静的解析**: checkov（Terraform・セキュリティ設定）
+  - **文書品質**: markdownlint・languagetool（日本語/英語校正）
+  - **対応ファイル**:
+    - `.coderabbit.yaml` - CodeRabbit設定（ツール統合・レビュー方針）
 - **ヘッダー**：
-  - [ ] **保留**（Helmet / CSP / HSTS）
-- **機密ログ抑止（PII/Secrets マスキング）**：
-  - [ ] **保留**
+  - **Helmet** で実装済み（CSP / HSTS / XSS Filter / Frameguard等）
 
 ---
 
 ## テスト戦略
 
-- **単体**：**Jest/Vitest**（まずは最小で導入）
-  - **E2E は Jest で導入**（APIレベルの最小ケース）
-- **サービス統合（Supertest/MSW）**：
-  - [ ] **保留**
-- **E2E（UI）**：**Playwright**（主要 UX シナリオを最少本数）
-- **CI 速度**：**CI は lint + unit のみ**で開始（並列/DB最適化は後で）
-- **失敗時アーティファクト**：
-  - [ ] **保留**
-
-
----
+- **単体・統合テスト**：**Jest + Supertest**（実装済み）
+  - **E2E は Jest + Supertest で実装**（APIレベルの統合テスト）
+  - テストファイル: `app.test.ts`, `authController.test.ts`, `sharedItineraryController.test.ts` 等
+- **サービス統合（Supertest）**：
+  - **実装済み**（APIエンドポイントの統合テスト）
+- **E2E（UI）**：
+  - UIが大きく変わる可能性がまだあるので、未導入
+  - 実装する場合はPlaywrightを採用予定
+- **CI**：**CI は lint + test で実装済み**（Docker Compose + Jest）
+- **対応ファイル**:
+  - `.github/workflows/ci.yml` - CI/CDワークフロー（lint + test）
+  - `backend/src/*.test.ts` - テストファイル（6ファイル）
+  - `Makefile` - テスト・lint実行コマンド
+  - `docker-compose.yml` - テスト環境構築
 
 
 ---
 
 ## ドキュメント＆意思決定
 
-- **README（必須）**：**書く**
-  - 起動手順 / デプロイ概要 / 簡易構成図 / 非機能（暫定1〜3行）
+- **README**：
+  - プロダクト概要・設計判断・参照リンクの総合ガイド
+  - 主要機能・ユースケース・設計背景・技術選定
+  - アクセシビリティ・セキュリティ・データ設計の方針
+  - 主要ドキュメントへのリンク一覧
 - **API ドキュメント（OpenAPI）**：
-  - [ ] **保留**
+  - **`docs/api/openapi.yaml`** で仕様書管理、Swagger UI で確認可能
 - **開発ガイド（コマンド一覧）**：
-  - [ ] **保留**（`pnpm` へ移行）
+  - **`docs/quick-start.md`** でクイックスタート手順を提供
 
 ---
 
