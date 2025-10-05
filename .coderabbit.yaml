@@ -73,11 +73,6 @@ reviews:
       requirements: "50文字以内/命令形/種別タグ[feat|fix|docs|infra|refactor|perf]を含める"
     description:
       mode: "warning"             # 説明の妥当性チェック
-      requirements: |
-        PR本文に以下の軽量テンプレの各セクションがあるか（必要に応じて空欄可）：
-        - 概要 / 変更内容 / 動作確認
-        - コメント整理（Must/Nice/Q）
-        - 残件・対応しない・未着手（Issue化しない軽量メモ）
     issue_assessment:
       mode: "warning"             # リンク済Issueへの適合性評価
 
