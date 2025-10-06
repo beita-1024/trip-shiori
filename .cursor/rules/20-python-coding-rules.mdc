@@ -190,7 +190,7 @@ async def fetch_single_url(session: aiohttp.ClientSession, url: str) -> Dict[str
 ```python
 # ✅ Good
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
