@@ -45,8 +45,8 @@ def add_numbers(request: AddRequest) -> AddResponse:
     try:
         result = request.a + request.b
         return AddResponse(result=result)
-    except Exception as e:
+    except (TypeError, ValueError, OverflowError) as e:
         raise HTTPException(
             status_code=400,
-            detail=f"計算エラーが発生しました: {str(e)}"
-        )
+            detail="計算エラーが発生しました"
+        ) from e

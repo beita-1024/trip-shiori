@@ -135,3 +135,18 @@ secrets/
 github-actions-key.json
 
 .obsidian/
+
+#--------------------------------------------------
+# Python / FastAPI sidecar
+#--------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+.venv/
