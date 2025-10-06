@@ -595,17 +595,10 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
         },
       });
 
-      // トークンを削除（存在しない場合は無視）
-      try {
-        await tx.passwordResetToken.delete({
-          where: { id: resetToken.id },
-        });
-      } catch (error: any) {
-        // P2025エラー（レコードが見つからない）の場合は無視
-        if (error.code !== 'P2025') {
-          throw error;
-        }
-      }
+      // トークンを削除（存在しない場合もエラーにならない）
+      await tx.passwordResetToken.deleteMany({
+        where: { id: resetToken.id },
+      });
     });
 
     // 既存のCookieをクリア（JWT無効化）
