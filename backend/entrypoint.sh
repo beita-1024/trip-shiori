@@ -38,7 +38,28 @@ if [ "$RUN_SEED" = "true" ]; then
   echo "✅ Seed complete."
 fi
 
-echo "🚀 Starting app..."
+echo "🚀 Starting FastAPI sidecar service..."
+
+# FastAPI サイドカーサービスをバックグラウンドで起動
+cd python && poetry run sh start.sh &
+FASTAPI_PID=$!
+
+# FastAPI の起動を少し待機
+echo "⏳ Waiting for FastAPI to start..."
+sleep 3
+
+# FastAPI のヘルスチェック
+echo "🔍 Checking FastAPI health..."
+for i in {1..10}; do
+  if curl -f http://localhost:6000/health > /dev/null 2>&1; then
+    echo "✅ FastAPI is ready!"
+    break
+  fi
+  echo "⏳ Waiting for FastAPI... ($i/10)"
+  sleep 1
+done
+
+echo "🚀 Starting Express app..."
 
 # 環境に応じて適切なコマンドを実行
 if [ "$NODE_ENV" = "production" ]; then

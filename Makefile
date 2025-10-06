@@ -69,7 +69,10 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   cleanup-github-actions-7days \
   cleanup-github-actions-30days \
   cleanup-github-actions-all \
-  cleanup-github-actions-all-dry-run
+  cleanup-github-actions-all-dry-run \
+  python-shell \
+  python-test \
+  python-install
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -1122,4 +1125,20 @@ deploy-auto: ## 環境指定自動デプロイ（GitHub Actions用）
 		echo "有効な環境: dev, prod"; \
 		exit 1; \
 	fi
+
+# ===== Python / FastAPI 関連コマンド =====
+
+python-install: ## Python 依存関係をインストール
+	@echo "Installing Python dependencies..."
+	cd backend/python && poetry install
+	@echo "✅ Python dependencies installed"
+
+python-shell: ## Python Poetry シェルに入る
+	@echo "Entering Python Poetry shell..."
+	cd backend/python && poetry shell
+
+python-test: ## FastAPI テストを実行
+	@echo "Running FastAPI tests..."
+	cd backend/python && poetry run pytest
+	@echo "✅ FastAPI tests completed"
 

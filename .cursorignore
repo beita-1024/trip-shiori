@@ -112,3 +112,12 @@ backend_rails/
 /images/
 /static/
 /public/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/

@@ -1,0 +1,673 @@
+---
+description: LangChain Coding Rules
+globs:
+  - "*.py"
+  - "*.ipynb"
+alwaysApply: true
+---
+
+# LangChain Coding Rules
+
+## LangChain固有の規約
+
+### 1. モデル初期化の規約
+```python
+# ✅ Good
+from typing import Optional
+from pydantic import SecretStr
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+
+def create_llm(model_name: str = "gpt-4o-mini", temperature: float = 0.7) -> ChatOpenAI:
+    """LLMインスタンスを作成する
+    
+    Args:
+        model_name: 使用するモデル名
+        temperature: 生成のランダム性（0.0-2.0）
+        
+    Returns:
+        初期化されたChatOpenAIインスタンス
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    return ChatOpenAI(
+        model=model_name,
+        temperature=temperature,
+        api_key=SecretStr(api_key) if api_key else None
+    )
+
+# ❌ Bad
+llm = ChatOpenAI(model="gpt-4o-mini", api_key="sk-...")
+```
+
+### 2. プロンプトテンプレートの規約
+```python
+# ✅ Good
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from typing import Dict, Any, List
+
+def create_system_prompt() -> ChatPromptTemplate:
+    """システムプロンプトテンプレートを作成する
+    
+    Returns:
+        システムプロンプトテンプレート
+    """
+    return ChatPromptTemplate.from_messages([
+        ("system", "あなたは{role}の専門家です。"),
+        ("human", "{question}")
+    ])
+
+def create_chain_prompt() -> PromptTemplate:
+    """チェーン用のプロンプトテンプレートを作成する
+    
+    Returns:
+        プロンプトテンプレート
+    """
+    return PromptTemplate(
+        input_variables=["topic", "style"],
+        template="以下のトピックについて{style}で説明してください: {topic}"
+    )
+
+# ❌ Bad
+prompt = "以下のトピックについて説明してください: {topic}"
+```
+
+### 3. チェーンの規約（LangChain 0.3対応）
+```python
+# ✅ Good
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.output_parsers import StrOutputParser
+from typing import Dict, Any, List
+from langchain_core.messages import BaseMessage
+
+def create_processing_chain() -> Any:
+    """データ処理チェーンを作成する（LangChain 0.3対応）
+    
+    Returns:
+        処理チェーン
+    """
+    llm = create_llm()
+    prompt = create_chain_prompt()
+    output_parser = StrOutputParser()
+    
+    # チェーンを構築（0.3系の推奨方法）
+    chain = prompt | llm | output_parser
+    
+    return chain
+
+def create_advanced_chain() -> Any:
+    """高度なチェーンを作成する（0.3系の新機能活用）
+    
+    Returns:
+        高度な処理チェーン
+    """
+    llm = create_llm()
+    prompt = create_chain_prompt()
+    
+    # カスタム処理を追加
+    def format_output(response: Any) -> str:
+        """出力をフォーマットする"""
+        return f"結果: {response.content}"
+    
+    # チェーンを構築
+    chain = (
+        prompt 
+        | llm 
+        | RunnableLambda(format_output)
+    )
+    
+    return chain
+
+def process_with_chain(chain: Any, input_data: Dict[str, Any]) -> str:
+    """チェーンを使用してデータを処理する
+    
+    Args:
+        chain: 処理チェーン
+        input_data: 入力データ
+        
+    Returns:
+        処理結果
+    """
+    try:
+        result = chain.invoke(input_data)
+        return result
+    except Exception as e:
+        logger.error(f"チェーン処理でエラー: {e}")
+        raise
+```
+
+### 4. メッセージ管理の規約
+```python
+# ✅ Good
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from typing import List, Optional
+
+class ConversationManager:
+    """会話管理クラス"""
+    
+    def __init__(self, system_prompt: str = "あなたは親切なアシスタントです。"):
+        """会話管理を初期化する
+        
+        Args:
+            system_prompt: システムプロンプト
+        """
+        self.messages: List[BaseMessage] = [
+            SystemMessage(content=system_prompt)
+        ]
+    
+    def add_human_message(self, content: str) -> None:
+        """人間のメッセージを追加する
+        
+        Args:
+            content: メッセージ内容
+        """
+        self.messages.append(HumanMessage(content=content))
+    
+    def add_ai_message(self, content: str) -> None:
+        """AIのメッセージを追加する
+        
+        Args:
+            content: メッセージ内容
+        """
+        self.messages.append(AIMessage(content=content))
+    
+    def get_messages(self) -> List[BaseMessage]:
+        """現在のメッセージリストを取得する
+        
+        Returns:
+            メッセージリスト
+        """
+        return self.messages.copy()
+    
+    def clear_conversation(self) -> None:
+        """会話履歴をクリアする"""
+        self.messages = [self.messages[0]]  # システムメッセージのみ残す
+```
+
+### 5. エラーハンドリングの規約
+```python
+# ✅ Good
+from typing import Optional, Union
+import logging
+
+logger = logging.getLogger(__name__)
+
+def safe_llm_invoke(
+    llm: ChatOpenAI, 
+    messages: List[BaseMessage], 
+    max_retries: int = 3
+) -> Optional[str]:
+    """安全にLLMを呼び出す
+    
+    Args:
+        llm: LLMインスタンス
+        messages: メッセージリスト
+        max_retries: 最大リトライ回数
+        
+    Returns:
+        LLMの応答、またはエラーの場合はNone
+    """
+    for attempt in range(max_retries):
+        try:
+            response = llm.invoke(messages)
+            return response.content
+            
+        except Exception as e:
+            logger.warning(f"LLM呼び出し失敗 (試行 {attempt + 1}/{max_retries}): {e}")
+            
+            if attempt == max_retries - 1:
+                logger.error(f"LLM呼び出しが{max_retries}回失敗しました")
+                return None
+            
+            # 指数バックオフ
+            time.sleep(2 ** attempt)
+    
+    return None
+```
+
+### 6. 設定管理の規約
+```python
+# ✅ Good
+from pydantic import BaseSettings, Field
+from typing import Optional
+
+class LangChainSettings(BaseSettings):
+    """LangChain設定"""
+    
+    # OpenAI設定
+    openai_api_key: str = Field(..., description="OpenAI APIキー")
+    openai_model: str = Field(default="gpt-4o-mini", description="使用するモデル名")
+    openai_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="生成のランダム性")
+    
+    # LangSmith設定（オプション）
+    langchain_tracing_v2: bool = Field(default=False, description="LangSmithトレーシング有効化")
+    langchain_api_key: Optional[str] = Field(default=None, description="LangSmith APIキー")
+    langchain_project: Optional[str] = Field(default=None, description="LangSmithプロジェクト名")
+    
+    # その他の設定
+    max_retries: int = Field(default=3, ge=1, le=10, description="最大リトライ回数")
+    timeout: int = Field(default=30, ge=1, description="タイムアウト（秒）")
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+
+# 使用例
+settings = LangChainSettings()
+```
+
+### 7. ログ出力の規約
+```python
+# ✅ Good
+import logging
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
+
+def log_llm_interaction(
+    input_messages: List[BaseMessage], 
+    output: str, 
+    model_name: str,
+    execution_time: float
+) -> None:
+    """LLMとのやり取りをログ出力する
+    
+    Args:
+        input_messages: 入力メッセージ
+        output: 出力内容
+        model_name: 使用したモデル名
+        execution_time: 実行時間（秒）
+    """
+    logger.info(f"LLM呼び出し完了 - モデル: {model_name}, 実行時間: {execution_time:.2f}秒")
+    logger.debug(f"入力メッセージ数: {len(input_messages)}")
+    logger.debug(f"出力文字数: {len(output)}")
+
+def log_chain_execution(
+    chain_name: str, 
+    input_data: Dict[str, Any], 
+    output: Any,
+    execution_time: float
+) -> None:
+    """チェーン実行をログ出力する
+    
+    Args:
+        chain_name: チェーン名
+        input_data: 入力データ
+        output: 出力データ
+        execution_time: 実行時間（秒）
+    """
+    logger.info(f"チェーン '{chain_name}' 実行完了 - 実行時間: {execution_time:.2f}秒")
+    logger.debug(f"入力データ: {input_data}")
+    logger.debug(f"出力データ: {output}")
+```
+
+### 8. テストの規約
+```python
+# ✅ Good
+import pytest
+from unittest.mock import Mock, patch
+from langchain_core.messages import HumanMessage, SystemMessage
+
+class TestLangChainIntegration:
+    """LangChain統合テスト"""
+    
+    @pytest.fixture
+    def mock_llm(self):
+        """モックLLMを作成する"""
+        mock = Mock()
+        mock.invoke.return_value.content = "テスト応答"
+        return mock
+    
+    @pytest.fixture
+    def sample_messages(self):
+        """サンプルメッセージを作成する"""
+        return [
+            SystemMessage(content="あなたはテストアシスタントです。"),
+            HumanMessage(content="テスト質問")
+        ]
+    
+    def test_llm_invoke_success(self, mock_llm, sample_messages):
+        """LLM呼び出し成功のテスト"""
+        result = safe_llm_invoke(mock_llm, sample_messages)
+        assert result == "テスト応答"
+        mock_llm.invoke.assert_called_once_with(sample_messages)
+    
+    def test_llm_invoke_failure(self, sample_messages):
+        """LLM呼び出し失敗のテスト"""
+        mock_llm = Mock()
+        mock_llm.invoke.side_effect = Exception("API Error")
+        
+        result = safe_llm_invoke(mock_llm, sample_messages, max_retries=1)
+        assert result is None
+    
+    @patch('os.getenv')
+    def test_settings_loading(self, mock_getenv):
+        """設定読み込みのテスト"""
+        mock_getenv.side_effect = lambda key, default=None: {
+            'OPENAI_API_KEY': 'test-key',
+            'OPENAI_MODEL': 'gpt-4o-mini'
+        }.get(key, default)
+        
+        settings = LangChainSettings()
+        assert settings.openai_api_key == 'test-key'
+        assert settings.openai_model == 'gpt-4o-mini'
+```
+
+### 9. パフォーマンス最適化の規約（LangChain 0.3対応）
+```python
+# ✅ Good
+import asyncio
+from typing import List, Dict, Any, AsyncGenerator
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import BaseMessage
+from langchain_core.runnables import RunnableConfig
+
+async def batch_llm_processing(
+    llm: ChatOpenAI, 
+    message_batches: List[List[BaseMessage]]
+) -> List[str]:
+    """LLMのバッチ処理を実行する（0.3系対応）
+    
+    Args:
+        llm: LLMインスタンス
+        message_batches: メッセージバッチのリスト
+        
+    Returns:
+        処理結果のリスト
+    """
+    async def process_batch(messages: List[BaseMessage]) -> str:
+        """単一バッチを処理する"""
+        response = await llm.ainvoke(messages)
+        return response.content
+    
+    # 並列処理
+    tasks = [process_batch(batch) for batch in message_batches]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # 例外をフィルタリング
+    return [r for r in results if not isinstance(r, Exception)]
+
+async def stream_llm_response(
+    llm: ChatOpenAI, 
+    messages: List[BaseMessage]
+) -> AsyncGenerator[str, None]:
+    """LLMのストリーミング応答を処理する（0.3系新機能）
+    
+    Args:
+        llm: LLMインスタンス
+        messages: メッセージリスト
+        
+    Yields:
+        ストリーミングされた応答チャンク
+    """
+    async for chunk in llm.astream(messages):
+        if hasattr(chunk, 'content') and chunk.content:
+            yield chunk.content
+
+def create_parallel_chain() -> Any:
+    """並列処理チェーンを作成する（0.3系の新機能）
+    
+    Returns:
+        並列処理チェーン
+    """
+    from langchain_core.runnables import RunnableParallel
+    
+    llm = create_llm()
+    prompt = create_chain_prompt()
+    
+    # 並列処理チェーン
+    parallel_chain = RunnableParallel({
+        "summary": prompt | llm,
+        "analysis": prompt | llm,
+        "recommendation": prompt | llm
+    })
+    
+    return parallel_chain
+```
+
+### 10. セキュリティ考慮事項
+```python
+# ✅ Good
+from pydantic import SecretStr, validator
+from typing import Optional
+
+class SecureLLMConfig(BaseSettings):
+    """セキュアなLLM設定"""
+    
+    api_key: SecretStr = Field(..., description="APIキー")
+    model_name: str = Field(default="gpt-4o-mini", description="モデル名")
+    
+    @validator('model_name')
+    def validate_model_name(cls, v):
+        """モデル名の検証"""
+        allowed_models = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
+        if v not in allowed_models:
+            raise ValueError(f"許可されていないモデル: {v}")
+        return v
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+def sanitize_input(text: str) -> str:
+    """入力テキストをサニタイズする
+    
+    Args:
+        text: サニタイズするテキスト
+        
+    Returns:
+        サニタイズされたテキスト
+    """
+    # 基本的なサニタイズ処理
+    return text.strip()[:1000]  # 長さ制限
+```
+
+### 11. LangChain 0.3系の新機能活用
+
+#### 11.1. LCEL (LangChain Expression Language) の活用
+```python
+# ✅ Good - 0.3系の推奨パターン
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain_core.output_parsers import JsonOutputParser
+from typing import Dict, Any
+
+def create_lcel_chain() -> Any:
+    """LCELを使用したチェーン作成（0.3系推奨）
+    
+    Returns:
+        LCELチェーン
+    """
+    llm = create_llm()
+    prompt = create_chain_prompt()
+    json_parser = JsonOutputParser()
+    
+    # LCELパターン
+    chain = (
+        {"input": RunnablePassthrough()}
+        | prompt
+        | llm
+        | json_parser
+    )
+    
+    return chain
+
+def create_conditional_chain() -> Any:
+    """条件分岐チェーン（0.3系新機能）
+    
+    Returns:
+        条件分岐チェーン
+    """
+    from langchain_core.runnables import RunnableBranch
+    
+    llm = create_llm()
+    
+    def route_input(input_data: Dict[str, Any]) -> str:
+        """入力に基づいてルートを決定"""
+        if input_data.get("type") == "question":
+            return "qa_chain"
+        elif input_data.get("type") == "analysis":
+            return "analysis_chain"
+        else:
+            return "default_chain"
+    
+    # 条件分岐チェーン
+    branch_chain = RunnableBranch(
+        (lambda x: x.get("type") == "question", create_qa_chain()),
+        (lambda x: x.get("type") == "analysis", create_analysis_chain()),
+        create_default_chain()
+    )
+    
+    return branch_chain
+```
+
+#### 11.2. ストリーミング処理の活用
+```python
+# ✅ Good - 0.3系のストリーミング機能
+from typing import AsyncGenerator, Iterator
+from langchain_core.messages import BaseMessage
+
+async def stream_chain_response(
+    chain: Any, 
+    input_data: Dict[str, Any]
+) -> AsyncGenerator[str, None]:
+    """チェーンのストリーミング応答を処理する
+    
+    Args:
+        chain: 処理チェーン
+        input_data: 入力データ
+        
+    Yields:
+        ストリーミングされた応答チャンク
+    """
+    async for chunk in chain.astream(input_data):
+        if isinstance(chunk, str):
+            yield chunk
+        elif hasattr(chunk, 'content'):
+            yield chunk.content
+
+def stream_chain_response_sync(
+    chain: Any, 
+    input_data: Dict[str, Any]
+) -> Iterator[str]:
+    """チェーンの同期ストリーミング応答を処理する
+    
+    Args:
+        chain: 処理チェーン
+        input_data: 入力データ
+        
+    Yields:
+        ストリーミングされた応答チャンク
+    """
+    for chunk in chain.stream(input_data):
+        if isinstance(chunk, str):
+            yield chunk
+        elif hasattr(chunk, 'content'):
+            yield chunk.content
+```
+
+#### 11.3. バッチ処理の最適化
+```python
+# ✅ Good - 0.3系のバッチ処理
+from typing import List, Dict, Any
+
+def batch_process_with_chain(
+    chain: Any, 
+    input_batch: List[Dict[str, Any]]
+) -> List[Any]:
+    """チェーンを使用したバッチ処理
+    
+    Args:
+        chain: 処理チェーン
+        input_batch: 入力データのバッチ
+        
+    Returns:
+        処理結果のリスト
+    """
+    # バッチ処理の実行
+    results = chain.batch(input_batch)
+    return results
+
+async def async_batch_process_with_chain(
+    chain: Any, 
+    input_batch: List[Dict[str, Any]]
+) -> List[Any]:
+    """チェーンを使用した非同期バッチ処理
+    
+    Args:
+        chain: 処理チェーン
+        input_batch: 入力データのバッチ
+        
+    Returns:
+        処理結果のリスト
+    """
+    # 非同期バッチ処理の実行
+    results = await chain.abatch(input_batch)
+    return results
+```
+
+#### 11.4. カスタムRunnableの作成
+```python
+# ✅ Good - 0.3系のカスタムRunnable
+from langchain_core.runnables import Runnable
+from typing import Any, Dict, List
+from pydantic import BaseModel
+
+class CustomProcessor(Runnable[Dict[str, Any], Dict[str, Any]]):
+    """カスタム処理用のRunnable"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """カスタムプロセッサを初期化する
+        
+        Args:
+            config: 設定パラメータ
+        """
+        self.config = config
+    
+    def invoke(
+        self, 
+        input_data: Dict[str, Any], 
+        config: Any = None
+    ) -> Dict[str, Any]:
+        """同期処理を実行する
+        
+        Args:
+            input_data: 入力データ
+            config: 実行設定
+            
+        Returns:
+            処理結果
+        """
+        # カスタム処理ロジック
+        processed_data = self._process_data(input_data)
+        return processed_data
+    
+    async def ainvoke(
+        self, 
+        input_data: Dict[str, Any], 
+        config: Any = None
+    ) -> Dict[str, Any]:
+        """非同期処理を実行する
+        
+        Args:
+            input_data: 入力データ
+            config: 実行設定
+            
+        Returns:
+            処理結果
+        """
+        # 非同期カスタム処理ロジック
+        processed_data = await self._async_process_data(input_data)
+        return processed_data
+    
+    def _process_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """データを処理する"""
+        # 実装例
+        return {"processed": True, "data": data}
+    
+    async def _async_process_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """データを非同期で処理する"""
+        # 実装例
+        return {"processed": True, "data": data}
+```
+
+これらの規約に従うことで、LangChain 0.3系の最新機能を活用した安全で保守性の高いアプリケーションを構築できます。

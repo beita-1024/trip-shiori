@@ -7,11 +7,18 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 \
+    python3-pip \
+    python3-venv \
     make \
     g++ \
     ca-certificates \
     netcat-openbsd \
+    curl \
   && rm -rf /var/lib/apt/lists/*
+
+# Poetry インストール
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
 
 # npmを最新版に更新
 RUN npm install -g npm@latest
@@ -28,6 +35,9 @@ RUN npx prisma generate
 
 # アプリ本体コピー
 COPY . .
+
+# Python 依存関係インストール
+RUN cd python && poetry install
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
@@ -45,10 +55,17 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 \
+    python3-pip \
+    python3-venv \
     make \
     g++ \
     ca-certificates \
+    curl \
   && rm -rf /var/lib/apt/lists/*
+
+# Poetry インストール
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
 
 # npmを最新版に更新
 RUN npm install -g npm@latest
@@ -66,6 +83,9 @@ RUN npx prisma generate
 # アプリ本体コピー
 COPY . .
 
+# Python 依存関係インストール
+RUN cd python && poetry install
+
 # TypeScriptビルド（詳細ログ付き）
 RUN npm run build || (echo "Build failed, showing TypeScript errors:" && npx tsc --noEmit)
 
@@ -82,9 +102,17 @@ ENV NODE_ENV=production
 # ビルドに必要なツールを入れる（最小限）
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
     ca-certificates \
     netcat-openbsd \
+    curl \
   && rm -rf /var/lib/apt/lists/*
+
+# Poetry インストール
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
 
 # パッケージインストール（本番用のみ）
 COPY package.json package-lock.json ./
@@ -100,6 +128,10 @@ RUN npx prisma generate
 # ビルド済みファイルをコピー
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/python ./python
+
+# Python 依存関係インストール（本番用のみ）
+RUN cd python && poetry install --only=main
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
