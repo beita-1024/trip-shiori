@@ -41,7 +41,7 @@ fi
 echo "🚀 Starting FastAPI internal service.."
 
 # FastAPI 内部サービスをバックグラウンドで起動
-cd python && poetry run sh start.sh &
+cd python && poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload &
 FASTAPI_PID=$!
 
 # FastAPI の起動を少し待機
