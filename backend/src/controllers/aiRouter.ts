@@ -30,10 +30,9 @@ const ItinerarySchema = z.object({
       z.object({
         date: z
           .string()
-          .refine(
-            (val) => !val || !isNaN(Date.parse(val)),
-            { message: '有効な日付文字列である必要があります' }
-          )
+          .refine((val) => !val || !isNaN(Date.parse(val)), {
+            message: '有効な日付文字列である必要があります',
+          })
           .optional(),
         events: z.array(EventSchema),
       })
