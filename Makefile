@@ -1143,3 +1143,25 @@ python-test: ## FastAPI テストを実行
 	cd backend/python && poetry run pytest
 	@echo "✅ FastAPI tests completed"
 
+
+# ===== Git 安全操作 =====
+.PHONY: git-push-force-safe
+
+git-push-force-safe: ## 安全なforce push（保護ブランチ禁止・4桁確認・upstream必須）
+	@set -eu; \
+	REMOTE="$(if $(REMOTE),$(REMOTE),origin)"; \
+	BRANCH_INPUT="$(BRANCH)"; \
+	if [ -z "$$BRANCH_INPUT" ]; then BRANCH_INPUT=$$(git rev-parse --abbrev-ref HEAD); fi; \
+	if [ "$$BRANCH_INPUT" = "HEAD" ]; then echo "❌ detached HEAD では実行できません"; exit 1; fi; \
+	if [ "$$BRANCH_INPUT" = "main" ] || [ "$$BRANCH_INPUT" = "master" ] || echo "$$BRANCH_INPUT" | grep -Eq '^release/'; then \
+	  echo "❌ 保護ブランチ($$BRANCH_INPUT)への force push は禁止です"; exit 1; \
+	fi; \
+	if ! git rev-parse --abbrev-ref --symbolic-full-name "$$BRANCH_INPUT@{upstream}" >/dev/null 2>&1; then \
+	  echo "❌ upstream 未設定です: $$BRANCH_INPUT"; \
+	  echo "   ヒント: git push -u $$REMOTE $$BRANCH_INPUT"; exit 1; \
+	fi; \
+	CODE=$$(od -An -N2 -tu2 /dev/urandom | tr -d ' ' | awk '{printf "%04d", $$1 % 10000}'); echo "確認コード: $$CODE"; \
+	printf "上記4桁を入力して実行: "; read INPUT; \
+	if [ "$$INPUT" != "$$CODE" ]; then echo "❌ コード不一致。中止します"; exit 1; fi; \
+	echo "➡  git push --force-with-lease $$REMOTE $$BRANCH_INPUT"; \
+	git push --force-with-lease "$$REMOTE" "$$BRANCH_INPUT"
