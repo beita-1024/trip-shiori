@@ -38,7 +38,7 @@ if [ "$RUN_SEED" = "true" ]; then
   echo "✅ Seed complete."
 fi
 
-echo "🚀 Starting FastAPI sidecar service..."
+echo "🚀 Starting FastAPI internal service.."
 
 # FastAPI 内部サービスをバックグラウンドで起動
 cd python && poetry run sh start.sh &
