@@ -202,6 +202,43 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "OPENAI_API_KEY"
         value = var.openai_api_key
       }
+      
+      # ===== AI/LLM設定 =====
+      env {
+        name  = "INTERNAL_AI_TOKEN"
+        value = var.internal_ai_token
+      }
+      
+      env {
+        name  = "INTERNAL_AI_BASE_URL"
+        value = var.internal_ai_base_url
+      }
+      
+      env {
+        name  = "OPENAI_MODEL"
+        value = var.openai_model
+      }
+      
+      env {
+        name  = "OPENAI_TEMPERATURE"
+        value = tostring(var.openai_temperature)
+      }
+      
+      env {
+        name  = "LLM_TIMEOUT_SEC"
+        value = tostring(var.llm_timeout_sec)
+      }
+      
+      # ===== 将来のAIサービス設定 =====
+      env {
+        name  = "CEREBRAS_API_KEY"
+        value = var.cerebras_api_key
+      }
+      
+      env {
+        name  = "TAVILY_API_KEY"
+        value = var.tavily_api_key
+      }
 
       resources {
         limits = {

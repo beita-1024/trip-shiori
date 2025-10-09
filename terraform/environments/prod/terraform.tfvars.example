@@ -41,3 +41,18 @@ smtp_secure   = "false"
 # - SendGrid: smtp.sendgrid.net, port: 587
 # - Mailgun: smtp.mailgun.org, port: 587
 # - Amazon SES: email-smtp.us-east-1.amazonaws.com, port: 587
+
+# ===== AI/LLM設定（必須: 実際の値に変更） =====
+openai_api_key = "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # OpenAI APIキー（https://platform.openai.com/api-keys で取得）
+
+# 内部AI設定（現在は使用していないが、将来のセキュリティ強化用）
+internal_ai_token = "xxxx"
+
+internal_ai_base_url = "http://127.0.0.1:6000"
+openai_model = "gpt-4o-mini"
+openai_temperature = 0.3
+llm_timeout_sec = 30
+
+# 将来のAIサービス設定（現在は使用していない）
+cerebras_api_key = "csk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+tavily_api_key = "tvly-dev-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
