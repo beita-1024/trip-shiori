@@ -121,7 +121,7 @@ export async function aiEditItineraryImpl(
     console.debug("送信するリクエストボディ:", requestBody);
     console.debug("=== デバッグ情報終了 ===");
 
-    const response = await fetch(buildApiUrl("/api/itinerary-edit"), {
+    const response = await fetch(buildApiUrl("/api/ai/itinerary-edit"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: 'include',
@@ -214,7 +214,7 @@ export async function aiCompleteEventImpl(
     console.debug("=== デバッグ情報終了 ===");
 
     const tryRequest = async (useDummy: boolean) => {
-      const resp = await fetch(buildApiUrl("/api/events/complete"), {
+      const resp = await fetch(buildApiUrl("/api/ai/events/complete"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
@@ -228,7 +228,7 @@ export async function aiCompleteEventImpl(
       }
       
       const jsonResponse = await resp.json();
-      console.debug("response /api/events/complete", jsonResponse);
+      console.debug("response /api/ai/events/complete", jsonResponse);
       return jsonResponse;
     };
 
