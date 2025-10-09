@@ -3,7 +3,6 @@ name = "fastapi-sidecar"
 version = "0.1.0"
 description = "FastAPI sidecar service for trip-shiori backend"
 authors = ["trip-shiori team"]
-readme = "README.md"
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
