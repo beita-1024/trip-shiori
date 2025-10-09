@@ -15,6 +15,7 @@ export interface Event {
 
 /**
  * 日付情報
+ * @property date - ISO 8601形式の日付文字列（例: "2024-01-15"）。Date.parse()で解析可能な形式をサポート
  */
 export interface Day {
   date?: string;
