@@ -1133,33 +1133,39 @@ deploy-auto: ## 環境指定自動デプロイ（GitHub Actions用）
 # ===== Python / FastAPI 関連コマンド =====
 
 python-install: ## Python 依存関係をインストール
-	@echo "Installing Python dependencies..."
+	@echo "Python依存関係をインストールしています..."
 	cd backend/python && poetry install
-	@echo "✅ Python dependencies installed"
+	@echo "✅ Python依存関係のインストールが完了しました"
 
 python-shell: ## Python Poetry シェルに入る
-	@echo "Entering Python Poetry shell..."
+	@echo "Poetryシェルに入ります..."
 	cd backend/python && poetry shell
 
 python-test: ## FastAPI テストを実行
-	@echo "Running FastAPI tests..."
+	@echo "FastAPIのテストを実行しています..."
 	cd backend/python && poetry run pytest
-	@echo "✅ FastAPI tests completed"
+	@echo "✅ FastAPIのテストが完了しました"
 
 python-lock: ## Python 依存関係をロック（poetry.lock生成）
-	@echo "Locking Python dependencies..."
+	@echo "Python依存関係をロックしています..."
 	cd backend/python && poetry lock
-	@echo "✅ Python dependencies locked"
+	@echo "✅ Python依存関係のロックが完了しました"
 
 python-lock-update: ## Python 依存関係を更新してロック
-	@echo "Updating and locking Python dependencies..."
+	@echo "Python依存関係を更新してロックしています..."
 	cd backend/python && poetry update
-	@echo "✅ Python dependencies updated and locked"
+	@echo "✅ Python依存関係の更新とロックが完了しました"
 
 python-check-lock: ## Python ロックファイルの整合性をチェック
-	@echo "Checking Python lock file integrity..."
+	@echo "Pythonロックファイルの整合性をチェックしています..."
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "⚠️  警告: Poetryがインストールされていません。Pythonロックファイルのチェックをスキップします。"; \
+		echo "   Poetryのインストール方法: curl -sSL https://install.python-poetry.org | python3 -"; \
+		echo "   または: pip install poetry"; \
+		exit 0; \
+	fi
 	cd backend/python && poetry check
-	@echo "✅ Python lock file is valid"
+	@echo "✅ Pythonロックファイルは有効です"
 
 
 # ===== Git 安全操作 =====
