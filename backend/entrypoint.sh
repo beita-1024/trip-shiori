@@ -91,7 +91,7 @@ sleep 5
 echo "🔍 Checking FastAPI health..."
 FASTAPI_READY=false
 for i in {1..15}; do
-  if curl -f http://localhost:6000/health > /dev/null 2>&1; then
+  if curl -fsS --connect-timeout 1 --max-time 2 http://localhost:6000/health > /dev/null 2>&1; then
     echo "✅ FastAPI is ready!"
     FASTAPI_READY=true
     break
