@@ -1607,7 +1607,7 @@ paths:
       parameters:
         - name: x-user-id
           in: header
-          required: true
+          required: false
           schema:
             type: string
           description: ユーザーID（ログ用、オプション）
@@ -1793,6 +1793,94 @@ paths:
                   error:
                     type: string
                     example: Internal server error
+  /api/ai/events/complete:
+    post:
+      summary: イベント補完（AI機能・新経路）
+      description: 既存 `/api/events/complete` と同等。内部FastAPI経由でLangChainを呼び出す。
+      tags:
+        - Events
+        - AI Features
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/paths/~1api~1events~1complete/post/requestBody/content/application~1json/schema'
+      parameters:
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: ユーザーID（ログ用、オプション）
+      responses:
+        '200':
+          description: AI生成されたイベント
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          description: AI生成エラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/ai/itinerary-edit:
+    post:
+      summary: 旅程編集（AI機能・新経路）
+      description: 既存 `/api/itinerary-edit` と同等。内部FastAPI経由でLangChainを呼び出す。
+      tags:
+        - Itinerary Edit
+        - AI Features
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/paths/~1api~1itinerary-edit/post/requestBody/content/application~1json/schema'
+      responses:
+        '200':
+          description: 旅程編集成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1itinerary-edit/post/responses/200/content/application~1json/schema'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          description: AI生成エラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  error:
+                    type: string
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
 components:
   securitySchemes:
@@ -2009,6 +2097,7 @@ components:
           items:
             $ref: '#/components/schemas/Day'
           description: 日程一覧
+          minItems: 1
 
     ItineraryRecord:
       type: object
@@ -2055,12 +2144,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ValidationError'
-          example:
-            error: "invalid_body"
-            message: "Request validation failed"
-            details:
-              - field: "name"
-                message: "Name must be 255 characters or less"
+          examples:
+            default:
+              value:
+                error: "invalid_body"
+                message: "Request validation failed"
+                details:
+                  - field: "name"
+                    message: "Name must be 255 characters or less"
 
     Unauthorized:
       description: 認証が必要です
@@ -2068,9 +2159,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: "unauthorized"
-            message: "Access token required"
+          examples:
+            default:
+              value:
+                error: "unauthorized"
+                message: "Access token required"
 
     Forbidden:
       description: アクセスが拒否されました
@@ -2078,9 +2171,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: "forbidden"
-            message: "Access denied"
+          examples:
+            default:
+              value:
+                error: "forbidden"
+                message: "Access denied"
 
     NotFound:
       description: リソースが見つかりません
@@ -2088,9 +2183,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: "not_found"
-            message: "Resource not found"
+          examples:
+            default:
+              value:
+                error: "not_found"
+                message: "Resource not found"
 
     InternalServerError:
       description: 内部サーバーエラー
@@ -2098,9 +2195,33 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: "internal_server_error"
-            message: "An unexpected error occurred"
+          examples:
+            default:
+              value:
+                error: "internal_server_error"
+                message: "An unexpected error occurred"
+    TooManyRequests:
+      description: レート制限に達しました
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            default:
+              value:
+                error: "too_many_requests"
+                message: "Rate limit exceeded"
+    ServiceUnavailable:
+      description: サービス一時不可
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            default:
+              value:
+                error: "service_unavailable"
+                message: "Service temporarily unavailable"
 
 tags:
   - name: System
