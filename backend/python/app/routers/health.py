@@ -19,7 +19,7 @@ class HealthResponse(BaseModel):
 def health_check() -> HealthResponse:
     """ヘルスチェックエンドポイント
     
-    FastAPI サイドカーサービスの稼働状況を確認する。
+    FastAPI 内部サービスの稼働状況を確認する。
     
     Returns:
         HealthResponse: サービス状態情報
