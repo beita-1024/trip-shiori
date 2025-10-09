@@ -43,7 +43,7 @@ class InternalPythonClient {
       return res.data;
     } catch (error: any) {
       console.error('FastAPI eventsComplete error:', error.message);
-      
+
       // FastAPIが利用できない場合はダミーレスポンスを返す
       if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         console.warn('FastAPI service unavailable, returning dummy response');
@@ -51,11 +51,12 @@ class InternalPythonClient {
           time: '11:00',
           end_time: '11:30',
           title: '移動',
-          description: 'AI機能が一時的に利用できません。移動時間として設定されました。',
+          description:
+            'AI機能が一時的に利用できません。移動時間として設定されました。',
           icon: 'mdi-train',
         };
       }
-      
+
       throw error;
     }
   }
@@ -83,13 +84,15 @@ class InternalPythonClient {
       return res.data;
     } catch (error: any) {
       console.error('FastAPI itineraryEdit error:', error.message);
-      
+
       // FastAPIが利用できない場合はエラーを投げる（旅程編集は必須機能）
       if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         console.warn('FastAPI service unavailable for itinerary edit');
-        throw new Error('AI機能が一時的に利用できません。しばらく時間をおいてから再度お試しください。');
+        throw new Error(
+          'AI機能が一時的に利用できません。しばらく時間をおいてから再度お試しください。'
+        );
       }
-      
+
       throw error;
     }
   }
