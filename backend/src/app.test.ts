@@ -160,6 +160,223 @@ describe('WebAPI E2E Tests', () => {
     });
   });
 
+  describe('AI API', () => {
+    describe('POST /api/ai/events/complete', () => {
+      test('認証済みユーザーがAI版イベント補完を実行できる', async () => {
+        const requestBody = {
+          event1: {
+            time: '10:00',
+            end_time: '10:30',
+            title: '出発',
+            description: 'ホテルを出発',
+            icon: 'mdi-car',
+          },
+          event2: {
+            time: '12:00',
+            end_time: '13:00',
+            title: '昼食',
+            description: 'レストランで昼食',
+            icon: 'mdi-food',
+          },
+        };
+
+        const response = await request(app)
+          .post('/api/ai/events/complete')
+          .send(requestBody)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('time');
+        expect(response.body).toHaveProperty('end_time');
+        expect(response.body).toHaveProperty('title');
+        expect(response.body).toHaveProperty('description');
+        expect(response.body).toHaveProperty('icon');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const requestBody = {
+          event1: {
+            time: '10:00',
+            end_time: '10:30',
+            title: '出発',
+            description: 'ホテルを出発',
+            icon: 'mdi-car',
+          },
+          event2: {
+            time: '12:00',
+            end_time: '13:00',
+            title: '昼食',
+            description: 'レストランで昼食',
+            icon: 'mdi-food',
+          },
+        };
+
+        const response = await request(app)
+          .post('/api/ai/events/complete')
+          .send(requestBody)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+
+      test('必須パラメータが不足している場合にエラーを返す', async () => {
+        const requestBody = {
+          event1: {
+            time: '10:00',
+            end_time: '10:30',
+            title: '出発',
+            description: 'ホテルを出発',
+            icon: 'mdi-car',
+          },
+          // event2が不足
+        };
+
+        const response = await request(app)
+          .post('/api/ai/events/complete')
+          .send(requestBody)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_body');
+      });
+    });
+
+    describe('POST /api/ai/itinerary-edit', () => {
+      test('認証済みユーザーがAI版旅程編集を実行できる', async () => {
+        const requestBody = {
+          originalItinerary: {
+            title: 'テスト旅程',
+            subtitle: 'テストサブタイトル',
+            description: 'テスト説明',
+            days: [
+              {
+                date: '2024-01-01',
+                events: [
+                  {
+                    time: '10:00',
+                    end_time: '10:30',
+                    title: '出発',
+                    description: 'ホテルを出発',
+                    icon: 'mdi-car',
+                  },
+                ],
+              },
+            ],
+          },
+          editPrompt: '昼食を追加してください',
+        };
+
+        const response = await request(app)
+          .post('/api/ai/itinerary-edit')
+          .send(requestBody)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('success', true);
+        expect(response.body).toHaveProperty('data');
+        expect(response.body.data).toHaveProperty('modifiedItinerary');
+        expect(response.body.data).toHaveProperty('diffPatch');
+        expect(response.body.data).toHaveProperty('changeDescription');
+      });
+
+      test('認証されていない場合にエラーを返す', async () => {
+        const requestBody = {
+          originalItinerary: {
+            title: 'テスト旅程',
+            days: [
+              {
+                events: [
+                  {
+                    time: '10:00',
+                    end_time: '10:30',
+                    title: '出発',
+                    description: 'ホテルを出発',
+                    icon: 'mdi-car',
+                  },
+                ],
+              },
+            ],
+          },
+          editPrompt: '昼食を追加してください',
+        };
+
+        const response = await request(app)
+          .post('/api/ai/itinerary-edit')
+          .send(requestBody)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(401);
+        expect(response.body).toHaveProperty('error', 'unauthorized');
+      });
+
+      test('必須パラメータが不足している場合にエラーを返す', async () => {
+        const requestBody = {
+          originalItinerary: {
+            title: 'テスト旅程',
+            days: [
+              {
+                events: [
+                  {
+                    time: '10:00',
+                    end_time: '10:30',
+                    title: '出発',
+                    description: 'ホテルを出発',
+                    icon: 'mdi-car',
+                  },
+                ],
+              },
+            ],
+          },
+          // editPromptが不足
+        };
+
+        const response = await request(app)
+          .post('/api/ai/itinerary-edit')
+          .send(requestBody)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_body');
+      });
+
+      test('editPromptが空文字の場合にエラーを返す', async () => {
+        const requestBody = {
+          originalItinerary: {
+            title: 'テスト旅程',
+            days: [
+              {
+                events: [
+                  {
+                    time: '10:00',
+                    end_time: '10:30',
+                    title: '出発',
+                    description: 'ホテルを出発',
+                    icon: 'mdi-car',
+                  },
+                ],
+              },
+            ],
+          },
+          editPrompt: '',
+        };
+
+        const response = await request(app)
+          .post('/api/ai/itinerary-edit')
+          .send(requestBody)
+          .set('Cookie', authCookie)
+          .set('Content-Type', 'application/json');
+
+        expect(response.status).toBe(400);
+        expect(response.body).toHaveProperty('error', 'invalid_body');
+      });
+    });
+  });
+
   describe('旅程管理API', () => {
     describe('GET /api/itineraries', () => {
       test('認証済みユーザーが旅程一覧を取得できる', async () => {

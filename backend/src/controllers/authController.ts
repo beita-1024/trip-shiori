@@ -544,12 +544,9 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
 
     const { uid, token, newPassword } = schema.parse(req.body);
 
-    // 期限内のパスワードリセットトークンを取得
+    // 期限内のパスワードリセットトークンを取得（最新）
     const resetToken = await prisma.passwordResetToken.findFirst({
-      where: {
-        userId: uid,
-        expiresAt: { gt: new Date() },
-      },
+      where: { userId: uid, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
 

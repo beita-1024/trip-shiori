@@ -40,24 +40,32 @@ fi
 
 echo "🚀 Starting FastAPI sidecar service..."
 
-# FastAPI サイドカーサービスをバックグラウンドで起動
+# FastAPI 内部サービスをバックグラウンドで起動
 cd python && poetry run sh start.sh &
 FASTAPI_PID=$!
 
 # FastAPI の起動を少し待機
 echo "⏳ Waiting for FastAPI to start..."
-sleep 3
+sleep 5
 
 # FastAPI のヘルスチェック
 echo "🔍 Checking FastAPI health..."
-for i in {1..10}; do
+FASTAPI_READY=false
+for i in {1..15}; do
   if curl -f http://localhost:6000/health > /dev/null 2>&1; then
     echo "✅ FastAPI is ready!"
+    FASTAPI_READY=true
     break
   fi
-  echo "⏳ Waiting for FastAPI... ($i/10)"
-  sleep 1
+  echo "⏳ Waiting for FastAPI... ($i/15)"
+  sleep 2
 done
+
+# FastAPIが起動しなかった場合の警告
+if [ "$FASTAPI_READY" = "false" ]; then
+  echo "⚠️  Warning: FastAPI failed to start. AI features will not work."
+  echo "⚠️  Check FastAPI logs for details. Continuing with Express app..."
+fi
 
 echo "🚀 Starting Express app..."
 

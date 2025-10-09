@@ -17,7 +17,7 @@ export interface Event {
  * 日付情報
  */
 export interface Day {
-  date?: Date;
+  date?: string;
   events: Event[];
 }
 
