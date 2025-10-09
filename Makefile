@@ -265,15 +265,16 @@ swagger-ui-local: ## Swagger UI起動（ローカル）
 	@echo "Starting Swagger UI locally on http://localhost:8081"
 	@npx swagger-ui-watcher docs/api/openapi.yaml --port 8081
 
-snapshot: ## プロジェクトのスナップショットを親ディレクトリに圧縮保存
+snapshot: ## プロジェクトのスナップショットを~/snapshots/に圧縮保存
 	@echo "プロジェクトのスナップショットを作成中..."
 	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
 	PROJECT_NAME=$$(basename "$$(pwd)"); \
-	PARENT_DIR=$$(dirname "$$(pwd)"); \
+	SNAPSHOT_DIR="$$HOME/snapshots"; \
+	mkdir -p "$${SNAPSHOT_DIR}"; \
 	ARCHIVE_NAME="$${PROJECT_NAME}_snapshot_$${TIMESTAMP}.tar.gz"; \
 	echo "アーカイブ名: $${ARCHIVE_NAME}"; \
-	echo "保存先: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
-	tar -czf "$${PARENT_DIR}/$${ARCHIVE_NAME}" \
+	echo "保存先: $${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"; \
+	tar -czf "$${SNAPSHOT_DIR}/$${ARCHIVE_NAME}" \
 		--exclude='node_modules' \
 		--exclude='.git' \
 		--exclude='dist' \
@@ -286,8 +287,8 @@ snapshot: ## プロジェクトのスナップショットを親ディレクト�
 		--exclude='.DS_Store' \
 		--exclude='Thumbs.db' \
 		-C "$$(pwd)" .; \
-	echo "スナップショットが作成されました: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
-	ls -lh "$${PARENT_DIR}/$${ARCHIVE_NAME}"
+	echo "スナップショットが作成されました: $${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"; \
+	ls -lh "$${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"
 
 
 init: ## 初回セットアップ（DBマイグレーション + シード）（開発環境）
