@@ -72,7 +72,10 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   cleanup-github-actions-all-dry-run \
   python-shell \
   python-test \
-  python-install
+  python-install \
+  python-lock \
+  python-lock-update \
+  python-check-lock
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -129,13 +132,13 @@ restart-frontend: ## frontendサービスのみ再起動（開発環境）
 restart-db: ## dbサービスのみ再起動（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) restart db
 
-build: ## 開発環境のイメージビルド
+build: python-check-lock ## 開発環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-build-dev: ## 開発環境のイメージビルド
+build-dev: python-check-lock ## 開発環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-build-prod: ## 本番環境のイメージビルド
+build-prod: python-check-lock ## 本番環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(PROD_COMPOSE_FILES) build
 
 logs: ## 全サービスのログ追跡（開発環境）
@@ -449,12 +452,12 @@ auth-setup: ## 認証セットアップ（初回設定用）
 	@echo "✅ 認証セットアップが完了しました"
 
 # ===== Docker操作 =====
-docker-build: ## Dockerイメージビルド（Git SHA方式）
+docker-build: python-check-lock ## Dockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
 	@echo "Dockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend
 	docker build -t $(FRONTEND_IMAGE) ./frontend
 
-docker-build-with-env: ## 環境変数付きでDockerイメージビルド（Git SHA方式）
+docker-build-with-env: python-check-lock ## 環境変数付きでDockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
 	@echo "環境変数付きでDockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend || (echo "❌ バックエンドイメージのビルドに失敗しました" && exit 1)
 	@echo "フロントエンドの環境変数を設定中..."
@@ -1142,6 +1145,21 @@ python-test: ## FastAPI テストを実行
 	@echo "Running FastAPI tests..."
 	cd backend/python && poetry run pytest
 	@echo "✅ FastAPI tests completed"
+
+python-lock: ## Python 依存関係をロック（poetry.lock生成）
+	@echo "Locking Python dependencies..."
+	cd backend/python && poetry lock
+	@echo "✅ Python dependencies locked"
+
+python-lock-update: ## Python 依存関係を更新してロック
+	@echo "Updating and locking Python dependencies..."
+	cd backend/python && poetry update
+	@echo "✅ Python dependencies updated and locked"
+
+python-check-lock: ## Python ロックファイルの整合性をチェック
+	@echo "Checking Python lock file integrity..."
+	cd backend/python && poetry check
+	@echo "✅ Python lock file is valid"
 
 
 # ===== Git 安全操作 =====

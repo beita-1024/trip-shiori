@@ -34,10 +34,16 @@ COPY prisma ./prisma
 # Prismaクライアント生成
 RUN npx prisma generate
 
+# Python 依存関係ファイルを先にコピー
+COPY python/pyproject.toml python/poetry.lock ./python/
+
+# Python 依存関係インストール（開発用、プロジェクトインストールはスキップ）
+RUN cd python && poetry install --no-root
+
 # アプリ本体コピー
 COPY . .
 
-# Python 依存関係インストール
+# Python プロジェクトをインストール（appディレクトリがコピーされた後）
 RUN cd python && poetry install
 
 # スタートアップスクリプトを追加
@@ -85,10 +91,16 @@ COPY prisma ./prisma
 # Prismaクライアント生成
 RUN npx prisma generate
 
+# Python 依存関係ファイルを先にコピー
+COPY python/pyproject.toml python/poetry.lock ./python/
+
+# Python 依存関係インストール（開発用、プロジェクトインストールはスキップ）
+RUN cd python && poetry install --no-root
+
 # アプリ本体コピー
 COPY . .
 
-# Python 依存関係インストール
+# Python プロジェクトをインストール（appディレクトリがコピーされた後）
 RUN cd python && poetry install
 
 # TypeScriptビルド（詳細ログ付き）
@@ -136,7 +148,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/python ./python
 
-# Python 依存関係インストール（本番用のみ）
+# Python 依存関係インストール（本番用のみ、poetry.lockを使用）
 RUN cd python && poetry install --only=main
 
 # スタートアップスクリプトを追加
