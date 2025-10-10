@@ -146,7 +146,7 @@ variable "openai_temperature" {
 variable "llm_timeout_sec" {
   description = "LLMタイムアウト時間（秒）"
   type        = number
-  default     = 30
+  default     = 60
 }
 
 # ===== 将来のAIサービス設定 =====

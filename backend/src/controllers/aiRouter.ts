@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { internalPythonClient } from '../services/internalPythonClient';
 import { authenticateToken } from '../middleware/auth';
 import { Itinerary } from '../types/itineraryTypes';
+import type { Delta } from 'jsondiffpatch';
 
 const router = Router();
 
@@ -50,29 +51,24 @@ const ItineraryEditBody = z.object({
  * @param original - 元の旅程
  * @param modified - 変更後の旅程
  * @returns 差分パッチ
+ * @throws Error 差分生成に失敗した場合
  */
 async function generateDiffPatch(
   original: Itinerary,
   modified: Itinerary
-): Promise<any> {
-  try {
-    // jsondiffpatchを動的インポート
-    const jsondiffpatch = await import('jsondiffpatch');
-    const diffPatcherModule = jsondiffpatch.default || jsondiffpatch;
+): Promise<Delta | undefined> {
+  // jsondiffpatchを動的インポート
+  const { create } = await import('jsondiffpatch');
 
-    const diffPatcher = diffPatcherModule.create({
-      objectHash: (obj: any) => obj.id || JSON.stringify(obj),
-      arrays: {
-        detectMove: false,
-        includeValueOnMove: false,
-      },
-    });
+  const diffPatcher = create({
+    objectHash: (obj: any, index?: number) => obj.id || `${index ?? 0}`,
+    arrays: {
+      detectMove: false,
+      includeValueOnMove: false,
+    },
+  });
 
-    return diffPatcher.diff(original, modified) || {};
-  } catch (error) {
-    console.error('差分パッチの生成に失敗しました:', error);
-    return {};
-  }
+  return diffPatcher.diff(original, modified);
 }
 
 /**
@@ -137,10 +133,17 @@ export const postItineraryEdit: RequestHandler = async (req, res) => {
     };
 
     // TypeScript側でdiffPatchを生成
-    const diffPatch = await generateDiffPatch(
-      parse.data.originalItinerary,
-      pythonResponse.modifiedItinerary
-    );
+    let diffPatch: Delta | undefined;
+    try {
+      diffPatch = await generateDiffPatch(
+        parse.data.originalItinerary,
+        pythonResponse.modifiedItinerary
+      );
+    } catch (diffError) {
+      console.error('差分パッチの生成に失敗しました:', diffError);
+      // 差分生成に失敗しても旅程編集は成功として扱う
+      diffPatch = undefined;
+    }
 
     // 完全なレスポンスを構築
     const data = {

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
     openai_temperature: float = Field(default=0.3, validation_alias="OPENAI_TEMPERATURE")
-    llm_timeout_sec: int = Field(default=30, validation_alias="LLM_TIMEOUT_SEC")
+    llm_timeout_sec: int = Field(default=60, validation_alias="LLM_TIMEOUT_SEC")
 
     class Config:
         env_file = ".env"
