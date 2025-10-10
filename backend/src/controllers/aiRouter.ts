@@ -77,10 +77,16 @@ async function generateDiffPatch(
 
 /**
  * @summary AI: イベント補完
- * @auth Cookie JWT（既存のeventsに準拠）
- * @params body.event1, body.event2 必須
- * @returns 200: Event
- * @errors 400/401/403/422/429/500
+ * @auth Cookie JWT required via authenticateToken middleware
+ * @params body.event1 Event - 補完対象の最初のイベント
+ * @params body.event2 Event - 補完対象の2番目のイベント
+ * @params body.dummy? boolean - オプションのダミーフラグ
+ * @returns 200 { event: Event } - 補完されたイベントデータ
+ * @errors 400 invalid_body - リクエストバリデーション失敗
+ * @errors 401 unauthorized - 認証失敗
+ * @errors 422 AI generation failed - LLM生成エラー
+ * @errors 502 service_unavailable - 内部AIサービス利用不可
+ * @errors 500 internal_server_error - 予期しないサーバーエラー
  */
 export const postEventsComplete: RequestHandler = async (req, res) => {
   const parse = EventsCompleteBody.safeParse(req.body);
@@ -95,7 +101,7 @@ export const postEventsComplete: RequestHandler = async (req, res) => {
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 403)
-      return res.status(503).json({ error: 'service_unavailable' });
+      return res.status(502).json({ error: 'service_unavailable', message: 'Internal AI service authentication failed' });
     if (status === 422)
       return res.status(422).json({ error: 'AI generation failed' });
     return res.status(500).json({ error: 'internal_server_error' });
@@ -104,10 +110,15 @@ export const postEventsComplete: RequestHandler = async (req, res) => {
 
 /**
  * @summary AI: 旅程編集
- * @auth Cookie JWT（既存のitinerary-editに準拠）
- * @params body.originalItinerary, body.editPrompt 必須
- * @returns 200: { success: true, data: ItineraryEditResponse }
- * @errors 400/401/403/422/429/500
+ * @auth Cookie JWT required via authenticateToken middleware
+ * @params body.originalItinerary Itinerary - 元の旅程データ
+ * @params body.editPrompt string - 編集指示（1-1000文字）
+ * @returns 200 { success: true, data: ItineraryEditResponse } - 差分パッチ付きの編集済み旅程
+ * @errors 400 invalid_body - リクエストバリデーション失敗
+ * @errors 401 unauthorized - 認証失敗
+ * @errors 422 AI generation failed - LLM生成エラー
+ * @errors 502 service_unavailable - 内部AIサービス利用不可
+ * @errors 500 internal_server_error - 予期しないサーバーエラー
  */
 export const postItineraryEdit: RequestHandler = async (req, res) => {
   const parse = ItineraryEditBody.safeParse(req.body);
@@ -142,7 +153,7 @@ export const postItineraryEdit: RequestHandler = async (req, res) => {
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 403)
-      return res.status(503).json({ error: 'service_unavailable' });
+      return res.status(502).json({ error: 'service_unavailable', message: 'Internal AI service authentication failed' });
     if (status === 422)
       return res
         .status(422)
