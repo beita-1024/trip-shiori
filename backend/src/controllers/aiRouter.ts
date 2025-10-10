@@ -102,7 +102,10 @@ export const postEventsComplete: RequestHandler = async (req, res) => {
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 403)
-      return res.status(502).json({ error: 'service_unavailable', message: 'Internal AI service authentication failed' });
+      return res.status(502).json({
+        error: 'service_unavailable',
+        message: 'Internal AI service authentication failed',
+      });
     if (status === 422)
       return res.status(422).json({ error: 'AI generation failed' });
     return res.status(500).json({ error: 'internal_server_error' });
@@ -161,7 +164,10 @@ export const postItineraryEdit: RequestHandler = async (req, res) => {
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 403)
-      return res.status(502).json({ error: 'service_unavailable', message: 'Internal AI service authentication failed' });
+      return res.status(502).json({
+        error: 'service_unavailable',
+        message: 'Internal AI service authentication failed',
+      });
     if (status === 422)
       return res
         .status(422)
