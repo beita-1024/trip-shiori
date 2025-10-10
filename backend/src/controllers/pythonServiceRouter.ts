@@ -7,7 +7,7 @@ import { getFastAPIHealth, addNumbers } from './pythonServiceController';
 const router = Router();
 
 /**
- * @summary FastAPI サイドカーサービスのヘルスチェック
+ * @summary FastAPI 内部サービスのヘルスチェック
  * @auth 認証不要
  * @returns 200: サービス稼働中
  * @errors
@@ -17,7 +17,7 @@ const router = Router();
 router.get('/health', getFastAPIHealth);
 
 /**
- * @summary FastAPI サイドカーサービスで足し算を実行
+ * @summary FastAPI 内部サービスで足し算を実行
  * @auth 認証不要
  * @params
  *  - body.a: number - 第1オペランド

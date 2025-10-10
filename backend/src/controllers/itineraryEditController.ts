@@ -17,7 +17,12 @@ const EditSchema = z.object({
     description: z.string().optional(),
     days: z.array(
       z.object({
-        date: z.coerce.date().optional(),
+        date: z
+          .string()
+          .refine((val) => !val || !isNaN(Date.parse(val)), {
+            message: '有効な日付文字列である必要があります',
+          })
+          .optional(),
         events: z.array(
           z.object({
             title: z.string(),

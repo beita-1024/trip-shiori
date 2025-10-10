@@ -14,6 +14,7 @@ import itineraryEditRouter from './controllers/itineraryEditRouter';
 import authRouter from './controllers/authRouter';
 import usersRouter from './controllers/usersRouter';
 import pythonServiceRouter from './controllers/pythonServiceRouter';
+import aiRouter from './controllers/aiRouter';
 import { healthCheck } from './controllers/healthController';
 import { startShareCleanupJob } from './jobs/shareCleanupJob';
 
@@ -38,6 +39,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 app.use('/api/users', usersRouter);
 app.use('/api/python', pythonServiceRouter);
+app.use('/api/ai', aiRouter);
 app.use('/auth', authRouter);
 
 // テスト環境以外でのみサーバーを起動

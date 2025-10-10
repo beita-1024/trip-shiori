@@ -121,6 +121,11 @@ smtp_secure   = "${SMTP_SECURE}"
 
 # OpenAI設定（AI機能用）
 openai_api_key = "${OPENAI_API_KEY}"
+
+# AI/LLM設定
+internal_ai_token = "${INTERNAL_AI_TOKEN:-}"
+cerebras_api_key = "${CEREBRAS_API_KEY:-}"
+tavily_api_key = "${TAVILY_API_KEY:-}"
 EOF
 
 echo "✅ terraform.tfvarsが生成されました: $TFVARS_FILE"

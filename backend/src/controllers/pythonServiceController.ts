@@ -1,14 +1,14 @@
 /**
- * FastAPI サイドカーサービスとの通信を担当するコントローラ
+ * FastAPI 内部サービスとの通信を担当するコントローラ
  *
- * Express から FastAPI サイドカーサービス（ポート6000番）への
+ * Express から FastAPI 内部サービス（ポート6000番）への
  * HTTP プロキシ機能を提供する。
  */
 
 import { Request, Response } from 'express';
 import axios, { AxiosResponse } from 'axios';
 
-// FastAPI サイドカーサービスのベースURL
+// FastAPI 内部サービスのベースURL
 const FASTAPI_BASE_URL = 'http://localhost:6000';
 
 // FastAPI からのレスポンス型定義
@@ -29,9 +29,9 @@ interface FastAPIAddResponse {
 }
 
 /**
- * FastAPI サイドカーサービスのヘルスチェック
+ * FastAPI 内部サービスのヘルスチェック
  *
- * @summary FastAPI サイドカーサービスの稼働状況を確認
+ * @summary FastAPI 内部サービスの稼働状況を確認
  * @auth 認証不要
  * @returns FastAPI のヘルスチェック結果
  * @errors
@@ -73,9 +73,9 @@ export const getFastAPIHealth = async (
 };
 
 /**
- * FastAPI サイドカーサービスで足し算を実行
+ * FastAPI 内部サービスで足し算を実行
  *
- * @summary 2つの数値の足し算を FastAPI サイドカーサービスで実行
+ * @summary 2つの数値の足し算を FastAPI 内部サービスで実行
  * @auth 認証不要
  * @params
  *   - Body: { a: number, b: number }

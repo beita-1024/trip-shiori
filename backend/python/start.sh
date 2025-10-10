@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# FastAPI サイドカーサービス起動スクリプト
-echo "🚀 Starting FastAPI sidecar service..."
+# FastAPI 内部サービス起動スクリプト
+echo "🚀 Starting FastAPI internal service.."
 
-# uvicorn で FastAPI アプリケーションを起動
+# Poetry環境でuvicornを実行
 # ポート6000番、全インターフェースでリッスン
-uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload
+poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload

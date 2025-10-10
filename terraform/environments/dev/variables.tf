@@ -116,3 +116,50 @@ variable "openai_api_key" {
   sensitive   = true
   default     = ""
 }
+
+# ===== AI/LLM設定 =====
+variable "internal_ai_token" {
+  description = "内部AI用トークン（セキュリティ強化時用）"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "internal_ai_base_url" {
+  description = "内部AIサービスのベースURL"
+  type        = string
+  default     = "http://127.0.0.1:6000"
+}
+
+variable "openai_model" {
+  description = "使用するOpenAIモデル名"
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
+variable "openai_temperature" {
+  description = "OpenAIの温度設定"
+  type        = number
+  default     = 0.3
+}
+
+variable "llm_timeout_sec" {
+  description = "LLMタイムアウト時間（秒）"
+  type        = number
+  default     = 60
+}
+
+# ===== 将来のAIサービス設定 =====
+variable "cerebras_api_key" {
+  description = "Cerebras APIキー（将来使用予定）"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tavily_api_key" {
+  description = "Tavily APIキー（将来使用予定）"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

@@ -72,7 +72,10 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   cleanup-github-actions-all-dry-run \
   python-shell \
   python-test \
-  python-install
+  python-install \
+  python-lock \
+  python-lock-update \
+  python-check-lock
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -129,13 +132,13 @@ restart-frontend: ## frontendサービスのみ再起動（開発環境）
 restart-db: ## dbサービスのみ再起動（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) restart db
 
-build: ## 開発環境のイメージビルド
+build: python-check-lock ## 開発環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-build-dev: ## 開発環境のイメージビルド
+build-dev: python-check-lock ## 開発環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) build
 
-build-prod: ## 本番環境のイメージビルド
+build-prod: python-check-lock ## 本番環境のイメージビルド（Pythonロックファイル確認付き）
 	$(COMPOSE) $(PROD_COMPOSE_FILES) build
 
 logs: ## 全サービスのログ追跡（開発環境）
@@ -265,15 +268,16 @@ swagger-ui-local: ## Swagger UI起動（ローカル）
 	@echo "Starting Swagger UI locally on http://localhost:8081"
 	@npx swagger-ui-watcher docs/api/openapi.yaml --port 8081
 
-snapshot: ## プロジェクトのスナップショットを親ディレクトリに圧縮保存
+snapshot: ## プロジェクトのスナップショットを~/snapshots/に圧縮保存
 	@echo "プロジェクトのスナップショットを作成中..."
 	@TIMESTAMP=$$(date +"%Y%m%d_%H%M%S"); \
 	PROJECT_NAME=$$(basename "$$(pwd)"); \
-	PARENT_DIR=$$(dirname "$$(pwd)"); \
+	SNAPSHOT_DIR="$$HOME/snapshots"; \
+	mkdir -p "$${SNAPSHOT_DIR}"; \
 	ARCHIVE_NAME="$${PROJECT_NAME}_snapshot_$${TIMESTAMP}.tar.gz"; \
 	echo "アーカイブ名: $${ARCHIVE_NAME}"; \
-	echo "保存先: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
-	tar -czf "$${PARENT_DIR}/$${ARCHIVE_NAME}" \
+	echo "保存先: $${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"; \
+	tar -czf "$${SNAPSHOT_DIR}/$${ARCHIVE_NAME}" \
 		--exclude='node_modules' \
 		--exclude='.git' \
 		--exclude='dist' \
@@ -286,8 +290,8 @@ snapshot: ## プロジェクトのスナップショットを親ディレクト�
 		--exclude='.DS_Store' \
 		--exclude='Thumbs.db' \
 		-C "$$(pwd)" .; \
-	echo "スナップショットが作成されました: $${PARENT_DIR}/$${ARCHIVE_NAME}"; \
-	ls -lh "$${PARENT_DIR}/$${ARCHIVE_NAME}"
+	echo "スナップショットが作成されました: $${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"; \
+	ls -lh "$${SNAPSHOT_DIR}/$${ARCHIVE_NAME}"
 
 
 init: ## 初回セットアップ（DBマイグレーション + シード）（開発環境）
@@ -448,12 +452,12 @@ auth-setup: ## 認証セットアップ（初回設定用）
 	@echo "✅ 認証セットアップが完了しました"
 
 # ===== Docker操作 =====
-docker-build: ## Dockerイメージビルド（Git SHA方式）
+docker-build: python-check-lock ## Dockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
 	@echo "Dockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend
 	docker build -t $(FRONTEND_IMAGE) ./frontend
 
-docker-build-with-env: ## 環境変数付きでDockerイメージビルド（Git SHA方式）
+docker-build-with-env: python-check-lock ## 環境変数付きでDockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
 	@echo "環境変数付きでDockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend || (echo "❌ バックエンドイメージのビルドに失敗しました" && exit 1)
 	@echo "フロントエンドの環境変数を設定中..."
@@ -1129,16 +1133,59 @@ deploy-auto: ## 環境指定自動デプロイ（GitHub Actions用）
 # ===== Python / FastAPI 関連コマンド =====
 
 python-install: ## Python 依存関係をインストール
-	@echo "Installing Python dependencies..."
+	@echo "Python依存関係をインストールしています..."
 	cd backend/python && poetry install
-	@echo "✅ Python dependencies installed"
+	@echo "✅ Python依存関係のインストールが完了しました"
 
 python-shell: ## Python Poetry シェルに入る
-	@echo "Entering Python Poetry shell..."
+	@echo "Poetryシェルに入ります..."
 	cd backend/python && poetry shell
 
 python-test: ## FastAPI テストを実行
-	@echo "Running FastAPI tests..."
+	@echo "FastAPIのテストを実行しています..."
 	cd backend/python && poetry run pytest
-	@echo "✅ FastAPI tests completed"
+	@echo "✅ FastAPIのテストが完了しました"
 
+python-lock: ## Python 依存関係をロック（poetry.lock生成）
+	@echo "Python依存関係をロックしています..."
+	cd backend/python && poetry lock
+	@echo "✅ Python依存関係のロックが完了しました"
+
+python-lock-update: ## Python 依存関係を更新してロック
+	@echo "Python依存関係を更新してロックしています..."
+	cd backend/python && poetry update
+	@echo "✅ Python依存関係の更新とロックが完了しました"
+
+python-check-lock: ## Python ロックファイルの整合性をチェック
+	@echo "Pythonロックファイルの整合性をチェックしています..."
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "⚠️  警告: Poetryがインストールされていません。Pythonロックファイルのチェックをスキップします。"; \
+		echo "   Poetryのインストール方法: curl -sSL https://install.python-poetry.org | python3 -"; \
+		echo "   または: pip install poetry"; \
+		exit 0; \
+	fi
+	cd backend/python && poetry check
+	@echo "✅ Pythonロックファイルは有効です"
+
+
+# ===== Git 安全操作 =====
+.PHONY: git-push-force-safe
+
+git-push-force-safe: ## 安全なforce push（保護ブランチ禁止・4桁確認・upstream必須）
+	@set -eu; \
+	REMOTE="$(if $(REMOTE),$(REMOTE),origin)"; \
+	BRANCH_INPUT="$(BRANCH)"; \
+	if [ -z "$$BRANCH_INPUT" ]; then BRANCH_INPUT=$$(git rev-parse --abbrev-ref HEAD); fi; \
+	if [ "$$BRANCH_INPUT" = "HEAD" ]; then echo "❌ detached HEAD では実行できません"; exit 1; fi; \
+	if [ "$$BRANCH_INPUT" = "main" ] || [ "$$BRANCH_INPUT" = "master" ] || echo "$$BRANCH_INPUT" | grep -Eq '^release/'; then \
+	  echo "❌ 保護ブランチ($$BRANCH_INPUT)への force push は禁止です"; exit 1; \
+	fi; \
+	if ! git rev-parse --abbrev-ref --symbolic-full-name "$$BRANCH_INPUT@{upstream}" >/dev/null 2>&1; then \
+	  echo "❌ upstream 未設定です: $$BRANCH_INPUT"; \
+	  echo "   ヒント: git push -u $$REMOTE $$BRANCH_INPUT"; exit 1; \
+	fi; \
+	CODE=$$(od -An -N2 -tu2 /dev/urandom | tr -d ' ' | awk '{printf "%04d", $$1 % 10000}'); echo "確認コード: $$CODE"; \
+	printf "上記4桁を入力して実行: "; read INPUT; \
+	if [ "$$INPUT" != "$$CODE" ]; then echo "❌ コード不一致。中止します"; exit 1; fi; \
+	echo "➡  git push --force-with-lease $$REMOTE $$BRANCH_INPUT"; \
+	git push --force-with-lease "$$REMOTE" "$$BRANCH_INPUT"

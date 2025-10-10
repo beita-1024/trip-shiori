@@ -1,8 +1,18 @@
 """FastAPI sidecar service main application."""
 
+import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import health, calc
+from app.routers import health, calc, internal_ai
+
+# Console logging setup so that `make logs` shows our module logs
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG for more verbosity
+    stream=sys.stdout,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+)
 
 app = FastAPI(
     title="FastAPI Sidecar Service",
@@ -24,13 +34,14 @@ app.add_middleware(
 # ルーター登録
 app.include_router(health.router, tags=["health"])
 app.include_router(calc.router, tags=["calculation"])
+app.include_router(internal_ai.router, tags=["internal-ai"])
 
 
 @app.get("/")
 def root():
     """ルートエンドポイント
     
-    FastAPI サイドカーサービスの基本情報を返す。
+    FastAPI 内部サービスの基本情報を返す。
     
     Returns:
         dict: サービス情報
@@ -42,6 +53,8 @@ def root():
         "endpoints": {
             "health": "/health",
             "calc": "/calc/add",
+            "internal_ai_events_complete": "/internal/ai/events-complete",
+            "internal_ai_itinerary_edit": "/internal/ai/itinerary-edit",
             "docs": "/docs"
         }
     }
