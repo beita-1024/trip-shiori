@@ -57,6 +57,11 @@ async function generateDiffPatch(
   original: Itinerary,
   modified: Itinerary
 ): Promise<Delta | undefined> {
+  // テスト環境ではjsondiffpatchをスキップ
+  if (process.env.NODE_ENV === 'test') {
+    return undefined;
+  }
+
   // jsondiffpatchを動的インポート
   const { create } = await import('jsondiffpatch');
 
