@@ -79,7 +79,7 @@ echo "🚀 Starting FastAPI internal service.."
 # FastAPI 内部サービスをサブシェルでバックグラウンド起動（作業ディレクトリを汚染しない）
 (
   cd python
-  poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload
+  poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --log-level debug
 ) &
 FASTAPI_PID=$!
 

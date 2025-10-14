@@ -31,6 +31,8 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   logs-backend \
   logs-frontend \
   logs-db \
+  logs-clear \
+  logs-clear-prod \
   ps \
   sh-backend \
   sh-frontend \
@@ -75,7 +77,9 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   python-install \
   python-lock \
   python-lock-update \
-  python-check-lock
+  python-check-lock \
+  lock \
+  lock-refresh
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -152,6 +156,28 @@ logs-frontend: ## frontendサービスのログ追跡（開発環境）
 
 logs-db: ## dbサービスのログ追跡（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) logs -f --tail=100 db
+
+logs-clear: ## Docker Composeのログを削除（開発環境）
+	@echo "Docker Composeのログを削除しています..."
+	@for container in $$($(COMPOSE) $(DEV_COMPOSE_FILES) ps -q); do \
+		if [ -n "$$container" ]; then \
+			echo "コンテナ $$container のログを削除中..."; \
+			docker logs "$$container" > /dev/null 2>&1 || true; \
+			echo "" > "$$(docker inspect --format='{{.LogPath}}' "$$container" 2>/dev/null)" 2>/dev/null || true; \
+		fi; \
+	done
+	@echo "✅ Docker Composeのログを削除しました"
+
+logs-clear-prod: ## Docker Composeのログを削除（本番環境）
+	@echo "Docker Composeのログを削除しています（本番環境）..."
+	@for container in $$($(COMPOSE) $(PROD_COMPOSE_FILES) ps -q); do \
+		if [ -n "$$container" ]; then \
+			echo "コンテナ $$container のログを削除中..."; \
+			docker logs "$$container" > /dev/null 2>&1 || true; \
+			echo "" > "$$(docker inspect --format='{{.LogPath}}' "$$container" 2>/dev/null)" 2>/dev/null || true; \
+		fi; \
+	done
+	@echo "✅ Docker Composeのログを削除しました（本番環境）"
 
 ps: ## 稼働状況（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) ps
@@ -1146,10 +1172,20 @@ python-test: ## FastAPI テストを実行
 	cd backend/python && poetry run pytest
 	@echo "✅ FastAPIのテストが完了しました"
 
-python-lock: ## Python 依存関係をロック（poetry.lock生成）
-	@echo "Python依存関係をロックしています..."
+python-lock: ## 依存関係をロックファイルに固定（再解決せず）
+	@echo "Poetryロック（--no-update）を実行します..."
+	cd backend/python && poetry lock --no-update
+	@echo "✅ ロックファイルを固定しました"
+
+python-lock-refresh: ## 依存関係を再解決してロック更新
+	@echo "Poetryロックを再解決して更新します..."
 	cd backend/python && poetry lock
-	@echo "✅ Python依存関係のロックが完了しました"
+	@echo "✅ ロックファイルを再解決して更新しました"
+
+# python-lock: ## Python 依存関係をロック（poetry.lock生成）
+# 	@echo "Python依存関係をロックしています..."
+# 	cd backend/python && poetry lock
+# 	@echo "✅ Python依存関係のロックが完了しました"
 
 python-lock-update: ## Python 依存関係を更新してロック
 	@echo "Python依存関係を更新してロックしています..."
