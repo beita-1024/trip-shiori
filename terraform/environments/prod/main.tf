@@ -246,7 +246,7 @@ resource "google_cloud_run_v2_service" "backend" {
       
       env {
         name  = "INTERNAL_AI_BASE_URL"
-        value = var.internal_ai_base_url
+        value = "https://ai.trip.beita.dev"
       }
       
       env {
@@ -305,6 +305,81 @@ resource "google_cloud_run_v2_service" "backend" {
     }
 
     timeout = "600s"  # 10分のタイムアウト
+  }
+
+  traffic {
+    percent = 100
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+  }
+}
+
+# ===== Cloud Run (AI Service) =====
+# 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
+resource "google_cloud_run_v2_service" "ai" {
+  name     = "${var.project_name}-ai"
+  location = var.region
+
+  template {
+    containers {
+      image = "gcr.io/${var.project_id}/trip-shiori-ai:${data.external.git_info.result.short_sha}"
+      
+      ports {
+        container_port = 3000
+      }
+
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+      
+      env {
+        name  = "OPENAI_API_KEY"
+        value = var.openai_api_key
+      }
+      
+      env {
+        name  = "OPENAI_MODEL"
+        value = var.openai_model
+      }
+      
+      env {
+        name  = "OPENAI_TEMPERATURE"
+        value = tostring(var.openai_temperature)
+      }
+      
+      env {
+        name  = "LLM_TIMEOUT_SEC"
+        value = tostring(var.llm_timeout_sec)
+      }
+      
+      env {
+        name  = "INTERNAL_AI_TOKEN"
+        value = var.internal_ai_token
+      }
+      
+      env {
+        name  = "CEREBRAS_API_KEY"
+        value = var.cerebras_api_key
+      }
+      
+      env {
+        name  = "TAVILY_API_KEY"
+        value = var.tavily_api_key
+      }
+
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "1Gi"
+        }
+        cpu_idle = true  # CPU throttled設定（課金額削減対応）
+      }
+    }
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 100
+    }
   }
 
   traffic {
@@ -387,6 +462,13 @@ resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
 resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
   location = google_cloud_run_v2_service.frontend.location
   name     = google_cloud_run_v2_service.frontend.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "ai_noauth" {
+  location = google_cloud_run_v2_service.ai.location
+  name     = google_cloud_run_v2_service.ai.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
