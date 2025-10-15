@@ -118,8 +118,16 @@ def create_llm() -> Any:
             # },
         )
 
-def make_tavily_capped_tool(max_per_run: int = 3):
-    used = 0  # ← このtoolインスタンス専用のカウンタ（外に漏れない）
+def make_tavily_capped_tool(max_per_run: int = 3) -> StructuredTool:
+    """回数上限付きのTavily検索ツールを生成する。
+    
+    Args:
+        max_per_run (int): 1回の実行内で許容する呼び出し回数の上限
+        
+    Returns:
+        StructuredTool: エージェントが利用可能な検索ツール
+    """
+    used = 0
 
     def tavily_search_capped(
         query: Annotated[str, "検索クエリ"],
@@ -377,10 +385,8 @@ def rag_edit_itinerary(itinerary: dict, edit_prompt: str) -> dict:
         '            "description": "イベントの詳細説明", \n'
         '            "icon": "mdi-アイコン名" \n'
         '            }\n'
-        '            // 他のイベント...\n'
         '        ]\n'
         '        }\n'
-        '        // 他の日...\n'
         '    ]\n'
         '}\n'
         '\n'
