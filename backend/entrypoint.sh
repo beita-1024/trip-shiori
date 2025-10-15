@@ -77,12 +77,13 @@ fi
 echo "🚀 Starting FastAPI internal service.."
 
 # FastAPI 内部サービスをサブシェルでバックグラウンド起動（作業ディレクトリを汚染しない）
+# Cloud Runでは単一ポートのみ公開されるため、FastAPIをポート3001で起動
 (
   cd python
   if [ "$NODE_ENV" = "production" ]; then
-    poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --log-level info
+    poetry run uvicorn app.main:app --host 0.0.0.0 --port 3001 --log-level info
   else
-    poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --log-level debug
+    poetry run uvicorn app.main:app --host 0.0.0.0 --port 3001 --reload --log-level debug
   fi
 ) &
 FASTAPI_PID=$!
@@ -95,7 +96,7 @@ sleep 5
 echo "🔍 Checking FastAPI health..."
 FASTAPI_READY=false
 for i in {1..15}; do
-  if curl -fsS --connect-timeout 1 --max-time 2 http://localhost:6000/health > /dev/null 2>&1; then
+  if curl -fsS --connect-timeout 1 --max-time 2 http://localhost:3001/health > /dev/null 2>&1; then
     echo "✅ FastAPI is ready!"
     FASTAPI_READY=true
     break

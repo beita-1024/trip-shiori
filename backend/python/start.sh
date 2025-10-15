@@ -4,9 +4,9 @@
 echo "🚀 Starting FastAPI internal service.."
 
 # Poetry環境でuvicornを実行
-# ポート6000番、全インターフェースでリッスン
+# ポート3001番、全インターフェースでリッスン（Cloud Run対応）
 if [ "$NODE_ENV" = "production" ]; then
-  poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --log-level info
+  poetry run uvicorn app.main:app --host 0.0.0.0 --port 3001 --log-level info
 else
-  poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --log-level debug
+  poetry run uvicorn app.main:app --host 0.0.0.0 --port 3001 --reload --log-level debug
 fi

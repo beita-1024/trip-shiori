@@ -23,7 +23,7 @@ services:
     ports:
       - "4002:3000"
       - "5555:5555"  # Prisma Studio
-      - "6000:6000"  # FastAPI
+      - "3001:3001"  # FastAPI
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
