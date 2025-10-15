@@ -45,7 +45,7 @@ COPY . .
 
 # Python プロジェクトをインストール（appディレクトリがコピーされた後）
 # 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-root && poetry install
+RUN cd python && poetry install --no-root
 
 # uvicornが正しくインストールされていることを確認
 RUN cd python && poetry run uvicorn --version
@@ -106,7 +106,7 @@ COPY . .
 
 # Python プロジェクトをインストール（appディレクトリがコピーされた後）
 # 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-root && poetry install
+RUN cd python && poetry install --no-root
 
 # uvicornが正しくインストールされていることを確認
 RUN cd python && poetry run uvicorn --version
@@ -158,7 +158,7 @@ COPY --from=builder /app/python ./python
 
 # Python 依存関係インストール（本番用、uvicornなど必要な依存関係も含む）
 # 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-dev && poetry install --no-dev
+RUN cd python && poetry install --only=main
 
 # uvicornが正しくインストールされていることを確認
 RUN cd python && poetry run uvicorn --version
