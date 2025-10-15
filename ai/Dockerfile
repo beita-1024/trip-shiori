@@ -18,14 +18,14 @@ RUN poetry config virtualenvs.in-project true
 # 依存関係ファイルをコピー
 COPY pyproject.toml poetry.lock ./
 
-# 依存関係のみインストール（プロジェクトはインストールしない）
-RUN poetry install --only=main --no-root
-
 # アプリケーションコードをコピー
 COPY . .
+
+# 依存関係をインストール（プロジェクトも含む）
+RUN poetry install --only=main
 
 # ポート3000で起動
 EXPOSE 3000
 
 # 開発環境用コマンド
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]

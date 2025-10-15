@@ -187,6 +187,8 @@ sh-backend: ## backendのシェル（開発環境）
 
 sh-frontend: ## frontendのシェル（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) exec frontend sh
+sh-ai: ## aiのシェル（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec ai sh
 
 lint: ## まとめてlint（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint
