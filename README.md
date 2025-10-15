@@ -97,6 +97,13 @@ Tavily Search API (RAG機能)
 - **入力サニタイズ**: HTML/URL除去、長さ制限（1000文字）、制御文字除去
 - **エラーハンドリング**: レート制限・タイムアウト・API障害への対応
 
+**必須環境変数**:
+- `CEREBRAS_API_KEY`: Cerebras APIキー（優先LLM）
+- `OPENAI_API_KEY`: OpenAI APIキー（フォールバック）
+- `TAVILY_API_KEY`: Tavily検索APIキー（RAG機能）
+- `INTERNAL_AI_TOKEN`: 内部サービス間認証トークン
+- その他: 詳細は `docs/quick-start.md` を参照
+
 ![GCP構成図](./docs/assets/GCP_構成図.png)
 
 - **フロントエンド**:
@@ -123,7 +130,7 @@ Tavily Search API (RAG機能)
   - **LangChain 0.3**: LLMアプリケーション構築フレームワーク（LCEL/ストリーミング対応）で採用
   - **LangGraph 0.6**: ReActエージェント・ツール統合・複雑なワークフロー管理で採用
   - **Tavily Search**: RAG用の検索API統合（tavily-python 0.7）で採用
-  - **Cerebras API**: 高速・低コストなLLM推論（OpenAI互換）で採用
+  - **Cerebras API**: 高速・低コストなLLM推論（OpenAI互換、優先使用）で採用
   - **httpx**: 非同期HTTP通信・API呼び出し最適化で採用
   - **内部通信トークン認証**: 安全なマイクロサービス間通信で採用
 - **データベース**:
@@ -208,6 +215,7 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
   - **LLMプロバイダー選択**: Cerebras優先（gpt-oss-120b、高速・低コスト）、OpenAI（gpt-4o-mini）フォールバック
   - **RAG機能**: Tavily検索APIによる最新情報取得（回数制限: 3回/実行）
   - **リトライ機能**: LLM APIのレート制限対応
+  - **内部通信**: FastAPI + LangChain 0.3 + LangGraphによる効率的なAI処理
 - **フロントエンド最適化**: Next.js SSR/SSG・画像最適化・コード分割
 - **API最適化**: レスポンス時間・データ量削減・並列処理
 - **監視**: 使用量追跡・パフォーマンスメトリクス・エラー監視

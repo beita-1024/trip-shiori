@@ -48,9 +48,25 @@ JWT_REFRESH_EXPIRES_IN=7d
 # フロントエンドURL
 FRONTEND_URL=http://localhost:3001
 
-# OpenAI API（AI機能用・必須）
+# AI機能設定（必須）
+# Cerebras API（優先LLM）
+CEREBRAS_API_KEY=
+CEREBRAS_BASE_URL=https://api.cerebras.ai/v1
+CEREBRAS_MODEL=gpt-oss-120b
+
+# OpenAI API（フォールバック）
 OPENAI_API_KEY=
-LLM_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TEMPERATURE=0.3
+
+# Tavily Search API（RAG機能）
+TAVILY_API_KEY=
+TAVILY_MAX_PER_RUN=3
+
+# 内部AIサービス通信
+INTERNAL_AI_TOKEN=<<ここに強力なランダム値を設定>>
+INTERNAL_AI_BASE_URL=http://ai:3000
+LLM_TIMEOUT_SEC=60
 
 # 環境設定
 NODE_ENV=development
@@ -115,8 +131,10 @@ openssl rand -base64 32
 - `JWT_ACCESS_EXPIRES_IN`: アクセストークン有効期限（デフォルト: 15m）
 - `JWT_REFRESH_EXPIRES_IN`: リフレッシュトークン有効期限（デフォルト: 7d）
 - `FRONTEND_URL`: フロントエンドのURL（CORS設定用）
-- `OPENAI_API_KEY`: OpenAI APIキー（AI機能用・必須）
-- `LLM_MODEL`: 使用するLLMモデル（デフォルト: gpt-4o-mini）
+- `CEREBRAS_API_KEY`: Cerebras APIキー（優先LLM）
+- `OPENAI_API_KEY`: OpenAI APIキー（フォールバック）
+- `TAVILY_API_KEY`: Tavily検索APIキー（RAG機能）
+- `INTERNAL_AI_TOKEN`: 内部AIサービス間認証トークン
 
 **オプション環境変数:**
 ```bash
@@ -374,9 +392,11 @@ make tf-destroy TF_ENV=dev
    - データベースサーバーが起動しているか確認
    - **Cloud SQL Private IP接続の場合**: `sslmode=require`は使用しない（TLSを提供しないため）
 
-4. **OpenAI API エラー**
-   - `OPENAI_API_KEY`が設定されているか確認
-   - APIキーが有効か確認
+4. **AI機能エラー**
+   - `CEREBRAS_API_KEY`または`OPENAI_API_KEY`が設定されているか確認
+   - `TAVILY_API_KEY`が設定されているか確認（RAG機能用）
+   - `INTERNAL_AI_TOKEN`が設定されているか確認
+   - AIサービス（FastAPI）が起動しているか確認
 
 5. **JWT_SECRET エラー**
    - 32バイト以上の強力なランダム値を使用しているか確認
@@ -431,5 +451,7 @@ gcloud sql instances list
 - [Terraform README](../../terraform/README.md)
 - [Next.js環境変数](https://nextjs.org/docs/basic-features/environment-variables)
 - [Prisma環境変数](https://www.prisma.io/docs/reference/database-reference/connection-urls)
+- [Cerebras API設定](https://docs.cerebras.ai/)
 - [OpenAI API設定](https://platform.openai.com/docs/api-reference)
+- [Tavily Search API設定](https://docs.tavily.com/)
 
