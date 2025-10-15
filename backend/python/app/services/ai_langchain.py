@@ -32,7 +32,7 @@ def check_tavily_usage() -> Optional[Dict[str, Any]]:
         return None
     
     try:
-        headers = {"Authorization": f"Bearer {settings.tavily_api_key}"}
+        headers = {"Authorization": f"Bearer {settings.tavily_api_key.get_secret_value()}"}
         response = requests.get("https://api.tavily.com/usage", headers=headers, timeout=10)
         
         if response.status_code == 200:
@@ -77,9 +77,11 @@ def create_llm() -> Any:
     # Cerebras or OpenAI
     use_cerebras = bool(settings.cerebras_api_key)
     logger.debug(f"create_llm: use_cerebras = {use_cerebras}")
-    api_key = (settings.cerebras_api_key if use_cerebras else settings.openai_api_key)
-    if not api_key:
+    api_key_secret = (settings.cerebras_api_key if use_cerebras else settings.openai_api_key)
+    if not api_key_secret:
         raise RuntimeError("No API key configured for LLM (CEREBRAS_API_KEY or OPENAI_API_KEY)")
+    # SecretStrから文字列を取得
+    api_key = api_key_secret.get_secret_value()
     # ヘッダ要件: HTTPヘッダ値はASCIIのみ許可。APIキーに非ASCIIが混入していないか検査。
     api_key = api_key.strip()
     try:
@@ -97,25 +99,17 @@ def create_llm() -> Any:
         # CerebrasはOpenAI互換。未対応のパラメータに注意（presence/frequency等）。
         return ChatOpenAI(
             model=settings.cerebras_model,
-            api_key=api_key,
+            api_key=api_key_secret,
             base_url=settings.cerebras_base_url,
             temperature=0,
             timeout=settings.llm_timeout_sec,
-            # Cerebras Chat CompletionsのJSON強制（OpenAI互換）
-            # model_kwargs={
-            #     "response_format": {"type": "json_object"}
-            # },
         )
     else:
         return ChatOpenAI(
             model=settings.openai_model,
             temperature=settings.openai_temperature,
-            api_key=api_key,
+            api_key=api_key_secret,
             timeout=settings.llm_timeout_sec,
-            # # OpenAI Chat CompletionsのJSON強制（対応モデルのみ: gpt-4o/-mini等）
-            # model_kwargs={
-            #     "response_format": {"type": "json_object"}
-            # },
         )
 
 def make_tavily_capped_tool(max_per_run: int = 3) -> StructuredTool:
@@ -191,7 +185,7 @@ def complete_event(event1: dict, event2: dict) -> dict:
         raw = chain.invoke({"event1": event1, "event2": event2})
         logger.debug("complete_event raw response: %r", raw)
     except RateLimitError as e:
-        logger.error(f"complete_event: レート制限エラー: {e}")
+        logger.exception("complete_event: レート制限エラー")
         # ユーザーに分かりやすいエラーメッセージを返す
         return {
             "time": "12:00",
@@ -283,7 +277,7 @@ def edit_itinerary(itinerary: dict, edit_prompt: str) -> dict:
         raw = chain.invoke({"itinerary": itinerary, "edit_prompt": safe_prompt})
         logger.debug("edit_itinerary raw response: %r", raw)
     except RateLimitError as e:
-        logger.error(f"edit_itinerary: レート制限エラー: {e}")
+        logger.exception("edit_itinerary: レート制限エラー")
         # ユーザーに分かりやすいエラーメッセージを返す
         return {
             "modifiedItinerary": itinerary,  # 元の旅程をそのまま返す
