@@ -28,7 +28,13 @@ class Settings(BaseSettings):
     
     @property
     def rag_enable(self) -> bool:
-        """TAVILY_API_KEYが設定されている場合のみRAGを有効にする"""
+        """RAG機能が有効かどうかを判定する。
+        
+        TAVILY_API_KEYが設定されている場合のみRAGを有効にする。
+        
+        Returns:
+            bool: RAG機能が有効な場合True、無効な場合False
+        """
         return bool(self.tavily_api_key)
 
     llm_timeout_sec: int = Field(default=60, validation_alias="LLM_TIMEOUT_SEC")

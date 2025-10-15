@@ -99,7 +99,7 @@ def create_llm() -> Any:
         # CerebrasはOpenAI互換。未対応のパラメータに注意（presence/frequency等）。
         return ChatOpenAI(
             model=settings.cerebras_model,
-            api_key=api_key_secret,
+            api_key=api_key,  # type: ignore[arg-type]
             base_url=settings.cerebras_base_url,
             temperature=0,
             timeout=settings.llm_timeout_sec,
@@ -108,7 +108,7 @@ def create_llm() -> Any:
         return ChatOpenAI(
             model=settings.openai_model,
             temperature=settings.openai_temperature,
-            api_key=api_key_secret,
+            api_key=api_key,  # type: ignore[arg-type]
             timeout=settings.llm_timeout_sec,
         )
 
