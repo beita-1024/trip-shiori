@@ -23,13 +23,13 @@ services:
     ports:
       - "4002:3000"
       - "5555:5555"  # Prisma Studio
-      - "3001:3001"  # FastAPI
     env_file: ./backend/.env
     volumes:
       - ./backend:/app
       - /app/node_modules  # node_modulesはボリュームで上書き
     depends_on:
       - db
+      - ai
     
   frontend:
     build: 
@@ -45,6 +45,15 @@ services:
     depends_on:
       - backend
     # command: は不要（DockerfileのCMDを使用）
+
+  ai:
+    build:
+      context: ./ai
+    ports:
+      - "6000:3000"
+    env_file:
+      - ./ai/.env
+    restart: unless-stopped
 
 volumes:
   postgres_data: 
