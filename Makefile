@@ -1198,10 +1198,11 @@ python-check-lock: ## Python ロックファイルの整合性をチェック
 		echo "⚠️  警告: Poetryがインストールされていません。Pythonロックファイルのチェックをスキップします。"; \
 		echo "   Poetryのインストール方法: curl -sSL https://install.python-poetry.org | python3 -"; \
 		echo "   または: pip install poetry"; \
-		exit 0; \
+		echo "✅ Poetryチェックをスキップしました"; \
+	else \
+		cd backend/python && poetry check; \
+		echo "✅ Pythonロックファイルは有効です"; \
 	fi
-	cd backend/python && poetry check
-	@echo "✅ Pythonロックファイルは有効です"
 
 
 # ===== Git 安全操作 =====
