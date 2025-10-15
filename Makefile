@@ -531,6 +531,10 @@ deploy-gcp-dev: ## GCP開発環境デプロイ
 	@echo "GCP開発環境へデプロイを開始します..."
 	$(MAKE) tf-init TF_ENV=dev
 	$(MAKE) tf-validate TF_ENV=dev
+	@echo "環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=dev
+	@echo "Dockerイメージをプッシュします..."
+	$(MAKE) docker-push
 	$(MAKE) tf-plan TF_ENV=dev
 	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
@@ -560,6 +564,10 @@ deploy-gcp-prod: ## GCP本番環境デプロイ
 	@echo "GCP本番環境へデプロイを開始します..."
 	$(MAKE) tf-init TF_ENV=prod
 	$(MAKE) tf-validate TF_ENV=prod
+	@echo "環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=prod
+	@echo "Dockerイメージをプッシュします..."
+	$(MAKE) docker-push
 	$(MAKE) tf-plan TF_ENV=prod
 	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
