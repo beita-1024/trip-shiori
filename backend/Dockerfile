@@ -44,7 +44,11 @@ RUN cd python && poetry install --no-root
 COPY . .
 
 # Python プロジェクトをインストール（appディレクトリがコピーされた後）
-RUN cd python && poetry install
+# 依存関係の再インストールも実行して確実性を向上
+RUN cd python && poetry install --no-root && poetry install
+
+# uvicornが正しくインストールされていることを確認
+RUN cd python && poetry run uvicorn --version
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
@@ -101,7 +105,11 @@ RUN cd python && poetry install --no-root
 COPY . .
 
 # Python プロジェクトをインストール（appディレクトリがコピーされた後）
-RUN cd python && poetry install
+# 依存関係の再インストールも実行して確実性を向上
+RUN cd python && poetry install --no-root && poetry install
+
+# uvicornが正しくインストールされていることを確認
+RUN cd python && poetry run uvicorn --version
 
 # TypeScriptビルド（詳細ログ付き）
 RUN npm run build || (echo "Build failed, showing TypeScript errors:" && npx tsc --noEmit)
@@ -148,8 +156,12 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/python ./python
 
-# Python 依存関係インストール（本番用のみ、poetry.lockを使用）
-RUN cd python && poetry install --only=main
+# Python 依存関係インストール（本番用、uvicornなど必要な依存関係も含む）
+# 依存関係の再インストールも実行して確実性を向上
+RUN cd python && poetry install --no-dev && poetry install --no-dev
+
+# uvicornが正しくインストールされていることを確認
+RUN cd python && poetry run uvicorn --version
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh

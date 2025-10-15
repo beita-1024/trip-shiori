@@ -9,7 +9,7 @@ from app.routers import health, calc, internal_ai
 
 # Console logging setup so that `make logs` shows our module logs
 logging.basicConfig(
-    level=logging.INFO,  # Change to DEBUG for more verbosity
+    level=logging.DEBUG,  # DEBUG level for RAG debugging
     stream=sys.stdout,
     format="%(asctime)s %(levelname)s %(name)s - %(message)s",
 )
