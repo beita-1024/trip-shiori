@@ -74,44 +74,8 @@ if [ "$RUN_SEED" = "true" ]; then
   echo "✅ Seed complete."
 fi
 
-echo "🚀 Starting FastAPI internal service.."
-
-# FastAPI 内部サービスをサブシェルでバックグラウンド起動（作業ディレクトリを汚染しない）
-(
-  cd python
-  if [ "$NODE_ENV" = "production" ]; then
-    poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --log-level info
-  else
-    poetry run uvicorn app.main:app --host 0.0.0.0 --port 6000 --reload --log-level debug
-  fi
-) &
-FASTAPI_PID=$!
-
-# FastAPI の起動を少し待機
-echo "⏳ Waiting for FastAPI to start..."
-sleep 5
-
-# FastAPI のヘルスチェック
-echo "🔍 Checking FastAPI health..."
-FASTAPI_READY=false
-for i in {1..15}; do
-  if curl -fsS --connect-timeout 1 --max-time 2 http://localhost:6000/health > /dev/null 2>&1; then
-    echo "✅ FastAPI is ready!"
-    FASTAPI_READY=true
-    break
-  fi
-  echo "⏳ Waiting for FastAPI... ($i/15)"
-  sleep 2
-done
-
-# FastAPIが起動しなかった場合のクリーンアップ処理
-if [ "$FASTAPI_READY" = "false" ]; then
-  echo "⚠️  Warning: FastAPI failed to start. AI features will not work."
-  echo "⚠️  Check FastAPI logs for details. Continuing with Express app..."
-  
-  # FastAPIプロセスのクリーンアップ
-  cleanup_fastapi
-fi
+# FastAPI is now running as a separate service (ai)
+echo "ℹ️  FastAPI is running as a separate service (ai)"
 
 echo "🚀 Starting Express app..."
 

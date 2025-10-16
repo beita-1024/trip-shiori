@@ -65,7 +65,44 @@
 
 ### アーキテクチャとインフラ設計
 
-モノレポ構成・フロント/バックエンド分離（Next.js〈SSR/SSG+CSR〉＋Express API）・IaC・マルチステージビルド。開発効率と本番安定性を両立。
+モノレポ構成・フロント/バックエンド分離（Next.js〈SSR/SSG+CSR〉＋Express API + Python AI Service）・IaC・マルチステージビルド。開発効率と本番安定性を両立。
+
+### AI機能のアーキテクチャ
+
+```
+Frontend (Next.js)
+    ↓ HTTP
+Backend (Express/TypeScript)
+    ↓ 内部通信トークン認証
+AI Service (FastAPI/Python)
+    ↓
+LangChain 0.3 + LangGraph
+    ↓
+Cerebras API (優先) / OpenAI API (フォールバック)
+    ↓
+Tavily Search API (RAG機能)
+```
+
+**Python内部サービス**:
+- **FastAPI**: 軽量・高速・型安全なPython APIフレームワーク
+- **内部通信トークン認証**: `INTERNAL_AI_TOKEN`による安全なマイクロサービス間通信
+- **エンドポイント**: `/internal/ai/events-complete`、`/internal/ai/itinerary-edit`
+- **Pydantic**: 型安全なリクエスト/レスポンス検証
+- **非同期処理**: `async/await`による高パフォーマンス処理
+
+**RAG実装**:
+- **LangGraph ReActエージェント**: 推論とアクションの組み合わせによる高度なAI処理
+- **Tavily検索ツール**: 回数制限付き（`TAVILY_MAX_PER_RUN=3`）の検索API統合
+- **プロンプトエンジニアリング**: 旅程編集専用のプロンプトテンプレート
+- **入力サニタイズ**: HTML/URL除去、長さ制限（1000文字）、制御文字除去
+- **エラーハンドリング**: レート制限・タイムアウト・API障害への対応
+
+**必須環境変数**:
+- `CEREBRAS_API_KEY`: Cerebras APIキー（優先LLM）
+- `OPENAI_API_KEY`: OpenAI APIキー（フォールバック）
+- `TAVILY_API_KEY`: Tavily検索APIキー（RAG機能）
+- `INTERNAL_AI_TOKEN`: 内部サービス間認証トークン
+- その他: 詳細は `docs/quick-start.md` を参照
 
 ![GCP構成図](./docs/assets/GCP_構成図.png)
 
@@ -85,6 +122,17 @@
   - argon2: パスワードハッシュ化（メモリハード、総当たり耐性）で採用
   - helmet: セキュリティヘッダー付与でXSS等のリスク低減
   - nodemailer: メール送信・認証・通知機能で採用
+- **AI機能（Python）**:
+  - **Python 3.11**: 最新の型ヒント・パフォーマンス向上・非同期処理最適化で採用
+  - **Poetry**: 依存関係管理・仮想環境・パッケージング・ビルドシステムで採用
+  - **FastAPI 0.109**: 軽量・高速・型安全なPython APIフレームワークで採用
+  - **Pydantic 2.5**: 型安全なデータ検証・シリアライゼーション・設定管理で採用
+  - **LangChain 0.3**: LLMアプリケーション構築フレームワーク（LCEL/ストリーミング対応）で採用
+  - **LangGraph 0.6**: ReActエージェント・ツール統合・複雑なワークフロー管理で採用
+  - **Tavily Search**: RAG用の検索API統合（tavily-python 0.7）で採用
+  - **Cerebras API**: 高速・低コストなLLM推論（OpenAI互換、優先使用）で採用
+  - **httpx**: 非同期HTTP通信・API呼び出し最適化で採用
+  - **内部通信トークン認証**: 安全なマイクロサービス間通信で採用
 - **データベース**:
   - PostgreSQL 16: ACID保証・JSON型サポート・インデックス最適化で採用
 - **インフラ**:
@@ -155,6 +203,7 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 
 **参照**
 - `/terraform/README.md`: Terraform構成・環境変数・apply手順
+- `/docs/quick-start.md`: クイックスタート手順・環境変数設定（AI機能: CEREBRAS_API_KEY、TAVILY_API_KEY等）
 
 ## パフォーマンスとA11y/UX
 
@@ -162,7 +211,11 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 
 高速レスポンス・効率的なリソース利用・ユーザー体験向上。AI機能とUIの両方で最適化を実現。
 
-- **AI機能最適化**: モデル選択・キャッシュ戦略・リトライ機能（gpt-4o-mini推奨）
+- **AI機能最適化**: 
+  - **LLMプロバイダー選択**: Cerebras優先（gpt-oss-120b、高速・低コスト）、OpenAI（gpt-4o-mini）フォールバック
+  - **RAG機能**: Tavily検索APIによる最新情報取得（回数制限: 3回/実行）
+  - **リトライ機能**: LLM APIのレート制限対応
+  - **内部通信**: FastAPI + LangChain 0.3 + LangGraphによる効率的なAI処理
 - **フロントエンド最適化**: Next.js SSR/SSG・画像最適化・コード分割
 - **API最適化**: レスポンス時間・データ量削減・並列処理
 - **監視**: 使用量追跡・パフォーマンスメトリクス・エラー監視
@@ -188,6 +241,12 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - **Authフロー**: Access/Refresh JWT（15分/7日）、パスワード変更時のトークン無効化、Cookie-based認証
 - **zod/DTOで入力検証**: サーバ/フォーム両方で厳格なバリデーション（パスワード強度、旅程ID形式等）
 - **Prismaスキーマ**: FK/Unique/監査列（createdAt/updatedAt）、カスケード削除、インデックス最適化
+- **AI機能セキュリティ**:
+  - **内部通信トークン**: `INTERNAL_AI_TOKEN`によるマイクロサービス間認証
+  - **入力サニタイズ**: HTML/URL除去、長さ制限（1000文字）、制御文字除去
+  - **APIキー管理**: Cerebras/OpenAI/Tavily APIキーをPydantic SecretStrで管理
+  - **レート制限**: Tavily検索API（3回/実行）、LLM API（60秒タイムアウト）
+  - **エラーハンドリング**: API障害時のフォールバック機能
 
 **参照**
 - `/docs/database-schema.md`: ER図・テーブル仕様・制約/インデックス
@@ -205,6 +264,11 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - docs（トップ）
   - [docs/quick-start.md](docs/quick-start.md) - クイックスタート（環境変数設定含む）
   - [docs/database-schema.md](docs/database-schema.md) - ER図・テーブル仕様・制約/インデックス
+- backend/python/ - AI機能（Python + LangChain）
+  - [backend/python/pyproject.toml](backend/python/pyproject.toml) - Python依存関係・LangChainバージョン
+  - [backend/python/app/services/ai_langchain.py](backend/python/app/services/ai_langchain.py) - LangChain実装（Cerebras/OpenAI/RAG）
+  - [backend/python/app/routers/internal_ai.py](backend/python/app/routers/internal_ai.py) - 内部AI APIエンドポイント
+  - [backend/python/app/core/config.py](backend/python/app/core/config.py) - AI機能設定（Cerebras/Tavily）
 
 - docs/api
   - [docs/api/openapi.yaml](docs/api/openapi.yaml) - OpenAPI仕様書

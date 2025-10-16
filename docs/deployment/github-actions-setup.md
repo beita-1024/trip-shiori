@@ -31,15 +31,15 @@ GitHub ActionsでGCPに自動デプロイするための設定手順です。
 
 #### 必須権限
 - **Cloud Run管理者**: `roles/run.admin`
-  - Cloud Runサービスの作成・更新・削除
+  - Cloud Runサービスの作成・更新・削除（Frontend + Backend + AI Service）
 - **Artifact Registry書き込み**: `roles/artifactregistry.writer`
   - Dockerイメージのプッシュ
 - **サービスアカウントユーザー**: `roles/iam.serviceAccountUser`
   - Cloud Runサービスアカウントの使用
 
 #### オプション権限（必要に応じて）
-- **Secret Manager読み取り**: `roles/secretmanager.secretVersionAccessor`
-  - シークレットの読み取り
+- **Secret Manager読み取り**: `roles/secretmanager.secretVersionAccessor`（将来実装予定）
+  - シークレットの読み取り（AI APIキー・トークン）
 - **Cloud SQL管理者**: `roles/cloudsql.admin`
   - データベースの管理
 - **Storage管理者**: `roles/storage.objectAdmin`
@@ -119,9 +119,10 @@ base64 -i ci-deployer-key.json
 ### デプロイフロー
 1. コードチェックアウト
 2. GCP認証
-3. Dockerイメージビルド・プッシュ
-4. Terraform適用（自動承認）
-5. デプロイ結果検証
+3. Dockerイメージビルド・プッシュ（Frontend + Backend + AI Service）
+4. 環境変数設定（AI APIキー・トークン）
+5. Terraform適用（自動承認）
+6. デプロイ結果検証
 
 ## トラブルシューティング
 
@@ -167,6 +168,7 @@ gcloud logging read "resource.type=cloud_run_revision" \
 - JSONキーファイルは絶対にGitにコミットしない
 - 定期的なキーのローテーション
 - 不要になったキーは削除
+- 環境変数でAI APIキー・トークンを設定（将来Secret Manager移行予定）
 
 ### 3. 監査ログ
 - サービスアカウントの使用状況を監視

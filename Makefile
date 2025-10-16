@@ -187,6 +187,8 @@ sh-backend: ## backendのシェル（開発環境）
 
 sh-frontend: ## frontendのシェル（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) exec frontend sh
+sh-ai: ## aiのシェル（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) exec ai sh
 
 lint: ## まとめてlint（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint
@@ -369,6 +371,7 @@ GCP_REGION = asia-northeast1
 GIT_SHA = $(shell git rev-parse --short HEAD)
 BACKEND_IMAGE = gcr.io/$(GCP_PROJECT)/trip-shiori-backend:$(GIT_SHA)
 FRONTEND_IMAGE = gcr.io/$(GCP_PROJECT)/trip-shiori-frontend:$(GIT_SHA)
+AI_IMAGE = gcr.io/$(GCP_PROJECT)/trip-shiori-ai:$(GIT_SHA)
 
 .PHONY: \
   tf-init \
@@ -478,12 +481,13 @@ auth-setup: ## 認証セットアップ（初回設定用）
 	@echo "✅ 認証セットアップが完了しました"
 
 # ===== Docker操作 =====
-docker-build: python-check-lock ## Dockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
+docker-build: ai-check-lock ## Dockerイメージビルド（Git SHA方式、AIサービスロックファイル確認付き）
 	@echo "Dockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend
 	docker build -t $(FRONTEND_IMAGE) ./frontend
+	docker build -t $(AI_IMAGE) ./ai
 
-docker-build-with-env: python-check-lock ## 環境変数付きでDockerイメージビルド（Git SHA方式、Pythonロックファイル確認付き）
+docker-build-with-env: ai-check-lock ## 環境変数付きでDockerイメージビルド（Git SHA方式、AIサービスロックファイル確認付き）
 	@echo "環境変数付きでDockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
 	docker build -t $(BACKEND_IMAGE) ./backend || (echo "❌ バックエンドイメージのビルドに失敗しました" && exit 1)
 	@echo "フロントエンドの環境変数を設定中..."
@@ -498,17 +502,39 @@ docker-build-with-env: python-check-lock ## 環境変数付きでDockerイメー
 		--build-arg NEXT_PUBLIC_VERSION="1.0.0" \
 		--build-arg NEXT_PUBLIC_DEBUG="false" \
 		-t $(FRONTEND_IMAGE) ./frontend || (echo "❌ フロントエンドイメージのビルドに失敗しました" && exit 1)
+	docker build -t $(AI_IMAGE) ./ai || (echo "❌ AIサービスイメージのビルドに失敗しました" && exit 1)
 
 docker-push: ## Dockerイメージプッシュ（Git SHA方式）
 	@echo "DockerイメージをGCRへプッシュします（Git SHA: $(GIT_SHA)）..."
 	docker push $(BACKEND_IMAGE)
 	docker push $(FRONTEND_IMAGE)
+	docker push $(AI_IMAGE)
+
+# AIサービス専用Docker操作
+ai-docker-build: ai-check-lock ## AIサービス Dockerイメージビルド（Git SHA方式）
+	@echo "AIサービスDockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
+	docker build -t $(AI_IMAGE) ./ai
+	@echo "✅ AIサービスDockerイメージのビルドが完了しました"
+
+ai-docker-build-prod: ai-check-lock ## AIサービス 本番用Dockerイメージビルド（Git SHA方式）
+	@echo "AIサービス本番用Dockerイメージをビルドします（Git SHA: $(GIT_SHA)）..."
+	docker build --target runtime -t $(AI_IMAGE) ./ai
+	@echo "✅ AIサービス本番用Dockerイメージのビルドが完了しました"
+
+ai-docker-push: ## AIサービス Dockerイメージプッシュ（Git SHA方式）
+	@echo "AIサービスDockerイメージをGCRへプッシュします（Git SHA: $(GIT_SHA)）..."
+	docker push $(AI_IMAGE)
+	@echo "✅ AIサービスDockerイメージのプッシュが完了しました"
 
 # ===== 統合デプロイ =====
 deploy-gcp-dev: ## GCP開発環境デプロイ
 	@echo "GCP開発環境へデプロイを開始します..."
 	$(MAKE) tf-init TF_ENV=dev
 	$(MAKE) tf-validate TF_ENV=dev
+	@echo "環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=dev
+	@echo "Dockerイメージをプッシュします..."
+	$(MAKE) docker-push
 	$(MAKE) tf-plan TF_ENV=dev
 	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
@@ -538,6 +564,10 @@ deploy-gcp-prod: ## GCP本番環境デプロイ
 	@echo "GCP本番環境へデプロイを開始します..."
 	$(MAKE) tf-init TF_ENV=prod
 	$(MAKE) tf-validate TF_ENV=prod
+	@echo "環境変数付きでDockerイメージをビルドします..."
+	$(MAKE) docker-build-with-env TF_ENV=prod
+	@echo "Dockerイメージをプッシュします..."
+	$(MAKE) docker-push
 	$(MAKE) tf-plan TF_ENV=prod
 	@echo "⚠️  本番環境の変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
@@ -636,6 +666,33 @@ deploy-gcp-full: ## フルデプロイ（環境変数付きビルド→プッシ
 	@echo "デプロイ結果:"
 	$(MAKE) tf-output TF_ENV=$(TF_ENV)
 
+# AIサービス専用デプロイ
+deploy-ai-dev: ## AIサービス開発環境デプロイ
+	@echo "AIサービス開発環境へデプロイを開始します..."
+	$(MAKE) ai-docker-build-prod
+	$(MAKE) ai-docker-push
+	$(MAKE) tf-init TF_ENV=dev
+	$(MAKE) tf-validate TF_ENV=dev
+	$(MAKE) tf-plan TF_ENV=dev
+	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	$(MAKE) tf-apply TF_ENV=dev
+	@echo "✅ AIサービス開発環境デプロイが完了しました"
+	@echo "AIサービスURL: https://dev-ai.trip.beita.dev"
+
+deploy-ai-prod: ## AIサービス本番環境デプロイ
+	@echo "AIサービス本番環境へデプロイを開始します..."
+	$(MAKE) ai-docker-build-prod
+	$(MAKE) ai-docker-push
+	$(MAKE) tf-init TF_ENV=prod
+	$(MAKE) tf-validate TF_ENV=prod
+	$(MAKE) tf-plan TF_ENV=prod
+	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
+	$(MAKE) tf-apply TF_ENV=prod
+	@echo "✅ AIサービス本番環境デプロイが完了しました"
+	@echo "AIサービスURL: https://ai.trip.beita.dev"
+
 # ===== 削除保護チェック・無効化 =====
 check-deletion-protection: ## Cloud SQLインスタンスの削除保護をチェック・無効化
 	@echo "Cloud SQLインスタンスの削除保護をチェック中..."
@@ -723,14 +780,23 @@ logs-gcp-backend: ## GCP Cloud Run バックエンドのログ取得
 		--limit=50 \
 		--format="table(timestamp,severity,textPayload)"
 
-logs-gcp: logs-gcp-frontend logs-gcp-backend ## GCP Cloud Run 全サービスのログ取得
+logs-gcp-ai: ## GCP Cloud Run AIサービスのログ取得
+	@echo "Cloud Run AIサービスのログを取得します..."
+	gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=trip-shiori-$(TF_ENV)-ai" \
+		--project=$(GCP_PROJECT) \
+		--limit=50 \
+		--format="table(timestamp,severity,textPayload)"
+
+logs-gcp: logs-gcp-frontend logs-gcp-backend logs-gcp-ai ## GCP Cloud Run 全サービスのログ取得
 
 # ===== CloudFlare DNS設定 =====
 # ドメイン設定
 DEV_FRONTEND_DOMAIN = dev-app.trip.beita.dev
 DEV_BACKEND_DOMAIN = dev-api.trip.beita.dev
+DEV_AI_DOMAIN = dev-ai.trip.beita.dev
 PROD_FRONTEND_DOMAIN = app.trip.beita.dev
 PROD_BACKEND_DOMAIN = api.trip.beita.dev
+PROD_AI_DOMAIN = ai.trip.beita.dev
 
 # 動的ドメイン取得関数
 # 引数: $(1) = サービス名, $(2) = 環境
@@ -764,8 +830,10 @@ get-prod-backend-url: ## 本番環境バックエンドのCloud Run URL取得
 # Cloud Runサービス名（環境別）
 DEV_FRONTEND_SERVICE = trip-shiori-dev-frontend
 DEV_BACKEND_SERVICE = trip-shiori-dev-backend
+DEV_AI_SERVICE = trip-shiori-dev-ai
 PROD_FRONTEND_SERVICE = trip-shiori-prod-frontend
 PROD_BACKEND_SERVICE = trip-shiori-prod-backend
+PROD_AI_SERVICE = trip-shiori-prod-ai
 
 # gcloud設定
 GCLOUD_TRACK ?= beta
@@ -843,48 +911,158 @@ dns-info: ## 環境別のDNS設定情報表示
 
 # ===== Cloud Run ドメインマッピング実装 =====
 
-# 開発環境のドメインマッピング作成
-# 参考：https://cloud.google.com/run/docs/mapping-custom-domains?hl=ja#gcloud
-domain-mapping-create-dev: ## 開発環境のCloud Runドメインマッピング作成
-	@echo "開発環境のドメインマッピングを作成します..."
+# 開発環境のドメインマッピング作成（個別）
+domain-mapping-create-dev-frontend: ## 開発環境フロントエンドのドメインマッピング作成
+	@echo "開発環境フロントエンドのドメインマッピングを作成します..."
 	@echo "フロントエンド: $(DEV_FRONTEND_DOMAIN) -> $(DEV_FRONTEND_SERVICE)"
-	@echo "バックエンド: $(DEV_BACKEND_DOMAIN) -> $(DEV_BACKEND_SERVICE)"
-	@echo ""
-	@echo "フロントエンドのドメインマッピングを作成中..."
 	@$(GCLOUD) run domain-mappings create \
 		--service=$(DEV_FRONTEND_SERVICE) \
 		--domain=$(DEV_FRONTEND_DOMAIN) \
-		--region=$(GCP_REGION)
-	@echo ""
-	@echo "バックエンドのドメインマッピングを作成中..."
+		--region=$(GCP_REGION) \
+	|| (echo "❌ フロントエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ フロントエンドのドメインマッピング作成が完了しました"
+
+domain-mapping-create-dev-backend: ## 開発環境バックエンドのドメインマッピング作成
+	@echo "開発環境バックエンドのドメインマッピングを作成します..."
+	@echo "バックエンド: $(DEV_BACKEND_DOMAIN) -> $(DEV_BACKEND_SERVICE)"
 	@$(GCLOUD) run domain-mappings create \
 		--service=$(DEV_BACKEND_SERVICE) \
 		--domain=$(DEV_BACKEND_DOMAIN) \
-		--region=$(GCP_REGION)
+		--region=$(GCP_REGION) \
+	|| (echo "❌ バックエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ バックエンドのドメインマッピング作成が完了しました"
+
+domain-mapping-create-dev-ai: ## 開発環境AIサービスのドメインマッピング作成
+	@echo "開発環境AIサービスのドメインマッピングを作成します..."
+	@echo "AIサービス: $(DEV_AI_DOMAIN) -> $(DEV_AI_SERVICE)"
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(DEV_AI_SERVICE) \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+	|| (echo "❌ AIサービスのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ AIサービスのドメインマッピング作成が完了しました"
+
+# 開発環境のドメインマッピング作成（統合）
+domain-mapping-create-dev: ## 開発環境のCloud Runドメインマッピング作成（全サービス）
+	@echo "開発環境のドメインマッピングを作成します..."
+	@echo "フロントエンド: $(DEV_FRONTEND_DOMAIN) -> $(DEV_FRONTEND_SERVICE)"
+	@echo "バックエンド: $(DEV_BACKEND_DOMAIN) -> $(DEV_BACKEND_SERVICE)"
+	@echo "AIサービス: $(DEV_AI_DOMAIN) -> $(DEV_AI_SERVICE)"
+	@echo ""
+	@echo "⚠️  各ドメインマッピングを個別に作成します..."
+	@echo ""
+	@$(MAKE) domain-mapping-create-dev-frontend || (echo "❌ フロントエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo ""
+	@$(MAKE) domain-mapping-create-dev-backend || (echo "❌ バックエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo ""
+	@$(MAKE) domain-mapping-create-dev-ai || (echo "❌ AIサービスのドメインマッピング作成に失敗しました" && exit 1)
 	@echo ""
 	@echo "✅ 開発環境のドメインマッピング作成が完了しました"
 	@echo "次のステップ: make domain-mapping-info-dev でDNS設定情報を確認してください"
 
-# 本番環境のドメインマッピング作成
-domain-mapping-create-prod: ## 本番環境のCloud Runドメインマッピング作成
-	@echo "本番環境のドメインマッピングを作成します..."
+# 本番環境のドメインマッピング作成（個別）
+domain-mapping-create-prod-frontend: ## 本番環境フロントエンドのドメインマッピング作成
+	@echo "本番環境フロントエンドのドメインマッピングを作成します..."
 	@echo "フロントエンド: $(PROD_FRONTEND_DOMAIN) -> $(PROD_FRONTEND_SERVICE)"
-	@echo "バックエンド: $(PROD_BACKEND_DOMAIN) -> $(PROD_BACKEND_SERVICE)"
-	@echo ""
-	@echo "フロントエンドのドメインマッピングを作成中..."
 	@$(GCLOUD) run domain-mappings create \
 		--service=$(PROD_FRONTEND_SERVICE) \
 		--domain=$(PROD_FRONTEND_DOMAIN) \
-		--region=$(GCP_REGION)
-	@echo ""
-	@echo "バックエンドのドメインマッピングを作成中..."
+		--region=$(GCP_REGION) \
+	|| (echo "❌ フロントエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ フロントエンドのドメインマッピング作成が完了しました"
+
+domain-mapping-create-prod-backend: ## 本番環境バックエンドのドメインマッピング作成
+	@echo "本番環境バックエンドのドメインマッピングを作成します..."
+	@echo "バックエンド: $(PROD_BACKEND_DOMAIN) -> $(PROD_BACKEND_SERVICE)"
 	@$(GCLOUD) run domain-mappings create \
 		--service=$(PROD_BACKEND_SERVICE) \
 		--domain=$(PROD_BACKEND_DOMAIN) \
-		--region=$(GCP_REGION)
+		--region=$(GCP_REGION) \
+	|| (echo "❌ バックエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ バックエンドのドメインマッピング作成が完了しました"
+
+domain-mapping-create-prod-ai: ## 本番環境AIサービスのドメインマッピング作成
+	@echo "本番環境AIサービスのドメインマッピングを作成します..."
+	@echo "AIサービス: $(PROD_AI_DOMAIN) -> $(PROD_AI_SERVICE)"
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(PROD_AI_SERVICE) \
+		--domain=$(PROD_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+	|| (echo "❌ AIサービスのドメインマッピング作成に失敗しました" && exit 1)
+	@echo "✅ AIサービスのドメインマッピング作成が完了しました"
+
+# 本番環境のドメインマッピング作成（統合）
+domain-mapping-create-prod: ## 本番環境のCloud Runドメインマッピング作成（全サービス）
+	@echo "本番環境のドメインマッピングを作成します..."
+	@echo "フロントエンド: $(PROD_FRONTEND_DOMAIN) -> $(PROD_FRONTEND_SERVICE)"
+	@echo "バックエンド: $(PROD_BACKEND_DOMAIN) -> $(PROD_BACKEND_SERVICE)"
+	@echo "AIサービス: $(PROD_AI_DOMAIN) -> $(PROD_AI_SERVICE)"
+	@echo ""
+	@echo "⚠️  各ドメインマッピングを個別に作成します..."
+	@echo ""
+	@$(MAKE) domain-mapping-create-prod-frontend || (echo "❌ フロントエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo ""
+	@$(MAKE) domain-mapping-create-prod-backend || (echo "❌ バックエンドのドメインマッピング作成に失敗しました" && exit 1)
+	@echo ""
+	@$(MAKE) domain-mapping-create-prod-ai || (echo "❌ AIサービスのドメインマッピング作成に失敗しました" && exit 1)
 	@echo ""
 	@echo "✅ 本番環境のドメインマッピング作成が完了しました"
 	@echo "次のステップ: make domain-mapping-info-prod でDNS設定情報を確認してください"
+
+# ドメインマッピング削除（個別）
+domain-mapping-delete-dev-frontend: ## 開発環境フロントエンドのドメインマッピング削除
+	@echo "開発環境フロントエンドのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(DEV_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  フロントエンドのドメインマッピングが見つかりません"
+	@echo "✅ フロントエンドのドメインマッピング削除が完了しました"
+
+domain-mapping-delete-dev-backend: ## 開発環境バックエンドのドメインマッピング削除
+	@echo "開発環境バックエンドのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(DEV_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  バックエンドのドメインマッピングが見つかりません"
+	@echo "✅ バックエンドのドメインマッピング削除が完了しました"
+
+domain-mapping-delete-dev-ai: ## 開発環境AIサービスのドメインマッピング削除
+	@echo "開発環境AIサービスのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  AIサービスのドメインマッピングが見つかりません"
+	@echo "✅ AIサービスのドメインマッピング削除が完了しました"
+
+domain-mapping-delete-prod-frontend: ## 本番環境フロントエンドのドメインマッピング削除
+	@echo "本番環境フロントエンドのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(PROD_FRONTEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  フロントエンドのドメインマッピングが見つかりません"
+	@echo "✅ フロントエンドのドメインマッピング削除が完了しました"
+
+domain-mapping-delete-prod-backend: ## 本番環境バックエンドのドメインマッピング削除
+	@echo "本番環境バックエンドのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(PROD_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  バックエンドのドメインマッピングが見つかりません"
+	@echo "✅ バックエンドのドメインマッピング削除が完了しました"
+
+domain-mapping-delete-prod-ai: ## 本番環境AIサービスのドメインマッピング削除
+	@echo "本番環境AIサービスのドメインマッピングを削除します..."
+	@$(GCLOUD) run domain-mappings delete \
+		--domain=$(PROD_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--quiet \
+	|| echo "⚠️  AIサービスのドメインマッピングが見つかりません"
+	@echo "✅ AIサービスのドメインマッピング削除が完了しました"
 
 # 環境別のドメインマッピング作成
 domain-mapping-create: ## 環境別のCloud Runドメインマッピング作成
@@ -917,6 +1095,14 @@ domain-mapping-info-dev: ## 開発環境のドメインマッピングDNS設定�
 		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
 	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-dev を実行してください"
 	@echo ""
+	@echo "AIサービス ($(DEV_AI_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-dev を実行してください"
+	@echo ""
 	@echo "CloudFlareの設定:"
 	@echo "  SSL/TLS: Full (strict)"
 	@echo "  Always Use HTTPS: ON"
@@ -940,6 +1126,14 @@ domain-mapping-info-prod: ## 本番環境のドメインマッピングDNS設定
 	@echo "必要なDNSレコード:"
 	@$(GCLOUD) run domain-mappings describe \
 		--domain=$(PROD_BACKEND_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-prod を実行してください"
+	@echo ""
+	@echo "AIサービス ($(PROD_AI_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_AI_DOMAIN) \
 		--region=$(GCP_REGION) \
 		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
 	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-prod を実行してください"
@@ -979,6 +1173,12 @@ domain-mapping-status: ## ドメインマッピングの状態確認
 		--region=$(GCP_REGION) \
 		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
 	@echo ""
+	@echo "AIサービス ($(DEV_AI_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+	@echo ""
 	@echo "本番環境:"
 	@echo "フロントエンド ($(PROD_FRONTEND_DOMAIN)):"
 	@$(GCLOUD) run domain-mappings describe \
@@ -991,11 +1191,56 @@ domain-mapping-status: ## ドメインマッピングの状態確認
 		--domain=$(PROD_BACKEND_DOMAIN) \
 		--region=$(GCP_REGION) \
 		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
+	@echo ""
+	@echo "AIサービス ($(PROD_AI_DOMAIN)):"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='value(status.conditions[].type,status.conditions[].status,status.conditions[].message)' || echo "ドメインマッピングが見つかりません"
 
 # ドメインマッピング一覧表示
 domain-mapping-list: ## 全ドメインマッピングの一覧表示
 	@echo "=== Cloud Runドメインマッピング一覧 ==="
 	@$(GCLOUD) run domain-mappings list --region=$(GCP_REGION) --format='table(metadata.name,spec.routeName,status.conditions[].type,status.conditions[].status)'
+
+# AIサービス専用ドメインマッピング
+domain-mapping-create-ai-dev: ## AIサービス開発環境のドメインマッピング作成
+	@echo "AIサービス開発環境のドメインマッピングを作成します..."
+	@echo "AIサービス: $(DEV_AI_DOMAIN) -> $(DEV_AI_SERVICE)"
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(DEV_AI_SERVICE) \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo "✅ AIサービス開発環境のドメインマッピング作成が完了しました"
+
+domain-mapping-create-ai-prod: ## AIサービス本番環境のドメインマッピング作成
+	@echo "AIサービス本番環境のドメインマッピングを作成します..."
+	@echo "AIサービス: $(PROD_AI_DOMAIN) -> $(PROD_AI_SERVICE)"
+	@$(GCLOUD) run domain-mappings create \
+		--service=$(PROD_AI_SERVICE) \
+		--domain=$(PROD_AI_DOMAIN) \
+		--region=$(GCP_REGION)
+	@echo "✅ AIサービス本番環境のドメインマッピング作成が完了しました"
+
+domain-mapping-info-ai-dev: ## AIサービス開発環境のドメインマッピング情報表示
+	@echo "=== AIサービス開発環境のドメインマッピング情報 ==="
+	@echo "AIサービス ($(DEV_AI_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(DEV_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-ai-dev を実行してください"
+
+domain-mapping-info-ai-prod: ## AIサービス本番環境のドメインマッピング情報表示
+	@echo "=== AIサービス本番環境のドメインマッピング情報 ==="
+	@echo "AIサービス ($(PROD_AI_DOMAIN)):"
+	@echo "必要なDNSレコード:"
+	@$(GCLOUD) run domain-mappings describe \
+		--domain=$(PROD_AI_DOMAIN) \
+		--region=$(GCP_REGION) \
+		--format='table(status.resourceRecords[].type,status.resourceRecords[].name,status.resourceRecords[].rrdata)' \
+	|| echo "ドメインマッピングが見つかりません。先に make domain-mapping-create-ai-prod を実行してください"
 
 # ===== GitHub Actions用ヘルパー =====
 setup-github-actions: ## GitHub Actions用サービスアカウント設定
@@ -1156,52 +1401,99 @@ deploy-auto: ## 環境指定自動デプロイ（GitHub Actions用）
 		exit 1; \
 	fi
 
-# ===== Python / FastAPI 関連コマンド =====
+# ===== AI Service 関連コマンド =====
 
-python-install: ## Python 依存関係をインストール
-	@echo "Python依存関係をインストールしています..."
-	cd backend/python && poetry install
-	@echo "✅ Python依存関係のインストールが完了しました"
+ai-install: ## AIサービス 依存関係をインストール
+	@echo "AIサービス依存関係をインストールしています..."
+	cd ai && poetry install
+	@echo "✅ AIサービス依存関係のインストールが完了しました"
 
-python-shell: ## Python Poetry シェルに入る
-	@echo "Poetryシェルに入ります..."
-	cd backend/python && poetry shell
+ai-shell: ## AIサービス Poetry シェルに入る
+	@echo "AIサービスPoetryシェルに入ります..."
+	cd ai && poetry shell
 
-python-test: ## FastAPI テストを実行
-	@echo "FastAPIのテストを実行しています..."
-	cd backend/python && poetry run pytest
-	@echo "✅ FastAPIのテストが完了しました"
+ai-test: ## AIサービス FastAPI テストを実行
+	@echo "AIサービスFastAPIのテストを実行しています..."
+	cd ai && poetry run pytest
+	@echo "✅ AIサービスFastAPIのテストが完了しました"
 
-python-lock: ## 依存関係をロックファイルに固定（再解決せず）
-	@echo "Poetryロック（--no-update）を実行します..."
-	cd backend/python && poetry lock --no-update
-	@echo "✅ ロックファイルを固定しました"
+ai-lock: ## AIサービス 依存関係をロックファイルに固定（再解決せず）
+	@echo "AIサービスPoetryロック（--no-update）を実行します..."
+	cd ai && poetry lock --no-update
+	@echo "✅ AIサービスロックファイルを固定しました"
 
-python-lock-refresh: ## 依存関係を再解決してロック更新
-	@echo "Poetryロックを再解決して更新します..."
-	cd backend/python && poetry lock
-	@echo "✅ ロックファイルを再解決して更新しました"
+ai-lock-refresh: ## AIサービス 依存関係を再解決してロック更新
+	@echo "AIサービスPoetryロックを再解決して更新します..."
+	cd ai && poetry lock
+	@echo "✅ AIサービスロックファイルを再解決して更新しました"
 
-# python-lock: ## Python 依存関係をロック（poetry.lock生成）
-# 	@echo "Python依存関係をロックしています..."
-# 	cd backend/python && poetry lock
-# 	@echo "✅ Python依存関係のロックが完了しました"
+ai-lock-update: ## AIサービス 依存関係を更新してロック
+	@echo "AIサービスPython依存関係を更新してロックしています..."
+	cd ai && poetry update
+	@echo "✅ AIサービスPython依存関係の更新とロックが完了しました"
 
-python-lock-update: ## Python 依存関係を更新してロック
-	@echo "Python依存関係を更新してロックしています..."
-	cd backend/python && poetry update
-	@echo "✅ Python依存関係の更新とロックが完了しました"
-
-python-check-lock: ## Python ロックファイルの整合性をチェック
-	@echo "Pythonロックファイルの整合性をチェックしています..."
+ai-check-lock: ## AIサービス ロックファイルの整合性をチェック
+	@echo "AIサービスPythonロックファイルの整合性をチェックしています..."
 	@if ! command -v poetry >/dev/null 2>&1; then \
-		echo "⚠️  警告: Poetryがインストールされていません。Pythonロックファイルのチェックをスキップします。"; \
+		echo "⚠️  警告: Poetryがインストールされていません。AIサービスPythonロックファイルのチェックをスキップします。"; \
 		echo "   Poetryのインストール方法: curl -sSL https://install.python-poetry.org | python3 -"; \
 		echo "   または: pip install poetry"; \
-		exit 0; \
+		echo "✅ AIサービスPoetryチェックをスキップしました"; \
+	else \
+		cd ai && poetry check; \
+		echo "✅ AIサービスPythonロックファイルは有効です"; \
 	fi
-	cd backend/python && poetry check
-	@echo "✅ Pythonロックファイルは有効です"
+
+ai-build: ## AIサービス Dockerイメージをビルド
+	@echo "AIサービスDockerイメージをビルドしています..."
+	docker build -f ai/Dockerfile -t trip-shiori-ai:latest ./ai
+	@echo "✅ AIサービスDockerイメージのビルドが完了しました"
+
+ai-build-prod: ## AIサービス 本番用Dockerイメージをビルド
+	@echo "AIサービス本番用Dockerイメージをビルドしています..."
+	docker build -f ai/Dockerfile --target runtime -t trip-shiori-ai:prod ./ai
+	@echo "✅ AIサービス本番用Dockerイメージのビルドが完了しました"
+
+ai-up: ## AIサービスを起動
+	@echo "AIサービスを起動しています..."
+	$(COMPOSE) up -d ai
+	@echo "✅ AIサービスが起動しました"
+
+ai-down: ## AIサービスを停止
+	@echo "AIサービスを停止しています..."
+	$(COMPOSE) down ai
+	@echo "✅ AIサービスが停止しました"
+
+ai-restart: ## AIサービスを再起動
+	@echo "AIサービスを再起動しています..."
+	$(COMPOSE) restart ai
+	@echo "✅ AIサービスが再起動しました"
+
+ai-logs: ## AIサービスのログを表示
+	@echo "AIサービスのログを表示しています..."
+	$(COMPOSE) logs -f ai
+
+ai-sh: ## AIサービスコンテナのシェルに入る
+	@echo "AIサービスコンテナのシェルに入ります..."
+	$(COMPOSE) exec ai /bin/bash
+
+ai-health: ## AIサービスのヘルスチェック
+	@echo "AIサービスのヘルスチェックを実行しています..."
+	@if curl -f http://localhost:6000/health >/dev/null 2>&1; then \
+		echo "✅ AIサービスは正常に動作しています"; \
+	else \
+		echo "❌ AIサービスにアクセスできません"; \
+		echo "   サービスが起動しているか確認してください: make ai-logs"; \
+	fi
+
+ai-test-integration: ## AIサービス統合テスト（バックエンド経由）
+	@echo "AIサービス統合テストを実行しています..."
+	@if curl -f http://localhost:4002/api/python/health >/dev/null 2>&1; then \
+		echo "✅ AIサービス統合テストが成功しました"; \
+	else \
+		echo "❌ AIサービス統合テストが失敗しました"; \
+		echo "   バックエンドとAIサービスが起動しているか確認してください"; \
+	fi
 
 
 # ===== Git 安全操作 =====

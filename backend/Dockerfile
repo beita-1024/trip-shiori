@@ -6,19 +6,12 @@ WORKDIR /app
 # ビルドに必要なツールを入れる
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
     make \
     g++ \
     ca-certificates \
     netcat-openbsd \
     curl \
   && rm -rf /var/lib/apt/lists/*
-
-# Poetry インストール
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
 
 # npmを最新版に更新
 RUN npm install -g npm@latest
@@ -34,28 +27,12 @@ COPY prisma ./prisma
 # Prismaクライアント生成
 RUN npx prisma generate
 
-# Python 依存関係ファイルを先にコピー
-COPY python/pyproject.toml python/poetry.lock ./python/
-
-# Python 依存関係インストール（開発用、プロジェクトインストールはスキップ）
-RUN cd python && poetry install --no-root
-
 # アプリ本体コピー
 COPY . .
-
-# Python プロジェクトをインストール（appディレクトリがコピーされた後）
-# 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-root && poetry install
-
-# uvicornが正しくインストールされていることを確認
-RUN cd python && poetry run uvicorn --version
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-
-# Pythonスクリプトの権限設定
-RUN chmod +x /app/python/start.sh
 
 # 開発用コマンド（DB起動待ち→ migrate dev → サーバ起動）
 CMD ["sh", "/app/entrypoint.sh"]
@@ -68,18 +45,11 @@ WORKDIR /app
 # ビルドに必要なツールを入れる
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
     make \
     g++ \
     ca-certificates \
     curl \
   && rm -rf /var/lib/apt/lists/*
-
-# Poetry インストール
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
 
 # npmを最新版に更新
 RUN npm install -g npm@latest
@@ -95,21 +65,8 @@ COPY prisma ./prisma
 # Prismaクライアント生成
 RUN npx prisma generate
 
-# Python 依存関係ファイルを先にコピー
-COPY python/pyproject.toml python/poetry.lock ./python/
-
-# Python 依存関係インストール（開発用、プロジェクトインストールはスキップ）
-RUN cd python && poetry install --no-root
-
 # アプリ本体コピー
 COPY . .
-
-# Python プロジェクトをインストール（appディレクトリがコピーされた後）
-# 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-root && poetry install
-
-# uvicornが正しくインストールされていることを確認
-RUN cd python && poetry run uvicorn --version
 
 # TypeScriptビルド（詳細ログ付き）
 RUN npm run build || (echo "Build failed, showing TypeScript errors:" && npx tsc --noEmit)
@@ -127,17 +84,10 @@ ENV NODE_ENV=production
 # ビルドに必要なツールを入れる（最小限）
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
     ca-certificates \
     netcat-openbsd \
     curl \
   && rm -rf /var/lib/apt/lists/*
-
-# Poetry インストール
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
 
 # パッケージインストール（本番用のみ）
 COPY package.json ./
@@ -154,21 +104,10 @@ RUN npx prisma generate
 # ビルド済みファイルをコピー
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/python ./python
-
-# Python 依存関係インストール（本番用、uvicornなど必要な依存関係も含む）
-# 依存関係の再インストールも実行して確実性を向上
-RUN cd python && poetry install --no-dev && poetry install --no-dev
-
-# uvicornが正しくインストールされていることを確認
-RUN cd python && poetry run uvicorn --version
 
 # スタートアップスクリプトを追加
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-
-# Pythonスクリプトの権限設定
-RUN chmod +x /app/python/start.sh
 
 # 非特権ユーザーで実行するため、ファイルの所有者を変更
 RUN chown -R node:node /app

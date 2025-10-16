@@ -128,7 +128,7 @@ variable "internal_ai_token" {
 variable "internal_ai_base_url" {
   description = "内部AIサービスのベースURL"
   type        = string
-  default     = "http://127.0.0.1:6000"
+  default     = "http://127.0.0.1:3001"
 }
 
 variable "openai_model" {

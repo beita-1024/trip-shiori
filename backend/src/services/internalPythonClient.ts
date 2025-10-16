@@ -11,7 +11,7 @@ class InternalPythonClient {
   private internalToken: string;
 
   constructor() {
-    const baseURL = process.env.INTERNAL_AI_BASE_URL || 'http://127.0.0.1:6000';
+    const baseURL = process.env.INTERNAL_AI_BASE_URL || 'http://ai:3000';
     this.internalToken = process.env.INTERNAL_AI_TOKEN || '';
     this.http = axios.create({ baseURL, timeout: 30000 });
     this.http.interceptors.request.use((config) => {
