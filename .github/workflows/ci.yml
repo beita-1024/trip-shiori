@@ -24,6 +24,7 @@ jobs:
           envsubst < .github/workflows/templates/backend.docker.env.template > backend/.env
           envsubst < .github/workflows/templates/backend.docker.env.template > backend/.env.test
           envsubst < .github/workflows/templates/frontend.env.template > frontend/.env
+          envsubst < .github/workflows/templates/ai.env.template > ai/.env
 
           # データベース環境変数ファイル作成
           cat > .env << EOF
