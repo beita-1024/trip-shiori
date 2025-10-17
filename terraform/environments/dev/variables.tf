@@ -36,17 +36,9 @@ variable "database_user" {
   default     = "trip_shiori_user"
 }
 
-variable "database_password" {
-  description = "データベースパスワード"
-  type        = string
-  sensitive   = true
-}
+# database_password は Secret Manager から参照するため削除
 
-variable "jwt_secret" {
-  description = "JWT署名用シークレット"
-  type        = string
-  sensitive   = true
-}
+# jwt_secret は Secret Manager から参照するため削除
 
 variable "jwt_access_expires_in" {
   description = "JWTアクセストークンの有効期限"
@@ -91,18 +83,9 @@ variable "smtp_port" {
   default     = "587"
 }
 
-variable "smtp_user" {
-  description = "SMTPユーザー名"
-  type        = string
-  default     = ""
-}
+# smtp_user は Secret Manager から参照するため削除
 
-variable "smtp_password" {
-  description = "SMTPパスワード"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# smtp_password は Secret Manager から参照するため削除
 
 variable "smtp_secure" {
   description = "SMTPセキュア接続"
@@ -110,20 +93,10 @@ variable "smtp_secure" {
   default     = "false"
 }
 
-variable "openai_api_key" {
-  description = "OpenAI APIキー"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# openai_api_key は Secret Manager から参照するため削除
 
 # ===== AI/LLM設定 =====
-variable "internal_ai_token" {
-  description = "内部AI用トークン（セキュリティ強化時用）"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# internal_ai_token は Secret Manager から参照するため削除
 
 variable "internal_ai_base_url" {
   description = "内部AIサービスのベースURL"
@@ -150,16 +123,5 @@ variable "llm_timeout_sec" {
 }
 
 # ===== 将来のAIサービス設定 =====
-variable "cerebras_api_key" {
-  description = "Cerebras APIキー（将来使用予定）"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "tavily_api_key" {
-  description = "Tavily APIキー（将来使用予定）"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# cerebras_api_key は Secret Manager から参照するため削除
+# tavily_api_key は Secret Manager から参照するため削除

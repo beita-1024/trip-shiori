@@ -127,6 +127,7 @@ deploy-*.log
 
 # セキュリティ関連
 secrets/
+!terraform/modules/secrets/
 *.pem
 *.key
 *.crt

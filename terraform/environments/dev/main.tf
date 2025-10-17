@@ -96,7 +96,9 @@ resource "google_sql_database" "main" {
 resource "google_sql_user" "main" {
   name     = var.database_user
   instance = google_sql_database_instance.main.name
-  password = var.database_password
+  password = data.google_secret_manager_secret_version.database_password.secret_data
+  
+  depends_on = [module.secrets]
 }
 
 # ===== Cloud Storage (静的ファイル用) =====
@@ -124,6 +126,41 @@ resource "random_id" "service_suffix" {
   byte_length = 4
 }
 
+# ===== Secret Manager モジュール =====
+module "secrets" {
+  source = "../../modules/secrets"
+  
+  project_id   = var.project_id
+  project_name = var.project_name
+  environment  = "dev"
+}
+
+# ===== Secret Manager データソース =====
+data "google_secret_manager_secret_version" "database_password" {
+  secret = module.secrets.secret_ids.database_password
+  
+  depends_on = [module.secrets]
+}
+
+# ===== サービスアカウント =====
+resource "google_service_account" "backend" {
+  account_id   = "${var.project_name}-backend"
+  display_name = "Backend Service Account"
+  description  = "Service account for backend service"
+}
+
+resource "google_service_account" "ai" {
+  account_id   = "${var.project_name}-ai"
+  display_name = "AI Service Account"
+  description  = "Service account for AI service"
+}
+
+resource "google_service_account" "frontend" {
+  account_id   = "${var.project_name}-frontend"
+  display_name = "Frontend Service Account"
+  description  = "Service account for frontend service"
+}
+
 # ===== Cloud Run (Backend) =====
 # 課金額削減のため min_instance_count = 0, cpu_idle = true を設定
 resource "google_cloud_run_v2_service" "backend" {
@@ -131,6 +168,8 @@ resource "google_cloud_run_v2_service" "backend" {
   location = var.region
 
   template {
+    service_account = google_service_account.backend.email
+    
     containers {
       image = "gcr.io/${var.project_id}/trip-shiori-backend:${data.external.git_info.result.short_sha}"
       
@@ -144,18 +183,48 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       
-      # Private IP を参照（type == "PRIVATE" を抽出）
+      # データベース接続設定（個別環境変数で設定、entrypoint.shでDATABASE_URLを構築）
       # Private IP接続のためsslmodeは不要（Cloud SQL Private IPはTLSを提供しない）
       # 接続の流れ: Cloud Run → VPC Connector → Cloud SQL (Private IP)
       # セキュリティ: VPC内通信のため外部からの直接アクセス不可
       env {
-        name  = "DATABASE_URL"
-        value = "postgresql://${var.database_user}:${var.database_password}@${google_sql_database_instance.main.private_ip_address}:5432/${var.database_name}"
+        name = "DATABASE_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.database_password
+            version = "latest"
+          }
+        }
       }
       
       env {
-        name  = "JWT_SECRET"
-        value = var.jwt_secret
+        name  = "DATABASE_HOST"
+        value = google_sql_database_instance.main.private_ip_address
+      }
+      
+      env {
+        name  = "DATABASE_PORT"
+        value = "5432"
+      }
+      
+      env {
+        name  = "DATABASE_NAME"
+        value = var.database_name
+      }
+      
+      env {
+        name  = "DATABASE_USER"
+        value = var.database_user
+      }
+      
+      env {
+        name = "JWT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.jwt_secret
+            version = "latest"
+          }
+        }
       }
       
       env {
@@ -179,13 +248,23 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
-        name  = "SMTP_USER"
-        value = var.smtp_user
+        name = "SMTP_USER"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.smtp_user
+            version = "latest"
+          }
+        }
       }
       
       env {
-        name  = "SMTP_PASS"
-        value = var.smtp_password
+        name = "SMTP_PASS"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.smtp_password
+            version = "latest"
+          }
+        }
       }
       
       env {
@@ -199,14 +278,24 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
-        name  = "OPENAI_API_KEY"
-        value = var.openai_api_key
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.openai_api_key
+            version = "latest"
+          }
+        }
       }
       
       # ===== AI/LLM設定 =====
       env {
-        name  = "INTERNAL_AI_TOKEN"
-        value = var.internal_ai_token
+        name = "INTERNAL_AI_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.internal_ai_token
+            version = "latest"
+          }
+        }
       }
       
       env {
@@ -231,13 +320,23 @@ resource "google_cloud_run_v2_service" "backend" {
       
       # ===== 将来のAIサービス設定 =====
       env {
-        name  = "CEREBRAS_API_KEY"
-        value = var.cerebras_api_key
+        name = "CEREBRAS_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.cerebras_api_key
+            version = "latest"
+          }
+        }
       }
       
       env {
-        name  = "TAVILY_API_KEY"
-        value = var.tavily_api_key
+        name = "TAVILY_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.tavily_api_key
+            version = "latest"
+          }
+        }
       }
 
       resources {
@@ -273,6 +372,8 @@ resource "google_cloud_run_v2_service" "ai" {
   location = var.region
 
   template {
+    service_account = google_service_account.ai.email
+    
     containers {
       image = "gcr.io/${var.project_id}/trip-shiori-ai:${data.external.git_info.result.short_sha}"
       
@@ -286,8 +387,13 @@ resource "google_cloud_run_v2_service" "ai" {
       }
       
       env {
-        name  = "OPENAI_API_KEY"
-        value = var.openai_api_key
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.openai_api_key
+            version = "latest"
+          }
+        }
       }
       
       env {
@@ -306,18 +412,33 @@ resource "google_cloud_run_v2_service" "ai" {
       }
       
       env {
-        name  = "INTERNAL_AI_TOKEN"
-        value = var.internal_ai_token
+        name = "INTERNAL_AI_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.internal_ai_token
+            version = "latest"
+          }
+        }
       }
       
       env {
-        name  = "CEREBRAS_API_KEY"
-        value = var.cerebras_api_key
+        name = "CEREBRAS_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.cerebras_api_key
+            version = "latest"
+          }
+        }
       }
       
       env {
-        name  = "TAVILY_API_KEY"
-        value = var.tavily_api_key
+        name = "TAVILY_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.tavily_api_key
+            version = "latest"
+          }
+        }
       }
 
       resources {
@@ -354,6 +475,8 @@ resource "google_cloud_run_v2_service" "frontend" {
   location = var.region
 
   template {
+    service_account = google_service_account.frontend.email
+    
     containers {
       image = "gcr.io/${var.project_id}/trip-shiori-frontend:${data.external.git_info.result.short_sha}"
       
