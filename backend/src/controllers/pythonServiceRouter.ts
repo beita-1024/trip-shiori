@@ -2,7 +2,10 @@
  * FastAPI sidecar service router
  */
 import { Router } from 'express';
-import { getFastAPIHealth, getFastAPIAuthHealth } from './pythonServiceController';
+import {
+  getFastAPIHealth,
+  getFastAPIAuthHealth,
+} from './pythonServiceController';
 
 const router = Router();
 
