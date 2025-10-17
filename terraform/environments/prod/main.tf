@@ -318,6 +318,7 @@ resource "google_cloud_run_v2_service" "backend" {
 resource "google_cloud_run_v2_service" "ai" {
   name     = "${var.project_name}-ai"
   location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
     containers {
@@ -379,6 +380,12 @@ resource "google_cloud_run_v2_service" "ai" {
     scaling {
       min_instance_count = 0
       max_instance_count = 100
+    }
+
+    # VPCアクセス設定を追加（プライベート宛のみVPC経由）
+    vpc_access {
+      connector = google_vpc_access_connector.main.id
+      egress    = "PRIVATE_RANGES_ONLY"
     }
   }
 
