@@ -14,46 +14,17 @@ from app.services.ai_langchain import complete_event, edit_itinerary
 router = APIRouter(prefix="/internal/ai")
 
 
-# INFO: そもそもサービス内でしかアクセスできないのに、
-#       require_internal_tokenが必要なのか？
-#       実装時の邪魔になるので一旦、コメントアウトしておく
+def _auth_internal(x_internal_token: str | None = Header(None)) -> None:
+    """内部認証ミドルウェア
+    
+    X-Internal-Tokenヘッダを検証し、正しいトークンでない場合は403エラーを返す。
+    """
+    try:
+        require_internal_token(x_internal_token)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
-# TODO: セキュリティ強化をする際には、require_internal_tokenを復活させる
-
-# def _auth_internal(x_internal_token: str | None = Header(None)) -> None:
-#     try:
-#         require_internal_token(x_internal_token)
-#     except ValueError as e:
-#         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-
-# INFO: コンテナの外からアクセスできないので実装時には
-# Make sh-backend で入って以下のコマンドで動作確認する。
-# curl -sS -X POST http://127.0.0.1:6000/internal/ai/events-complete
-#   -H "Content-Type: application/json"
-#   -d '{
-#     "event1": { "time": "10:00", "end_time": "10:30", "title": "出発", "description": "ホテルを出発", "icon": "mdi-car" },
-#     "event2": { "time": "12:00", "end_time": "13:00", "title": "昼食", "description": "レストランで昼食", "icon": "mdi-food" }
-#   }'
-
-# curl -sS -X POST http://127.0.0.1:6000/internal/ai/itinerary-edit
-#   -H "Content-Type: application/json"
-#   -d '{
-#     "originalItinerary": {
-#       "title": "テスト旅程",
-#       "subtitle": "テストサブタイトル",
-#       "description": "テスト説明",
-#       "days": [
-#         {
-#           "date": "2024-01-01",
-#           "events": [
-#             { "time": "10:00", "end_time": "10:30", "title": "出発", "description": "ホテルを出発", "icon": "mdi-car" }
-#           ]
-#         }
-#       ]
-#     },
-#     "editPrompt": "イベントを増やして沖縄旅行にしてください。"
-#   }'
-@router.post("/events-complete", response_model=Event)  # , dependencies=[Depends(_auth_internal)])
+@router.post("/events-complete", response_model=Event, dependencies=[Depends(_auth_internal)])
 def events_complete(body: EventsCompleteRequest) -> Event:
     """イベント補完（内部用）。"""
 
@@ -73,7 +44,7 @@ def events_complete(body: EventsCompleteRequest) -> Event:
 @router.post(
     "/itinerary-edit",
     response_model=ItineraryEditResponse,
-    # dependencies=[Depends(_auth_internal)],
+    dependencies=[Depends(_auth_internal)],
 )
 def itinerary_edit(body: ItineraryEditRequest) -> ItineraryEditResponse:
     """旅程編集（内部用）。

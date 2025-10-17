@@ -5,7 +5,7 @@ import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import health, calc, internal_ai
+from app.routers import health, internal_ai
 
 # Console logging setup so that `make logs` shows our module logs
 logging.basicConfig(
@@ -34,7 +34,6 @@ app.add_middleware(
 
 # ルーター登録
 app.include_router(health.router, tags=["health"])
-app.include_router(calc.router, tags=["calculation"])
 app.include_router(internal_ai.router, tags=["internal-ai"])
 
 
@@ -53,7 +52,7 @@ def root():
         "status": "running",
         "endpoints": {
             "health": "/health",
-            "calc": "/calc/add",
+            "health_auth": "/health/auth",
             "internal_ai_events_complete": "/internal/ai/events-complete",
             "internal_ai_itinerary_edit": "/internal/ai/itinerary-edit",
             "docs": "/docs"
