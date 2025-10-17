@@ -1889,6 +1889,130 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  # FastAPI内部サービスAPI
+  /api/python/health:
+    get:
+      summary: FastAPI内部サービスのヘルスチェック
+      description: |
+        FastAPI内部サービス（Python + LangChain）の稼働状況を確認
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（60 req/min）
+      tags:
+        - System
+        - Internal Services
+      responses:
+        '200':
+          description: FastAPIサービス正常稼働
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  service:
+                    type: string
+                    example: "fastapi-sidecar"
+                  version:
+                    type: string
+                    example: "0.1.0"
+                  environment_variables:
+                    type: object
+                    description: 環境変数の一覧
+        '503':
+          description: FastAPIサービスが利用できません
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "FastAPI service unavailable"
+                  message:
+                    type: string
+                    example: "FastAPI sidecar service is not responding"
+        '500':
+          description: 内部サーバーエラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+                  message:
+                    type: string
+                    example: "Failed to check FastAPI health"
+
+  /api/python/health/auth:
+    get:
+      summary: FastAPI内部サービスの認証ヘルスチェック
+      description: |
+        FastAPI内部サービスの認証トークンの妥当性を確認（内部通信用）
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（60 req/min）
+      tags:
+        - System
+        - Internal Services
+      responses:
+        '200':
+          description: 認証成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "Internal token is valid"
+        '403':
+          description: 認証トークンが無効です
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Authentication failed"
+                  message:
+                    type: string
+                    example: "Internal token is invalid"
+        '503':
+          description: FastAPIサービスが利用できません
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "FastAPI service unavailable"
+                  message:
+                    type: string
+                    example: "FastAPI sidecar service is not responding"
+        '500':
+          description: 内部サーバーエラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+                  message:
+                    type: string
+                    example: "Failed to check FastAPI auth health"
+
 components:
   securitySchemes:
     cookieAuth:
@@ -2251,4 +2375,6 @@ tags:
     description: 旅程編集
   - name: AI Features
     description: AI機能（OpenAI ChatGPT API統合）
+  - name: Internal Services
+    description: 内部サービス（FastAPI + LangChain）
 

@@ -48,7 +48,7 @@ openai_api_key = "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # O
 # 内部AI設定（現在は使用していないが、将来のセキュリティ強化用）
 internal_ai_token = "xxxx"
 
-internal_ai_base_url = "http://127.0.0.1:6000"
+internal_ai_base_url = "https://ai.trip.beita.dev"
 openai_model = "gpt-4o-mini"
 openai_temperature = 0.3
 llm_timeout_sec = 60

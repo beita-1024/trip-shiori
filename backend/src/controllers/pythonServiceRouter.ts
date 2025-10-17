@@ -2,7 +2,10 @@
  * FastAPI sidecar service router
  */
 import { Router } from 'express';
-import { getFastAPIHealth, addNumbers } from './pythonServiceController';
+import {
+  getFastAPIHealth,
+  getFastAPIAuthHealth,
+} from './pythonServiceController';
 
 const router = Router();
 
@@ -13,21 +16,24 @@ const router = Router();
  * @errors
  *  - 503: FastAPI サービスが利用できません
  *  - 500: 内部サーバーエラー
+ * @example
+ *   GET /api/python/health
+ *   200: { "status": "ok", "service": "fastapi-sidecar", "version": "0.1.0" }
  */
 router.get('/health', getFastAPIHealth);
 
 /**
- * @summary FastAPI 内部サービスで足し算を実行
- * @auth 認証不要
- * @params
- *  - body.a: number - 第1オペランド
- *  - body.b: number - 第2オペランド
- * @returns 200: 計算結果（{ result: number, operation: 'add' }）
+ * @summary FastAPI 内部サービスの認証ヘルスチェック
+ * @auth 認証不要（内部通信用）
+ * @returns 200: 認証成功
  * @errors
- *  - 400: 入力が不正です
+ *  - 403: 認証トークンが無効です
  *  - 503: FastAPI サービスが利用できません
  *  - 500: 内部サーバーエラー
+ * @example
+ *   GET /api/python/health/auth
+ *   200: { "status": "ok", "message": "Internal token is valid" }
  */
-router.post('/calc/add', addNumbers);
+router.get('/health/auth', getFastAPIAuthHealth);
 
 export default router;

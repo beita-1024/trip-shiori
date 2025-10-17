@@ -544,19 +544,21 @@ deploy-gcp-dev: ## GCP開発環境デプロイ
 deploy-gcp-dev-full: ## GCP開発環境フルデプロイ（環境変数付きビルド）
 	@echo "GCP開発環境へのフルデプロイを開始します..."
 	@echo "Git SHA: $(GIT_SHA)"
-	@echo "1/6: Terraform初期化..."
+	@echo "1/7: Terraform初期化..."
 	$(MAKE) tf-init TF_ENV=dev || (echo "❌ Terraform初期化に失敗しました" && exit 1)
-	@echo "2/6: Terraform設定検証..."
+	@echo "2/7: Terraform状態同期..."
+	$(MAKE) sync-terraform-state TF_ENV=dev || (echo "❌ Terraform状態同期に失敗しました" && exit 1)
+	@echo "3/7: Terraform設定検証..."
 	$(MAKE) tf-validate TF_ENV=dev || (echo "❌ Terraform設定検証に失敗しました" && exit 1)
-	@echo "3/6: 環境変数付きでDockerイメージをビルドします..."
+	@echo "4/7: 環境変数付きでDockerイメージをビルドします..."
 	$(MAKE) docker-build-with-env TF_ENV=dev || (echo "❌ Dockerイメージビルドに失敗しました" && exit 1)
-	@echo "4/6: Dockerイメージをプッシュします..."
+	@echo "5/7: Dockerイメージをプッシュします..."
 	$(MAKE) docker-push || (echo "❌ Dockerイメージプッシュに失敗しました" && exit 1)
-	@echo "5/6: Terraformプランを実行します..."
+	@echo "6/7: Terraformプランを実行します..."
 	$(MAKE) tf-plan TF_ENV=dev || (echo "❌ Terraformプランに失敗しました" && exit 1)
 	@echo "⚠️  変更内容を確認してください。続行するには 'yes' と入力してください:"
 	@read confirm && [ "$$confirm" = "yes" ] || (echo "デプロイがキャンセルされました" && exit 1)
-	@echo "6/6: Terraformを適用します..."
+	@echo "7/7: Terraformを適用します..."
 	$(MAKE) tf-apply TF_ENV=dev || (echo "❌ Terraform適用に失敗しました" && exit 1)
 	@echo "✅ フルデプロイが完了しました"
 

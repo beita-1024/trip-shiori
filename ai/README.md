@@ -84,7 +84,35 @@ GET /health
 {
   "status": "ok",
   "service": "fastapi-sidecar",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "environment_variables": {
+    "INTERNAL_AI_TOKEN": "***masked***",
+    "CEREBRAS_API_KEY": "***masked***",
+    "OPENAI_API_KEY": "***masked***",
+    "TAVILY_API_KEY": "***masked***"
+  }
+}
+```
+
+### 認証ヘルスチェック
+
+```http
+GET /health/auth
+X-Internal-Token: your-internal-token
+```
+
+**レスポンス:**
+```json
+{
+  "status": "ok",
+  "message": "Internal token is valid"
+}
+```
+
+**エラー（403）:**
+```json
+{
+  "detail": "invalid internal token"
 }
 ```
 
@@ -231,6 +259,7 @@ poetry update
 1. **内部認証エラー**
    - `INTERNAL_AI_TOKEN`が正しく設定されているか確認
    - Expressバックエンドの`INTERNAL_AI_TOKEN`と一致しているか確認
+   - `/internal/ai/*`エンドポイントは認証必須（`X-Internal-Token`ヘッダが必要）
 
 2. **LLM API エラー**
    - `CEREBRAS_API_KEY`または`OPENAI_API_KEY`が設定されているか確認

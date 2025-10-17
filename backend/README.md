@@ -217,12 +217,14 @@ Cerebras API (優先) / OpenAI API (フォールバック)
 ### 内部通信設定
 
 - **ベースURL**: `INTERNAL_AI_BASE_URL`（デフォルト: `http://ai:3000`）
-- **認証**: `X-Internal-Token`ヘッダ
+- **認証**: `X-Internal-Token`ヘッダ（**必須**）
 - **タイムアウト**: 30秒
 - **リトライ**: 自動リトライ機能付き
+- **セキュリティ**: `/internal/ai/*`エンドポイントは認証必須
 
 ### エラーハンドリング
 
+- **403 Forbidden**: 認証トークンが無効な場合
 - **503 Service Unavailable**: AIサービスが利用できない場合
 - **422 Unprocessable Entity**: AI生成エラーの場合
 - **フォールバック**: AIサービス障害時はダミーレスポンスを返す
