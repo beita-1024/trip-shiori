@@ -36,9 +36,44 @@ cleanup_fastapi() {
 # シグナルハンドラーを設定（スクリプト終了時のクリーンアップ）
 trap cleanup_fastapi EXIT INT TERM
 
-# 外部DBホストを環境変数から抽出（DATABASE_URL からホスト名を抽出）
-DB_HOST=$(echo "$DATABASE_URL" | sed -n 's/.*@\(.*\):[0-9]*\/.*/\1/p')
-DB_PORT=$(echo "$DATABASE_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+# DATABASE_URLを構築（個別環境変数から、または既存のDATABASE_URLを使用）
+echo "🔍 Debug: Checking DATABASE_URL and individual variables..."
+echo "DATABASE_URL: ${DATABASE_URL:-'not set'}"
+echo "DATABASE_HOST: ${DATABASE_HOST:-'not set'}"
+echo "DATABASE_PORT: ${DATABASE_PORT:-'not set'}"
+echo "DATABASE_NAME: ${DATABASE_NAME:-'not set'}"
+echo "DATABASE_USER: ${DATABASE_USER:-'not set'}"
+echo "DATABASE_PASSWORD: ${DATABASE_PASSWORD:+'set'}"
+echo "DATABASE_PASSWORD length: ${#DATABASE_PASSWORD}"
+
+if [ -n "$DATABASE_URL" ]; then
+  # 既存のDATABASE_URLが設定されている場合（Docker Compose環境等）
+  export DATABASE_URL
+  DB_HOST=$(echo "$DATABASE_URL" | sed -n 's/.*@\(.*\):[0-9]*\/.*/\1/p')
+  DB_PORT=$(echo "$DATABASE_URL" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+  echo "ℹ️  Using existing DATABASE_URL"
+else
+  # 個別環境変数からDATABASE_URLを構築（GCP Secret Manager環境）
+  if [ -n "$DATABASE_HOST" ] && [ -n "$DATABASE_PORT" ] && [ -n "$DATABASE_NAME" ] && [ -n "$DATABASE_USER" ] && [ -n "$DATABASE_PASSWORD" ]; then
+    DATABASE_URL="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
+    export DATABASE_URL
+    DB_HOST="$DATABASE_HOST"
+    DB_PORT="$DATABASE_PORT"
+    echo "ℹ️  Built DATABASE_URL from individual environment variables"
+    echo "🔍 Final DATABASE_URL: postgresql://${DATABASE_USER}:***@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
+    echo "🔍 DATABASE_URL exported: ${DATABASE_URL:+'yes'}"
+  else
+    echo "❌ Error: Either DATABASE_URL or individual database environment variables must be set"
+    echo "Required individual variables: DATABASE_HOST, DATABASE_PORT, DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD"
+    echo "Missing variables:"
+    [ -z "$DATABASE_HOST" ] && echo "  - DATABASE_HOST"
+    [ -z "$DATABASE_PORT" ] && echo "  - DATABASE_PORT"
+    [ -z "$DATABASE_NAME" ] && echo "  - DATABASE_NAME"
+    [ -z "$DATABASE_USER" ] && echo "  - DATABASE_USER"
+    [ -z "$DATABASE_PASSWORD" ] && echo "  - DATABASE_PASSWORD"
+    exit 1
+  fi
+fi
 
 echo "🌐 Waiting for PostgreSQL at $DB_HOST:$DB_PORT..."
 

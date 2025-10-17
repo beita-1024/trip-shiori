@@ -36,7 +36,6 @@ required_vars=(
     "DB_USER"
     "SMTP_HOST"
     "SMTP_PORT"
-    "SMTP_USER"
     "SMTP_SECURE"
 )
 
@@ -49,25 +48,12 @@ done
 
 # 環境別の変数設定
 if [ "$ENV" = "dev" ]; then
-    DB_PASSWORD="${DB_PASSWORD_DEV:-}"
-    JWT_SECRET="${JWT_SECRET_DEV:-}"
     PROJECT_NAME="trip-shiori-dev"
 else
-    DB_PASSWORD="${DB_PASSWORD_PROD:-}"
-    JWT_SECRET="${JWT_SECRET_PROD:-}"
     PROJECT_NAME="trip-shiori-prod"
 fi
 
-# パスワードとJWT秘密鍵の確認
-if [ -z "$DB_PASSWORD" ]; then
-    echo "❌ DB_PASSWORD_${ENV^^}が設定されていません"
-    exit 1
-fi
-
-if [ -z "$JWT_SECRET" ]; then
-    echo "❌ JWT_SECRET_${ENV^^}が設定されていません"
-    exit 1
-fi
+# DB_PASSWORD と JWT_SECRET は Secret Manager から参照するため削除
 
 # Git SHAを取得（Dockerイメージタグ用）
 GIT_SHA=$(git rev-parse --short HEAD)
@@ -98,10 +84,10 @@ zone         = "${GCP_ZONE}"
 # データベース設定
 database_name     = "${DB_NAME}"
 database_user     = "${DB_USER}"
-database_password = "${DB_PASSWORD}"
+# database_password は Secret Manager から参照するため削除
 
 # JWT設定
-jwt_secret = "${JWT_SECRET}"
+# jwt_secret は Secret Manager から参照するため削除
 jwt_access_expires_in = "120m"
 jwt_refresh_expires_in = "30d"
 
@@ -115,17 +101,11 @@ app_name = "Trip Shiori"
 # SMTP設定（メール送信機能用）
 smtp_host     = "${SMTP_HOST}"
 smtp_port     = "${SMTP_PORT}"
-smtp_user     = "${SMTP_USER}"
-smtp_password = "${SMTP_PASSWORD}"
 smtp_secure   = "${SMTP_SECURE}"
+# smtp_user, smtp_password は Secret Manager から参照するため削除
 
-# OpenAI設定（AI機能用）
-openai_api_key = "${OPENAI_API_KEY}"
-
-# AI/LLM設定
-internal_ai_token = "${INTERNAL_AI_TOKEN:-}"
-cerebras_api_key = "${CEREBRAS_API_KEY:-}"
-tavily_api_key = "${TAVILY_API_KEY:-}"
+# AI/LLM設定（機密情報は Secret Manager から参照するため削除）
+# openai_api_key, internal_ai_token, cerebras_api_key, tavily_api_key は Secret Manager から参照
 EOF
 
 echo "✅ terraform.tfvarsが生成されました: $TFVARS_FILE"
