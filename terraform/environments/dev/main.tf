@@ -333,6 +333,12 @@ resource "google_cloud_run_v2_service" "ai" {
       min_instance_count = 0
       max_instance_count = 10
     }
+
+    # VPCアクセス設定を追加（プライベート宛のみVPC経由）
+    vpc_access {
+      connector = google_vpc_access_connector.main.id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
   }
 
   traffic {

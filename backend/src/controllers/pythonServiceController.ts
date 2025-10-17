@@ -8,8 +8,12 @@
 import { Request, Response } from 'express';
 import axios, { AxiosResponse } from 'axios';
 
-// FastAPI 内部サービスのベースURL
-const FASTAPI_BASE_URL = 'http://localhost:6000';
+// FastAPI 内部サービスのベースURL（環境変数優先）
+const FASTAPI_BASE_URL =
+  process.env.INTERNAL_AI_BASE_URL || 'http://ai:3000';
+
+// 内部通信用トークン（ヘッダに付与）
+const INTERNAL_AI_TOKEN = process.env.INTERNAL_AI_TOKEN || '';
 
 // FastAPI からのレスポンス型定義
 interface FastAPIHealthResponse {
