@@ -7,11 +7,13 @@ import {
   protectedResource,
   requestPasswordReset,
   confirmPasswordReset,
+  refreshToken,
 } from './authController';
 import { authenticateToken } from '../middleware/auth';
 import {
   passwordResetRateLimit,
   passwordResetConfirmRateLimit,
+  refreshTokenRateLimit,
 } from '../middleware/rateLimit';
 
 const router = express.Router();
@@ -21,6 +23,7 @@ router.post('/register', register);
 router.get('/verify-email', verifyEmail);
 router.post('/login', login);
 router.post('/logout', authenticateToken, logout);
+router.post('/refresh', refreshTokenRateLimit, refreshToken);
 
 // パスワードリセット関連のルート
 router.post(

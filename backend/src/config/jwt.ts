@@ -45,6 +45,9 @@ export interface JWTPayload {
   /** トークンの種類 */
   type: 'access' | 'refresh';
 
+  /** JWT ID（一意性を保証するためのランダムな識別子） */
+  jti: string;
+
   /** 発行時刻（Unix timestamp） */
   iat: number;
 

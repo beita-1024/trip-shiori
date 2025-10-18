@@ -508,4 +508,188 @@ describe('Password Reset Tests', () => {
       );
     });
   });
+
+  describe('Refresh Token機能', () => {
+    let testUser: { id?: string; email: string; password: string };
+    let refreshToken: string;
+
+    beforeEach(async () => {
+      // テスト用ユーザーを作成
+      testUser = generateTestUser();
+      const passwordHash = await argon2.hash(testUser.password);
+
+      const user = await prisma.user.create({
+        data: {
+          email: testUser.email,
+          passwordHash,
+          emailVerified: new Date(),
+        },
+      });
+
+      // testUserオブジェクトにidを設定
+      testUser.id = user.id;
+
+      // ログインしてRefresh Tokenを取得
+      const loginResponse = await request(app)
+        .post('/auth/login')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(loginResponse.status).toBe(204);
+
+      // CookieからRefresh Tokenを抽出
+      const cookies = loginResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      const refreshCookie = cookies?.find((cookie: string) =>
+        cookie.startsWith('refresh_token=')
+      );
+      refreshToken = refreshCookie?.split(';')[0].split('=')[1] || '';
+    });
+
+    afterEach(async () => {
+      // テストデータをクリーンアップ
+      await prisma.refreshToken.deleteMany({
+        where: { userId: testUser.id },
+      });
+      await prisma.user.deleteMany({
+        where: { email: testUser.email },
+      });
+    });
+
+    test('Refresh TokenでAccess Tokenを更新できる', async () => {
+      // Refresh Tokenを使用してToken更新
+      const refreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
+
+      expect(refreshResponse.status).toBe(204);
+
+      // 新しいCookieが設定されていることを確認
+      const cookies = refreshResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      expect(cookies).toBeDefined();
+      expect(
+        cookies?.some((cookie: string) => cookie.startsWith('access_token='))
+      ).toBe(true);
+      expect(
+        cookies?.some((cookie: string) => cookie.startsWith('refresh_token='))
+      ).toBe(true);
+    });
+
+    test('無効なRefresh Tokenで更新を試行すると401エラー', async () => {
+      const invalidRefreshToken = 'invalid.refresh.token';
+
+      const refreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${invalidRefreshToken}`);
+
+      expect(refreshResponse.status).toBe(401);
+      expect(refreshResponse.body.error).toBe('unauthorized');
+      expect(refreshResponse.body.message).toBe(
+        'Invalid or expired refresh token'
+      );
+    });
+
+    test('Refresh Tokenなしで更新を試行すると401エラー', async () => {
+      const refreshResponse = await request(app).post('/auth/refresh');
+
+      expect(refreshResponse.status).toBe(401);
+      expect(refreshResponse.body.error).toBe('unauthorized');
+      expect(refreshResponse.body.message).toBe('Refresh token required');
+    });
+
+    test('Refresh Token Rotationが正しく動作する', async () => {
+      // 初回のRefresh Token更新
+      const firstRefreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
+
+      expect(firstRefreshResponse.status).toBe(204);
+
+      // 古いRefresh Tokenで再度更新を試行（失敗するはず）
+      const secondRefreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
+
+      expect(secondRefreshResponse.status).toBe(401);
+      expect(secondRefreshResponse.body.error).toBe('unauthorized');
+      expect(secondRefreshResponse.body.message).toBe('Token has been revoked');
+    });
+
+    test('ログアウト時に全Refresh Tokenが失効する', async () => {
+      // まずAccess Tokenを取得
+      const loginResponse = await request(app).post('/auth/login').send({
+        email: testUser.email,
+        password: testUser.password,
+      });
+
+      const cookies = loginResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      const accessToken =
+        cookies
+          ?.find((cookie: string) => cookie.startsWith('access_token='))
+          ?.split(';')[0]
+          .split('=')[1] || '';
+
+      // ログアウト
+      const logoutResponse = await request(app)
+        .post('/auth/logout')
+        .set('Cookie', `access_token=${accessToken}`);
+
+      expect(logoutResponse.status).toBe(204);
+
+      // ログアウト後、Refresh Tokenで更新を試行（失敗するはず）
+      const refreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
+
+      expect(refreshResponse.status).toBe(401);
+      expect(refreshResponse.body.error).toBe('unauthorized');
+    });
+
+    test('パスワード変更時に全Refresh Tokenが失効する', async () => {
+      if (!testUser.id) {
+        throw new Error('testUser.id is not defined');
+      }
+
+      // パスワードリセットトークンを生成
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = await argon2.hash(resetToken, {
+        type: argon2.argon2id,
+      });
+
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: testUser.id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
+        },
+      });
+
+      // パスワード変更
+      const passwordChangeResponse = await request(app)
+        .post('/auth/password-reset/confirm')
+        .send({
+          uid: testUser.id,
+          token: resetToken,
+          newPassword: 'NewSecurePass123!',
+        });
+
+      expect(passwordChangeResponse.status).toBe(204);
+
+      // パスワード変更後、Refresh Tokenで更新を試行（失敗するはず）
+      const refreshResponse = await request(app)
+        .post('/auth/refresh')
+        .set('Cookie', `refresh_token=${refreshToken}`);
+
+      expect(refreshResponse.status).toBe(401);
+      expect(refreshResponse.body.error).toBe('unauthorized');
+    });
+  });
 });

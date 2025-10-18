@@ -9,7 +9,7 @@ import {
   createVerificationEmailTemplate,
   createPasswordResetEmailTemplate,
 } from '../utils/email';
-import { generateAccessToken } from '../utils/jwt';
+import { generateTokenPair } from '../utils/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
 
@@ -21,7 +21,9 @@ const PASSWORD_RESET_EXPIRES_MS = 15 * 60 * 1000;
 
 // Cookie設定
 const COOKIE_NAME = 'access_token';
+const REFRESH_COOKIE_NAME = 'refresh_token';
 const COOKIE_MAX_AGE = 15 * 60 * 1000; // 15分
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7日
 
 // パスワードスキーマは共通スキーマからインポート
 
@@ -39,6 +41,102 @@ const handleZodError = (error: z.ZodError, res: Response) => {
       field: err.path.join('.'),
       message: err.message,
     })),
+  });
+};
+
+/**
+ * Refresh Tokenをデータベースに保存する
+ * @param userId ユーザーID
+ * @param refreshToken リフレッシュトークン
+ * @param deviceInfo デバイス情報（User-Agent等）
+ * @returns 保存されたRefreshTokenレコード
+ */
+const saveRefreshToken = async (
+  userId: string,
+  refreshToken: string,
+  deviceInfo?: string
+) => {
+  const tokenHash = await argon2.hash(refreshToken, { type: argon2.argon2id });
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
+
+  return await prisma.refreshToken.create({
+    data: {
+      userId,
+      tokenHash,
+      expiresAt,
+      deviceInfo: deviceInfo || null,
+    },
+  });
+};
+
+/**
+ * Refresh Tokenを検証し、ユーザー情報を取得する
+ * @param refreshToken リフレッシュトークン
+ * @returns ユーザー情報とトークンレコード、および失効状態
+ */
+const verifyRefreshToken = async (refreshToken: string) => {
+  // すべてのトークン（失効済みも含む、期限切れは除く）を検索
+  const tokens = await prisma.refreshToken.findMany({
+    where: {
+      expiresAt: { gt: new Date() },
+    },
+    include: {
+      user: {
+        select: { id: true, email: true, passwordChangedAt: true },
+      },
+    },
+  });
+
+  // トークンハッシュを照合
+  for (const tokenRecord of tokens) {
+    const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
+
+    if (isValid) {
+      // 失効チェック
+      if (tokenRecord.isRevoked) {
+        return { user: tokenRecord.user, tokenRecord, isRevoked: true };
+      }
+
+      // パスワード変更日時チェック（JWT発行日時より後の場合は無効）
+      if (
+        tokenRecord.user.passwordChangedAt &&
+        tokenRecord.createdAt < tokenRecord.user.passwordChangedAt
+      ) {
+        return { user: tokenRecord.user, tokenRecord, isPasswordChanged: true };
+      }
+
+      return { user: tokenRecord.user, tokenRecord };
+    }
+  }
+
+  return null;
+};
+
+/**
+ * ユーザーの全Refresh Tokenを失効させる
+ * @param userId ユーザーID
+ */
+const revokeAllUserRefreshTokens = async (userId: string) => {
+  await prisma.refreshToken.updateMany({
+    where: { userId, isRevoked: false },
+    data: { isRevoked: true },
+  });
+};
+
+/**
+ * 期限切れのRefresh Tokenをクリーンアップする
+ */
+const cleanupExpiredRefreshTokens = async () => {
+  await prisma.refreshToken.deleteMany({
+    where: {
+      OR: [
+        { expiresAt: { lt: new Date() } },
+        {
+          isRevoked: true,
+          lastUsedAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        }, // 失効後24時間経過
+      ],
+    },
   });
 };
 
@@ -232,14 +330,30 @@ export const verifyEmail = async (req: Request, res: Response) => {
       }),
     ]);
 
-    // 検証完了後に即ログイン：短命JWTをHttpOnly Cookieで返す
-    const accessToken = generateAccessToken(user.id, user.email);
+    // 検証完了後に即ログイン：トークンペアをHttpOnly Cookieで返す
+    const { accessToken, refreshToken } = generateTokenPair(
+      user.id,
+      user.email
+    );
+
+    // Refresh Tokenをデータベースに保存
+    const deviceInfo = req.headers['user-agent'] || undefined;
+    await saveRefreshToken(user.id, refreshToken, deviceInfo);
+
     res.cookie(COOKIE_NAME, accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_MAX_AGE,
+    });
+
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: REFRESH_COOKIE_MAX_AGE,
     });
 
     // 認証成功レスポンス（フロントエンドでリダイレクト処理）
@@ -316,16 +430,31 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // JWTトークン生成
-    const accessToken = generateAccessToken(user.id, user.email);
+    // トークンペア生成
+    const { accessToken, refreshToken } = generateTokenPair(
+      user.id,
+      user.email
+    );
 
-    // HttpOnly CookieでJWTを返す
+    // Refresh Tokenをデータベースに保存
+    const deviceInfo = req.headers['user-agent'] || undefined;
+    await saveRefreshToken(user.id, refreshToken, deviceInfo);
+
+    // HttpOnly Cookieでトークンを返す
     res.cookie(COOKIE_NAME, accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_MAX_AGE,
+    });
+
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: REFRESH_COOKIE_MAX_AGE,
     });
 
     return res.sendStatus(204);
@@ -357,10 +486,25 @@ export const login = async (req: Request, res: Response) => {
  *   Cookie: access_token=<JWT>
  *   204: No Content + Clear-Cookie: access_token
  */
-export const logout = async (req: Request, res: Response) => {
+export const logout = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // ユーザーIDを取得（認証ミドルウェアで設定済み）
+    const userId = req.user?.id;
+
+    if (userId) {
+      // ユーザーの全Refresh Tokenを失効させる
+      await revokeAllUserRefreshTokens(userId);
+    }
+
     // Cookieをクリア
     res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    res.clearCookie(REFRESH_COOKIE_NAME, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -581,7 +725,7 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
     // 新しいパスワードをハッシュ化
     const newPasswordHash = await hashPassword(newPassword);
 
-    // パスワードを更新し、passwordChangedAtを設定、トークンを削除
+    // パスワードを更新し、passwordChangedAtを設定、トークンを削除、Refresh Tokenを失効
     await prisma.$transaction(async (tx) => {
       // ユーザーのパスワードを更新
       await tx.user.update({
@@ -592,14 +736,27 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
         },
       });
 
-      // トークンを削除（存在しない場合もエラーにならない）
+      // パスワードリセットトークンを削除
       await tx.passwordResetToken.deleteMany({
         where: { id: resetToken.id },
+      });
+
+      // 全Refresh Tokenを失効させる（セキュリティ侵害時の対応）
+      await tx.refreshToken.updateMany({
+        where: { userId: uid, isRevoked: false },
+        data: { isRevoked: true },
       });
     });
 
     // 既存のCookieをクリア（JWT無効化）
     res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    res.clearCookie(REFRESH_COOKIE_NAME, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -612,6 +769,125 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
       return handleZodError(error, res);
     }
     console.error('Password reset confirmation error:', error);
+    return res.status(500).json({
+      error: 'internal_error',
+      message: 'Internal server error',
+    });
+  }
+};
+
+/**
+ * Refresh Tokenエンドポイント
+ *
+ * @summary Refresh Tokenを使用して新しいAccess TokenとRefresh Tokenを発行（Refresh Token Rotation）
+ * @auth Cookie: refresh_token (JWT)
+ * @params
+ *   - Cookie: refresh_token (JWT)
+ * @returns
+ *   - 204: トークン更新成功（新しいAccess Token + Refresh TokenをCookieで発行）
+ * @errors
+ *   - 401: unauthorized（Refresh Token無効・期限切れ・失効済み）
+ *   - 429: rate_limit_exceeded（レート制限超過）
+ * @example
+ *   POST /auth/refresh
+ *   Cookie: refresh_token=<JWT>
+ *   204: No Content + Set-Cookie: access_token=<new_JWT>; refresh_token=<new_JWT>
+ */
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    // CookieからRefresh Tokenを取得
+    const refreshToken = req.cookies[REFRESH_COOKIE_NAME];
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Refresh token required',
+      });
+    }
+
+    // Refresh Tokenを検証
+    const tokenData = await verifyRefreshToken(refreshToken);
+    if (!tokenData) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Invalid or expired refresh token',
+      });
+    }
+
+    const { user, tokenRecord, isRevoked, isPasswordChanged } = tokenData;
+
+    // 失効済みトークンの場合
+    if (isRevoked) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Token has been revoked',
+      });
+    }
+
+    // パスワード変更により無効化されたトークンの場合
+    if (isPasswordChanged) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Token invalidated due to password change',
+      });
+    }
+
+    // 期限切れトークンのクリーンアップ（非同期で実行）
+    cleanupExpiredRefreshTokens().catch(console.error);
+
+    // 新しいトークンペアを生成
+    const { accessToken, refreshToken: newRefreshToken } = generateTokenPair(
+      user.id,
+      user.email
+    );
+
+    // トランザクション内でRefresh Token Rotationを実行
+    const deviceInfo = req.headers['user-agent'] || undefined;
+
+    // 新しいRefresh Tokenのハッシュを事前に生成
+    const tokenHash = await argon2.hash(newRefreshToken, {
+      type: argon2.argon2id,
+    });
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
+
+    await prisma.$transaction(async (tx) => {
+      // 古いRefresh Tokenを失効させる（Refresh Token Rotation）
+      await tx.refreshToken.update({
+        where: { id: tokenRecord.id },
+        data: { isRevoked: true },
+      });
+
+      // 新しいRefresh Tokenをデータベースに保存
+      await tx.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+          deviceInfo,
+        },
+      });
+    });
+
+    // 新しいトークンをCookieで返す
+    res.cookie(COOKIE_NAME, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: COOKIE_MAX_AGE,
+    });
+
+    res.cookie(REFRESH_COOKIE_NAME, newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: REFRESH_COOKIE_MAX_AGE,
+    });
+
+    return res.sendStatus(204);
+  } catch (error) {
+    console.error('Refresh token error:', error);
     return res.status(500).json({
       error: 'internal_error',
       message: 'Internal server error',

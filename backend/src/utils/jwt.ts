@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { jwtConfig, JWTPayload } from '../config/jwt';
 
 /**
@@ -8,7 +9,7 @@ import { jwtConfig, JWTPayload } from '../config/jwt';
  * @returns 生成されたJWTトークン
  * @throws Error トークン生成に失敗した場合
  * @example
- * const token = generateToken({ userId: '123', email: 'user@example.com', type: 'access' });
+ * const token = generateToken({ userId: '123', email: 'user@example.com', type: 'access', jti: 'unique-id' });
  */
 export function generateToken(
   payload: Omit<JWTPayload, 'iat' | 'exp'>,
@@ -72,7 +73,7 @@ export function verifyToken(token: string): JWTPayload {
  */
 export function generateAccessToken(userId: string, email: string): string {
   return generateToken(
-    { userId, email, type: 'access' },
+    { userId, email, type: 'access', jti: crypto.randomUUID() },
     jwtConfig.accessTokenExpiresIn
   );
 }
@@ -87,7 +88,7 @@ export function generateAccessToken(userId: string, email: string): string {
  */
 export function generateRefreshToken(userId: string, email: string): string {
   return generateToken(
-    { userId, email, type: 'refresh' },
+    { userId, email, type: 'refresh', jti: crypto.randomUUID() },
     jwtConfig.refreshTokenExpiresIn
   );
 }
@@ -99,6 +100,11 @@ export function generateRefreshToken(userId: string, email: string): string {
  * @returns アクセストークンとリフレッシュトークンのペア
  * @example
  * const { accessToken, refreshToken } = generateTokenPair('user123', 'user@example.com');
+ *
+ * @note 重要: JWTのiat（issued at）は秒単位で記録されるため、同じ秒内に複数のトークンを生成すると
+ *       同じiatを持つトークンが作成される可能性がある。これにより、Refresh Token Rotationで
+ *       古いトークンが新しいトークンと同じ文字列になってしまい、セキュリティ上の問題が発生する。
+ *       この問題を回避するため、各トークンに一意のjti（JWT ID）を追加してトークンの一意性を保証する。
  */
 export function generateTokenPair(
   userId: string,
@@ -107,8 +113,18 @@ export function generateTokenPair(
   accessToken: string;
   refreshToken: string;
 } {
+  // 各トークンに一意のjtiを生成してトークンの一意性を保証
+  const accessTokenJti = crypto.randomUUID();
+  const refreshTokenJti = crypto.randomUUID();
+
   return {
-    accessToken: generateAccessToken(userId, email),
-    refreshToken: generateRefreshToken(userId, email),
+    accessToken: generateToken(
+      { userId, email, type: 'access', jti: accessTokenJti },
+      jwtConfig.accessTokenExpiresIn
+    ),
+    refreshToken: generateToken(
+      { userId, email, type: 'refresh', jti: refreshTokenJti },
+      jwtConfig.refreshTokenExpiresIn
+    ),
   };
 }

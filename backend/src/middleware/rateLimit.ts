@@ -130,3 +130,12 @@ export const passwordResetConfirmRateLimit = rateLimit({
   message:
     'Too many password reset confirmation attempts. Please try again later.',
 });
+
+/**
+ * Refresh Token用のレート制限設定
+ */
+export const refreshTokenRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1分
+  maxRequests: 10, // 最大10回
+  message: 'Too many refresh token requests. Please try again later.',
+});
