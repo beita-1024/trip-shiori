@@ -10,7 +10,7 @@
 - **Cloud Storage**: 静的ファイル保存
 - **VPC**: プライベートネットワーク
 - **VPC Connector**: Cloud Run ↔ Cloud SQL接続
-- **環境変数**: 機密情報の直接設定（APIキー、トークン）
+- **Secret Manager**: 機密情報の安全な管理（APIキー、パスワード、トークン）
 
 ### 環境
 - **開発環境**: `terraform/environments/dev/`
@@ -46,19 +46,23 @@ cp terraform.tfvars.example terraform.tfvars
 # terraform.tfvarsを編集して実際の値を設定
 ```
 
-### 3.1. 必須環境変数設定
-```bash
-# terraform.tfvarsファイルに以下の値を設定
-# AI機能用APIキー
-cerebras_api_key = "your-cerebras-api-key"
-openai_api_key = "your-openai-api-key"
-tavily_api_key = "your-tavily-api-key"
-internal_ai_token = "your-internal-ai-token"
+### 3.1. Secret Manager セットアップ
 
-# データベース・認証用
-database_password = "your-secure-db-password"
-jwt_secret = "your-secure-jwt-secret"
+機密情報はGCP Secret Managerで管理されます。初回デプロイ時に自動的に作成されます。
+
+**詳細な手順**: [Secret Manager セットアップガイド](../docs/secret-manager-setup.md)
+
+```bash
+# 手動でシークレットを作成する場合
+chmod +x ./scripts/create-secrets.sh
+./scripts/create-secrets.sh dev  # または prod
 ```
+
+**管理されるシークレット**:
+- データベースパスワード
+- JWT署名用シークレット
+- SMTP認証情報
+- AI/LLM APIキー（OpenAI、Cerebras、Tavily）
 
 ### 4. デプロイ実行
 
@@ -343,5 +347,37 @@ make deploy-gcp-prod-auto
 
 - **本番環境**: `main`ブランチへのプッシュで自動デプロイ
 - **開発環境**: `develop`ブランチへのプッシュで自動デプロイ
+
+## 🔐 Secret Manager 運用
+
+### シークレット値の更新
+
+```bash
+# データベースパスワードの更新
+echo -n "new-password" | gcloud secrets versions add trip-shiori-dev-database-password --data-file=-
+
+# Cloud Runサービスを再デプロイ（最新のシークレットを取得）
+make deploy-gcp-dev
+```
+
+### シークレット値の確認
+
+```bash
+# シークレット一覧表示
+gcloud secrets list --filter="name:trip-shiori-dev-*"
+
+# 特定のシークレットの値を確認
+gcloud secrets versions access latest --secret="trip-shiori-dev-database-password"
+```
+
+### 詳細な運用方法
+
+**詳細な手順**: [Secret Manager 運用ガイド](../docs/secret-manager-operations.md)
+
+- シークレット値の更新方法
+- ローテーション手順
+- アクセス権限の管理
+- 監査ログの確認
+- トラブルシューティング
 - **手動実行**: GitHub Actions画面から実行可能
 
