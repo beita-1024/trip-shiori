@@ -15,6 +15,29 @@ export const defaultFetchOptions: RequestInit = {
   },
 };
 
+export type ExtendedRequestInit = RequestInit & {
+  _isRetry?: boolean;
+};
+
+const mergeHeaders = (
+  ...sources: Array<HeadersInit | undefined>
+): Headers => {
+  const headers = new Headers();
+
+  sources.forEach((source) => {
+    if (!source) {
+      return;
+    }
+
+    const incoming = new Headers(source);
+    incoming.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  });
+
+  return headers;
+};
+
 /**
  * APIエンドポイントのURLを構築する
  */
@@ -60,23 +83,24 @@ export const AUTH_ENDPOINTS = {
  */
 export const apiFetch = async (
   url: string,
-  options: RequestInit = {}
+  options: ExtendedRequestInit = {}
 ): Promise<Response> => {
   // デフォルトオプションとマージ
-  const fetchOptions: RequestInit = {
+  const headers = mergeHeaders(defaultFetchOptions.headers, options.headers);
+
+  const fetchOptions: ExtendedRequestInit = {
     ...defaultFetchOptions,
     ...options,
-    headers: {
-      ...defaultFetchOptions.headers,
-      ...options.headers,
-    },
+    headers,
   };
 
+  const { _isRetry: isRetryAttempt, ...requestInit } = fetchOptions;
+
   // 初回リクエスト実行
-  let response = await fetch(url, fetchOptions);
+  const response = await fetch(url, requestInit);
 
   // 401エラーかつ初回リクエストの場合、Token更新を試行
-  if (response.status === 401 && !(fetchOptions.headers as Record<string, string>)?.['X-Retry-After-Refresh']) {
+  if (response.status === 401 && !isRetryAttempt) {
     try {
       // Refresh TokenでAccess Tokenを更新
       const refreshResponse = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
@@ -86,15 +110,7 @@ export const apiFetch = async (
 
       if (refreshResponse.ok) {
         // Token更新成功時、元のリクエストを再実行
-        const retryOptions: RequestInit = {
-          ...fetchOptions,
-          headers: {
-            ...fetchOptions.headers,
-            'X-Retry-After-Refresh': 'true', // 無限ループ防止
-          },
-        };
-
-        response = await fetch(url, retryOptions);
+        return apiFetch(url, { ...options, _isRetry: true });
       } else {
         // Refresh Tokenも無効な場合、ログインページにリダイレクト
         console.warn('Refresh token expired, redirecting to login');
@@ -122,7 +138,7 @@ export const apiFetch = async (
  */
 export const authenticatedFetch = async (
   endpoint: string,
-  options: RequestInit = {}
+  options: ExtendedRequestInit = {}
 ): Promise<Response> => {
   return apiFetch(buildApiUrl(endpoint), options);
 };

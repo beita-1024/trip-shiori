@@ -305,11 +305,17 @@ paths:
         '204':
           description: ログアウト成功（全Token無効化・Cookieクリア）
           headers:
-            Clear-Cookie:
-              description: 全Token Cookie無効化
+            Set-Cookie:
+              description: トークンCookieを削除するためのSet-Cookieヘッダー
               schema:
                 type: string
-              example: access_token=; refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
+              examples:
+                accessToken:
+                  summary: access_tokenの削除
+                  value: access_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
+                refreshToken:
+                  summary: refresh_tokenの削除
+                  value: refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
         '401':
           description: 未認証
           content:
@@ -2468,4 +2474,3 @@ tags:
     description: AI機能（OpenAI ChatGPT API統合）
   - name: Internal Services
     description: 内部サービス（FastAPI + LangChain）
-

@@ -2,7 +2,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ThemeToggle from "@/components/ThemeToggle";
-import AuthButtons from "@/components/AuthButtons";
 import TutorialButton from "@/components/TutorialButton";
 import { Logo } from "@/components/Logo";
 import ConditionalAuthButtons from "@/components/ConditionalAuthButtons";

@@ -48,10 +48,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match only root path (/) for authentication-based routing
-     * Temporarily disable /login matcher to debug infinite redirect
-     */
     '/',
+    '/login',
   ],
 };
