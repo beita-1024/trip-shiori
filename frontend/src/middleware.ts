@@ -14,12 +14,16 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
+  // 認証クッキーの確認
+  const authCookie = request.cookies.get('access_token');
+  
+  // 認証済みユーザーが/loginにアクセスした場合は/itinerariesにリダイレクト
+  if (pathname === '/login' && authCookie) {
+    return NextResponse.redirect(new URL('/itineraries', request.url));
+  }
+  
   // ルートパスのみ処理
   if (pathname === '/') {
-    // 認証クッキーの確認
-    // バックエンドの認証システムに合わせてクッキー名を調整
-    const authCookie = request.cookies.get('access_token');
-    
     // ボット向けのSEO対応（将来的なランディングページ用）
     const userAgent = request.headers.get('user-agent') || '';
     const isBot = /bot|crawler|spider|crawling/i.test(userAgent);
@@ -45,12 +49,9 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match only root path (/) for authentication-based routing
+     * Temporarily disable /login matcher to debug infinite redirect
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/',
   ],
 };

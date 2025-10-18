@@ -5,6 +5,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AuthButtons from "@/components/AuthButtons";
 import TutorialButton from "@/components/TutorialButton";
 import { Logo } from "@/components/Logo";
+import ConditionalAuthButtons from "@/components/ConditionalAuthButtons";
 
 // INFO: components.jsonで以下の設定をしない代わりに、ここで読む
 // "tailwind": {
@@ -61,7 +62,7 @@ export default function RootLayout({
               {/* 認証ボタンとテーマトグルを右側に配置 */}
               <div className="flex items-center gap-3">
                 <TutorialButton />
-                <AuthButtons />
+                <ConditionalAuthButtons />
                 <ThemeToggle />
               </div>
             </div>
