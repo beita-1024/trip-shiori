@@ -42,6 +42,11 @@ data "google_secret_manager_secret" "tavily_api_key" {
   project   = var.project_id
 }
 
+data "google_secret_manager_secret" "refresh_token_fingerprint_secret" {
+  secret_id = "trip-shiori-${var.environment}-refresh-token-fingerprint-secret"
+  project   = var.project_id
+}
+
 # Cloud RunサービスアカウントにSecret Managerアクセス権限を付与
 locals {
   # デフォルトのCloud Runサービス名
@@ -63,7 +68,8 @@ locals {
     data.google_secret_manager_secret.openai_api_key,
     data.google_secret_manager_secret.internal_ai_token,
     data.google_secret_manager_secret.cerebras_api_key,
-    data.google_secret_manager_secret.tavily_api_key
+    data.google_secret_manager_secret.tavily_api_key,
+    data.google_secret_manager_secret.refresh_token_fingerprint_secret
   ]
 }
 

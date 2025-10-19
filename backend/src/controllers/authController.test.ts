@@ -45,6 +45,9 @@ let testUserId: string;
  */
 describe('Password Reset Tests', () => {
   beforeAll(async () => {
+    // 環境変数を設定
+    process.env.REFRESH_TOKEN_FINGERPRINT_SECRET = 'test-fingerprint-secret-32chars-long';
+    
     // メール送信のモックを設定
     const {
       sendEmailWithTemplate,
@@ -516,7 +519,7 @@ describe('Password Reset Tests', () => {
     beforeEach(async () => {
       // テスト用ユーザーを作成
       testUser = generateTestUser();
-      const passwordHash = await argon2.hash(testUser.password);
+      const passwordHash = await argon2.hash(testUser.password, { type: argon2.argon2id });
 
       const user = await prisma.user.create({
         data: {

@@ -62,6 +62,7 @@ required_vars=(
     "INTERNAL_AI_TOKEN"
     "CEREBRAS_API_KEY"
     "TAVILY_API_KEY"
+    "REFRESH_TOKEN_FINGERPRINT_SECRET"
 )
 
 # 環境別の必須変数
@@ -86,6 +87,7 @@ create_secret "trip-shiori-$ENV-openai-api-key" "${OPENAI_API_KEY}"
 create_secret "trip-shiori-$ENV-internal-ai-token" "${INTERNAL_AI_TOKEN}"
 create_secret "trip-shiori-$ENV-cerebras-api-key" "${CEREBRAS_API_KEY}"
 create_secret "trip-shiori-$ENV-tavily-api-key" "${TAVILY_API_KEY}"
+create_secret "trip-shiori-$ENV-refresh-token-fingerprint-secret" "${REFRESH_TOKEN_FINGERPRINT_SECRET}"
 
 # 環境別シークレットの作成
 if [ "$ENV" = "dev" ]; then

@@ -3,10 +3,10 @@
  */
 
 const secret = process.env.JWT_SECRET;
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV !== 'development') {
   const s = secret ?? '';
   if (!s) {
-    throw new Error('JWT_SECRET must be set in production');
+    throw new Error('JWT_SECRET must be set in non-development environments');
   }
   // 弱い秘密鍵のパターンをチェック:
   // - 長さが32文字未満（ブルートフォース攻撃に脆弱）
@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === 'production') {
   //   これらはデフォルト値やサンプル値として推測されやすい
   const looksWeak = s.length < 32 || /secret|changeme|your[-_ ]?jwt/i.test(s);
   if (looksWeak) {
-    throw new Error('JWT_SECRET is too weak for production');
+    throw new Error('JWT_SECRET is too weak for non-development environments');
   }
 }
 

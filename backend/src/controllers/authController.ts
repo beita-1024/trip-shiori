@@ -57,12 +57,16 @@ const saveRefreshToken = async (
   deviceInfo?: string
 ) => {
   const tokenHash = await argon2.hash(refreshToken, { type: argon2.argon2id });
+  const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
+  if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
+  const fingerprint = crypto.createHmac('sha256', secret).update(refreshToken).digest('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
 
   return await prisma.refreshToken.create({
     data: {
       userId,
       tokenHash,
+      fingerprint,
       expiresAt,
       deviceInfo: deviceInfo || null,
     },
@@ -75,41 +79,32 @@ const saveRefreshToken = async (
  * @returns ユーザー情報とトークンレコード、および失効状態
  */
 const verifyRefreshToken = async (refreshToken: string) => {
-  // すべてのトークン（失効済みも含む、期限切れは除く）を検索
-  const tokens = await prisma.refreshToken.findMany({
-    where: {
-      expiresAt: { gt: new Date() },
-    },
-    include: {
-      user: {
-        select: { id: true, email: true, passwordChangedAt: true },
-      },
-    },
+  const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
+  if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
+  const fingerprint = crypto
+    .createHmac('sha256', secret)
+    .update(refreshToken)
+    .digest('hex');
+
+  const tokenRecord = await prisma.refreshToken.findUnique({
+    where: { fingerprint },
+    include: { user: { select: { id: true, email: true, passwordChangedAt: true } } },
   });
+  
+  if (!tokenRecord || tokenRecord.expiresAt <= new Date()) return null;
 
-  // トークンハッシュを照合
-  for (const tokenRecord of tokens) {
-    const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
+  const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
+  if (!isValid) return null;
 
-    if (isValid) {
-      // 失効チェック
-      if (tokenRecord.isRevoked) {
-        return { user: tokenRecord.user, tokenRecord, isRevoked: true };
-      }
-
-      // パスワード変更日時チェック（JWT発行日時より後の場合は無効）
-      if (
-        tokenRecord.user.passwordChangedAt &&
-        tokenRecord.createdAt < tokenRecord.user.passwordChangedAt
-      ) {
-        return { user: tokenRecord.user, tokenRecord, isPasswordChanged: true };
-      }
-
-      return { user: tokenRecord.user, tokenRecord };
-    }
+  if (tokenRecord.isRevoked) {
+    return { user: tokenRecord.user, tokenRecord, isRevoked: true };
   }
-
-  return null;
+  
+  if (tokenRecord.user.passwordChangedAt && tokenRecord.createdAt < tokenRecord.user.passwordChangedAt) {
+    return { user: tokenRecord.user, tokenRecord, isPasswordChanged: true };
+  }
+  
+  return { user: tokenRecord.user, tokenRecord };
 };
 
 /**
@@ -779,15 +774,17 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
 /**
  * Refresh Tokenエンドポイント
  *
- * @summary Refresh Tokenを使用して新しいAccess TokenとRefresh Tokenを発行（Refresh Token Rotation）
- * @auth Cookie: refresh_token (JWT)
+ * @summary Refresh Tokenを使用して新しいトークンペアを発行
+ * @auth Public（Refresh Token Cookie必須）
+ * @rateLimit 10 req/min（IPベース）
  * @params
- *   - Cookie: refresh_token (JWT)
+ *   - Cookie: refresh_token（HttpOnly/Secure/SameSite=lax）
  * @returns
- *   - 204: トークン更新成功（新しいAccess Token + Refresh TokenをCookieで発行）
+ *   - 204: 新しいトークンペア（Set-Cookie: access_token, refresh_token）
  * @errors
- *   - 401: unauthorized（Refresh Token無効・期限切れ・失効済み）
+ *   - 401: unauthorized（トークン無効/期限切れ/失効済み/パスワード変更）
  *   - 429: rate_limit_exceeded（レート制限超過）
+ *   - 500: internal_error（サーバーエラー）
  * @example
  *   POST /auth/refresh
  *   Cookie: refresh_token=<JWT>
@@ -844,29 +841,30 @@ export const refreshToken = async (req: Request, res: Response) => {
     // トランザクション内でRefresh Token Rotationを実行
     const deviceInfo = req.headers['user-agent'] || undefined;
 
-    // 新しいRefresh Tokenのハッシュを事前に生成
-    const tokenHash = await argon2.hash(newRefreshToken, {
-      type: argon2.argon2id,
-    });
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
+    // 新しいRefresh Tokenのハッシュとfingerprintを事前に生成
+    const tokenHash = await argon2.hash(newRefreshToken, { type: argon2.argon2id });
+    const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
+    if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
+    const fingerprint = crypto.createHmac('sha256', secret).update(newRefreshToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await prisma.$transaction(async (tx) => {
-      // 古いRefresh Tokenを失効させる（Refresh Token Rotation）
-      await tx.refreshToken.update({
-        where: { id: tokenRecord.id },
+    // 競合対策：updateManyで件数チェック
+    const rotated = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.refreshToken.updateMany({
+        where: { id: tokenRecord.id, isRevoked: false },
         data: { isRevoked: true },
       });
-
-      // 新しいRefresh Tokenをデータベースに保存
+      if (count !== 1) return false;
+      
       await tx.refreshToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-          deviceInfo,
-        },
+        data: { userId: user.id, tokenHash, fingerprint, expiresAt, deviceInfo },
       });
+      return true;
     });
+
+    if (!rotated) {
+      return res.status(401).json({ error: 'unauthorized', message: 'Token has been revoked' });
+    }
 
     // 新しいトークンをCookieで返す
     res.cookie(COOKIE_NAME, accessToken, {

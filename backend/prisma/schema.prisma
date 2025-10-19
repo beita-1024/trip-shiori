@@ -181,6 +181,9 @@ model RefreshToken {
   /** ハッシュ化されたトークン値（ユニーク） */
   tokenHash  String   @unique
 
+  /** 生トークンから server secret で HMAC-SHA256 した指紋（DB検索用） */
+  fingerprint String  @unique @db.VarChar(64)
+
   /** 有効期限 */
   expiresAt  DateTime @db.Timestamptz(6)
 
@@ -201,7 +204,6 @@ model RefreshToken {
 
   @@index([userId])
   @@index([expiresAt])
-  @@index([tokenHash])
   @@index([isRevoked])
   // 検索最適化：有効なトークンの取得パターンに合わせた複合Index
   @@index([userId, isRevoked, expiresAt])
