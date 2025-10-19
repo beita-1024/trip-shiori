@@ -37,6 +37,9 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   sh-backend \
   sh-frontend \
   lint \
+  lint-fix \
+  lint-fix-backend \
+  lint-fix-frontend \
   test \
   test-backend \
   test-frontend \
@@ -193,6 +196,16 @@ sh-ai: ## aiのシェル（開発環境）
 lint: ## まとめてlint（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint
 	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm run lint
+
+lint-fix: ## まとめてlint自動修正（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint:fix
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm run lint -- --fix
+
+lint-fix-backend: ## backendのlint自動修正（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm run lint:fix
+
+lint-fix-frontend: ## frontendのlint自動修正（開発環境）
+	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm frontend npm run lint -- --fix
 
 test: ## 全テスト実行（backend + frontend）（開発環境）
 	$(COMPOSE) $(DEV_COMPOSE_FILES) run --rm backend npm test -- --watch=false

@@ -59,7 +59,10 @@ const saveRefreshToken = async (
   const tokenHash = await argon2.hash(refreshToken, { type: argon2.argon2id });
   const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
   if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
-  const fingerprint = crypto.createHmac('sha256', secret).update(refreshToken).digest('hex');
+  const fingerprint = crypto
+    .createHmac('sha256', secret)
+    .update(refreshToken)
+    .digest('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
 
   return await prisma.refreshToken.create({
@@ -88,9 +91,11 @@ const verifyRefreshToken = async (refreshToken: string) => {
 
   const tokenRecord = await prisma.refreshToken.findUnique({
     where: { fingerprint },
-    include: { user: { select: { id: true, email: true, passwordChangedAt: true } } },
+    include: {
+      user: { select: { id: true, email: true, passwordChangedAt: true } },
+    },
   });
-  
+
   if (!tokenRecord || tokenRecord.expiresAt <= new Date()) return null;
 
   const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
@@ -99,11 +104,14 @@ const verifyRefreshToken = async (refreshToken: string) => {
   if (tokenRecord.isRevoked) {
     return { user: tokenRecord.user, tokenRecord, isRevoked: true };
   }
-  
-  if (tokenRecord.user.passwordChangedAt && tokenRecord.createdAt < tokenRecord.user.passwordChangedAt) {
+
+  if (
+    tokenRecord.user.passwordChangedAt &&
+    tokenRecord.createdAt < tokenRecord.user.passwordChangedAt
+  ) {
     return { user: tokenRecord.user, tokenRecord, isPasswordChanged: true };
   }
-  
+
   return { user: tokenRecord.user, tokenRecord };
 };
 
@@ -842,10 +850,15 @@ export const refreshToken = async (req: Request, res: Response) => {
     const deviceInfo = req.headers['user-agent'] || undefined;
 
     // 新しいRefresh Tokenのハッシュとfingerprintを事前に生成
-    const tokenHash = await argon2.hash(newRefreshToken, { type: argon2.argon2id });
+    const tokenHash = await argon2.hash(newRefreshToken, {
+      type: argon2.argon2id,
+    });
     const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
     if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
-    const fingerprint = crypto.createHmac('sha256', secret).update(newRefreshToken).digest('hex');
+    const fingerprint = crypto
+      .createHmac('sha256', secret)
+      .update(newRefreshToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     // 競合対策：updateManyで件数チェック
@@ -855,15 +868,23 @@ export const refreshToken = async (req: Request, res: Response) => {
         data: { isRevoked: true },
       });
       if (count !== 1) return false;
-      
+
       await tx.refreshToken.create({
-        data: { userId: user.id, tokenHash, fingerprint, expiresAt, deviceInfo },
+        data: {
+          userId: user.id,
+          tokenHash,
+          fingerprint,
+          expiresAt,
+          deviceInfo,
+        },
       });
       return true;
     });
 
     if (!rotated) {
-      return res.status(401).json({ error: 'unauthorized', message: 'Token has been revoked' });
+      return res
+        .status(401)
+        .json({ error: 'unauthorized', message: 'Token has been revoked' });
     }
 
     // 新しいトークンをCookieで返す
