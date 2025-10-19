@@ -1555,7 +1555,7 @@ generate-password: ## 強力なランダムパスワードを生成（デフォ�
 	@echo "=========================================="
 	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
 		echo "パスワード $$i:"; \
-		openssl rand -base64 $(PASSWORD_LENGTH) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
+		openssl rand -base64 $$(($(PASSWORD_LENGTH) * 4 / 3)) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
 		echo ""; \
 	done
 
@@ -1564,7 +1564,7 @@ generate-password-strong: ## 超強力なパスワードを生成（64文字、�
 	@echo "=========================================="
 	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
 		echo "超強力パスワード $$i:"; \
-		openssl rand -base64 48 | tr -d "=+/" | sed 's/./&\n/g' | shuf | tr -d '\n' | cut -c1-64; \
+		openssl rand -base64 $$((64 * 4 / 3)) | tr -d "=+/" | sed 's/./&\n/g' | shuf | tr -d '\n' | cut -c1-64; \
 		echo ""; \
 	done
 
@@ -1573,7 +1573,7 @@ generate-password-medium: ## 中程度の強度のパスワードを生成（16�
 	@echo "=========================================="
 	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
 		echo "中程度パスワード $$i:"; \
-		openssl rand -base64 12 | tr -d "=+/" | cut -c1-16; \
+		openssl rand -base64 $$((16 * 4 / 3)) | tr -d "=+/" | cut -c1-16; \
 		echo ""; \
 	done
 
@@ -1592,7 +1592,7 @@ generate-password-custom: ## カスタム長のパスワードを生成（PASSWO
 	@echo "=========================================="
 	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
 		echo "カスタムパスワード $$i:"; \
-		openssl rand -base64 $$(($(PASSWORD_LENGTH) * 3 / 4 + 1)) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
+		openssl rand -base64 $$(($(PASSWORD_LENGTH) * 4 / 3)) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
 		echo ""; \
 	done
 
