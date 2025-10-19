@@ -82,7 +82,12 @@ PROD_COMPOSE_FILES = -f docker-compose.yml -f docker-compose.prod.yml
   python-lock-update \
   python-check-lock \
   lock \
-  lock-refresh
+  lock-refresh \
+  generate-password \
+  generate-password-strong \
+  generate-password-medium \
+  generate-password-simple \
+  generate-password-custom
 
 # Makefile内の "##" コメント付きコマンド一覧を色付きで表示
 help: ## コマンド一覧
@@ -1532,3 +1537,69 @@ git-push-force-safe: ## 安全なforce push（保護ブランチ禁止・4桁確
 	if [ "$$INPUT" != "$$CODE" ]; then echo "❌ コード不一致。中止します"; exit 1; fi; \
 	echo "➡  git push --force-with-lease $$REMOTE $$BRANCH_INPUT"; \
 	git push --force-with-lease "$$REMOTE" "$$BRANCH_INPUT"
+
+# ===== パスワード生成 =====
+.PHONY: \
+  generate-password \
+  generate-password-strong \
+  generate-password-medium \
+  generate-password-simple \
+  generate-password-custom
+
+# パスワード生成設定
+PASSWORD_LENGTH ?= 32
+PASSWORD_COUNT ?= 1
+
+generate-password: ## 強力なランダムパスワードを生成（デフォルト: 32文字）
+	@echo "強力なランダムパスワードを生成中..."
+	@echo "=========================================="
+	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
+		echo "パスワード $$i:"; \
+		openssl rand -base64 $(PASSWORD_LENGTH) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
+		echo ""; \
+	done
+
+generate-password-strong: ## 超強力なパスワードを生成（64文字、特殊文字含む）
+	@echo "超強力なランダムパスワードを生成中..."
+	@echo "=========================================="
+	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
+		echo "超強力パスワード $$i:"; \
+		openssl rand -base64 48 | tr -d "=+/" | sed 's/./&\n/g' | shuf | tr -d '\n' | cut -c1-64; \
+		echo ""; \
+	done
+
+generate-password-medium: ## 中程度の強度のパスワードを生成（16文字）
+	@echo "中程度の強度のランダムパスワードを生成中..."
+	@echo "=========================================="
+	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
+		echo "中程度パスワード $$i:"; \
+		openssl rand -base64 12 | tr -d "=+/" | cut -c1-16; \
+		echo ""; \
+	done
+
+generate-password-simple: ## シンプルなパスワードを生成（12文字、英数字のみ）
+	@echo "シンプルなランダムパスワードを生成中..."
+	@echo "=========================================="
+	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
+		echo "シンプルパスワード $$i:"; \
+		openssl rand -hex 6 | cut -c1-12; \
+		echo ""; \
+	done
+
+generate-password-custom: ## カスタム長のパスワードを生成（PASSWORD_LENGTH=長さ PASSWORD_COUNT=個数）
+	@echo "カスタム長のランダムパスワードを生成中..."
+	@echo "長さ: $(PASSWORD_LENGTH)文字, 個数: $(PASSWORD_COUNT)個"
+	@echo "=========================================="
+	@for i in $$(seq 1 $(PASSWORD_COUNT)); do \
+		echo "カスタムパスワード $$i:"; \
+		openssl rand -base64 $$(($(PASSWORD_LENGTH) * 3 / 4 + 1)) | tr -d "=+/" | cut -c1-$(PASSWORD_LENGTH); \
+		echo ""; \
+	done
+
+
+# パスワード生成の使用例:
+# make generate-password                    # デフォルト（32文字、1個）
+# make generate-password-strong            # 超強力（64文字、1個）
+# make generate-password-medium            # 中程度（16文字、1個）
+# make generate-password-simple            # シンプル（12文字、1個）
+# make generate-password-custom PASSWORD_LENGTH=20 PASSWORD_COUNT=3  # カスタム（20文字、3個）
