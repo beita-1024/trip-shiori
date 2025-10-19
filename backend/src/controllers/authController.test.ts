@@ -585,6 +585,10 @@ describe('Password Reset Tests', () => {
       expect(
         cookies?.some((cookie: string) => cookie.startsWith('refresh_token='))
       ).toBe(true);
+
+      // キャッシュ制御ヘッダーが設定されていることを確認
+      expect(refreshResponse.headers['cache-control']).toBe('no-store');
+      expect(refreshResponse.headers['vary']).toContain('Cookie');
     });
 
     test('無効なRefresh Tokenで更新を試行すると401エラー', async () => {
@@ -599,6 +603,18 @@ describe('Password Reset Tests', () => {
       expect(refreshResponse.body.message).toBe(
         'Invalid or expired refresh token'
       );
+
+      // 401エラー時にCookieがクリアされることを確認
+      const cookies = refreshResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      expect(cookies).toBeDefined();
+      // Cookieクリアの検証（Max-Age=0 または Expires=過去日時）
+      const clearCookies = cookies?.filter(
+        (cookie: string) =>
+          cookie.includes('Max-Age=0') || cookie.includes('Expires=')
+      );
+      expect(clearCookies?.length).toBeGreaterThan(0);
     });
 
     test('Refresh Tokenなしで更新を試行すると401エラー', async () => {
@@ -607,6 +623,18 @@ describe('Password Reset Tests', () => {
       expect(refreshResponse.status).toBe(401);
       expect(refreshResponse.body.error).toBe('unauthorized');
       expect(refreshResponse.body.message).toBe('Refresh token required');
+
+      // 401エラー時にCookieがクリアされることを確認
+      const cookies = refreshResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      expect(cookies).toBeDefined();
+      // Cookieクリアの検証（Max-Age=0 または Expires=過去日時）
+      const clearCookies = cookies?.filter(
+        (cookie: string) =>
+          cookie.includes('Max-Age=0') || cookie.includes('Expires=')
+      );
+      expect(clearCookies?.length).toBeGreaterThan(0);
     });
 
     test('Refresh Token Rotationが正しく動作する', async () => {
@@ -625,6 +653,18 @@ describe('Password Reset Tests', () => {
       expect(secondRefreshResponse.status).toBe(401);
       expect(secondRefreshResponse.body.error).toBe('unauthorized');
       expect(secondRefreshResponse.body.message).toBe('Token has been revoked');
+
+      // 401エラー時にCookieがクリアされることを確認
+      const cookies = secondRefreshResponse.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
+      expect(cookies).toBeDefined();
+      // Cookieクリアの検証（Max-Age=0 または Expires=過去日時）
+      const clearCookies = cookies?.filter(
+        (cookie: string) =>
+          cookie.includes('Max-Age=0') || cookie.includes('Expires=')
+      );
+      expect(clearCookies?.length).toBeGreaterThan(0);
     });
 
     test('ログアウト時に全Refresh Tokenが失効する', async () => {

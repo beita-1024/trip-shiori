@@ -68,8 +68,7 @@ locals {
     data.google_secret_manager_secret.openai_api_key,
     data.google_secret_manager_secret.internal_ai_token,
     data.google_secret_manager_secret.cerebras_api_key,
-    data.google_secret_manager_secret.tavily_api_key,
-    data.google_secret_manager_secret.refresh_token_fingerprint_secret
+    data.google_secret_manager_secret.tavily_api_key
   ]
 }
 
@@ -87,4 +86,12 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${each.value.service}@${var.project_id}.iam.gserviceaccount.com"
+}
+
+# バックエンドのみに指紋シークレットへのアクセス権限を付与
+resource "google_secret_manager_secret_iam_member" "refresh_fp_backend_only" {
+  secret_id = data.google_secret_manager_secret.refresh_token_fingerprint_secret.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.project_name}-backend@${var.project_id}.iam.gserviceaccount.com"
 }

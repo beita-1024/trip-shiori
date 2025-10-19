@@ -354,6 +354,16 @@ paths:
               schema:
                 type: string
                 example: access_token=<new_JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+            Cache-Control:
+              description: キャッシュ制御（トークンはキャッシュ不可）
+              schema:
+                type: string
+                example: no-store
+            Vary:
+              description: Cookieによる応答の変動を示す
+              schema:
+                type: string
+                example: Cookie
         '401':
           description: 認証失敗
           content:

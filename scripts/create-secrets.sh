@@ -72,6 +72,9 @@ else
     required_vars+=("DB_PASSWORD_PROD" "JWT_SECRET_PROD")
 fi
 
+# 長さチェック関数（ASCII想定）
+minlen() { [ ${#2} -ge "$3" ] || { echo "❌ $1 must be >= $3 chars"; exit 1; }; }
+
 # 必須環境変数の確認
 for var in "${required_vars[@]}"; do
     if [ -z "${!var:-}" ]; then
@@ -79,6 +82,9 @@ for var in "${required_vars[@]}"; do
         exit 1
     fi
 done
+
+# REFRESH_TOKEN_FINGERPRINT_SECRETの最小長チェック（32文字以上）
+minlen "REFRESH_TOKEN_FINGERPRINT_SECRET" "${REFRESH_TOKEN_FINGERPRINT_SECRET}" 32
 
 # 共通シークレットの作成
 create_secret "trip-shiori-$ENV-smtp-user" "${SMTP_USER}"
@@ -101,3 +107,9 @@ fi
 echo "✅ All secrets created successfully for environment: $ENV"
 echo "📋 Created secrets:"
 gcloud secrets list --filter="labels.environment=$ENV" --format="table(name,createTime)"
+
+echo ""
+echo "📝 ローテーション運用ガイド:"
+echo "   REFRESH_TOKEN_FINGERPRINT_SECRETをローテーションする際は、"
+echo "   既存シークレットに新バージョンを追加してください:"
+echo "   echo -n \"\$NEW_SECRET_VALUE\" | gcloud secrets versions add \"trip-shiori-$ENV-refresh-token-fingerprint-secret\" --data-file=-"

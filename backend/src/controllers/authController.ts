@@ -63,7 +63,7 @@ const saveRefreshToken = async (
     .createHmac('sha256', secret)
     .update(refreshToken)
     .digest('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7日後
+  const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
 
   return await prisma.refreshToken.create({
     data: {
@@ -800,10 +800,26 @@ export const confirmPasswordReset = async (req: Request, res: Response) => {
  */
 export const refreshToken = async (req: Request, res: Response) => {
   try {
+    const clearAuthCookies = () => {
+      res.clearCookie(COOKIE_NAME, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+      res.clearCookie(REFRESH_COOKIE_NAME, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+    };
+
     // CookieからRefresh Tokenを取得
     const refreshToken = req.cookies[REFRESH_COOKIE_NAME];
 
     if (!refreshToken) {
+      clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
         message: 'Refresh token required',
@@ -813,6 +829,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     // Refresh Tokenを検証
     const tokenData = await verifyRefreshToken(refreshToken);
     if (!tokenData) {
+      clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
         message: 'Invalid or expired refresh token',
@@ -823,6 +840,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // 失効済みトークンの場合
     if (isRevoked) {
+      clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
         message: 'Token has been revoked',
@@ -831,6 +849,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // パスワード変更により無効化されたトークンの場合
     if (isPasswordChanged) {
+      clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
         message: 'Token invalidated due to password change',
@@ -859,13 +878,13 @@ export const refreshToken = async (req: Request, res: Response) => {
       .createHmac('sha256', secret)
       .update(newRefreshToken)
       .digest('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
 
     // 競合対策：updateManyで件数チェック
     const rotated = await prisma.$transaction(async (tx) => {
       const { count } = await tx.refreshToken.updateMany({
         where: { id: tokenRecord.id, isRevoked: false },
-        data: { isRevoked: true },
+        data: { isRevoked: true, lastUsedAt: new Date() },
       });
       if (count !== 1) return false;
 
@@ -882,6 +901,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     });
 
     if (!rotated) {
+      clearAuthCookies();
       return res
         .status(401)
         .json({ error: 'unauthorized', message: 'Token has been revoked' });
@@ -903,6 +923,9 @@ export const refreshToken = async (req: Request, res: Response) => {
       path: '/',
       maxAge: REFRESH_COOKIE_MAX_AGE,
     });
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Vary', 'Cookie');
 
     return res.sendStatus(204);
   } catch (error) {
