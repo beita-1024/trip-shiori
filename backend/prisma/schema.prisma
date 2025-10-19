@@ -56,6 +56,9 @@ model User {
 
   /** パスワードリセットトークンとのリレーション */
   passwordResetTokens     PasswordResetToken[]
+
+  /** リフレッシュトークンとのリレーション */
+  refreshTokens           RefreshToken[]
 }
 
 /**
@@ -158,6 +161,52 @@ model PasswordResetToken {
   @@index([tokenHash])
   // 検索最適化：最新・未失効の取得パターンに合わせた複合Index
   @@index([userId, expiresAt, createdAt])
+}
+
+/**
+ * リフレッシュトークンを管理するモデル
+ * 
+ * 各トークンは一意のIDとハッシュ化されたトークン値を持ち、ユーザーと紐付けられます。
+ * 有効期限・作成日時・失効状態を保持し、デバイス情報も記録します。
+ * Refresh Token Rotationのため、使用済みトークンは即座に失効させます。
+ * インデックスにより検索性能を最適化しています。
+ */
+model RefreshToken {
+  /** トークンの一意識別子 */
+  id         String   @id @default(cuid())
+
+  /** 紐付くユーザーID */
+  userId     String
+
+  /** ハッシュ化されたトークン値（ユニーク） */
+  tokenHash  String   @unique
+
+  /** 生トークンから server secret で HMAC-SHA256 した指紋（DB検索用） */
+  fingerprint String  @unique @db.VarChar(64)
+
+  /** 有効期限 */
+  expiresAt  DateTime @db.Timestamptz(6)
+
+  /** 失効フラグ（Refresh Token Rotation用） */
+  isRevoked  Boolean  @default(false)
+
+  /** デバイス情報（User-Agent等、セキュリティ監視用） */
+  deviceInfo String?
+
+  /** 作成日時 */
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  /** 最終使用日時（トークン更新時） */
+  lastUsedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  /** ユーザーとのリレーション（削除時はカスケード） */
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isRevoked])
+  // 検索最適化：有効なトークンの取得パターンに合わせた複合Index
+  @@index([userId, isRevoked, expiresAt])
 }
 
 /**

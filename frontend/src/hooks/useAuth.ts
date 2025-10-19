@@ -29,7 +29,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { buildApiUrl } from '@/lib/api';
+import { buildApiUrl, apiFetch } from '@/lib/api';
 import type { User } from '@/types';
 
 interface UseAuthReturn {
@@ -87,10 +87,16 @@ export function useAuth(): UseAuthReturn {
     try {
       setIsLoading(true);
       
+      // /loginページでは認証チェックをスキップ
+      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+      
       // 認証状態をチェック（ユーザー情報も含む）
-      const authResponse = await fetch(buildApiUrl('/auth/protected'), {
-        credentials: 'include',
-      });
+      const authResponse = await apiFetch(buildApiUrl('/auth/protected'));
 
       if (authResponse.ok) {
         const authData = await authResponse.json();
@@ -128,9 +134,8 @@ export function useAuth(): UseAuthReturn {
    */
   const logout = useCallback(async (): Promise<void> => {
     try {
-      await fetch(buildApiUrl('/auth/logout'), {
+      await apiFetch(buildApiUrl('/auth/logout'), {
         method: 'POST',
-        credentials: 'include',
       });
     } catch (error) {
       console.error('Logout failed:', error);
@@ -153,7 +158,7 @@ export function useAuth(): UseAuthReturn {
   // 初回マウント時に認証状態をチェック
   useEffect(() => {
     checkAuthStatus();
-  }, [checkAuthStatus]);
+  }, [checkAuthStatus]); // checkAuthStatusを依存配列に追加
 
   return {
     isAuthenticated,

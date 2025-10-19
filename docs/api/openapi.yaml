@@ -156,7 +156,17 @@ paths:
   /auth/verify-email:
     get:
       summary: メール認証
-      description: メール認証トークンを検証し、ユーザーを認証済みに更新
+      description: |
+        メール認証トークンを検証し、ユーザーを認証済みに更新
+        
+        **処理内容**:
+        - メール認証トークンの検証
+        - ユーザーを認証済み状態に更新
+        - Access Token + Refresh TokenをCookieで発行（自動ログイン）
+        
+        **発行されるトークン**:
+        - Access Token: 15分間有効（httpOnly Cookie）
+        - Refresh Token: 7日間有効（httpOnly Cookie）
       tags:
         - Authentication
       parameters:
@@ -207,7 +217,17 @@ paths:
   /auth/login:
     post:
       summary: ユーザーログイン
-      description: メールアドレスとパスワードでログインし、JWT Cookieを発行
+      description: |
+        メールアドレスとパスワードでログインし、Access Token + Refresh TokenをCookieで発行
+        
+        **発行されるトークン**:
+        - Access Token: 15分間有効（httpOnly Cookie）
+        - Refresh Token: 7日間有効（httpOnly Cookie）
+        
+        **セキュリティ機能**:
+        - httpOnly Cookie: XSS攻撃からの保護
+        - Refresh Token Rotation: セキュリティ向上
+        - デバイス情報記録: User-Agent等を記録
       tags:
         - Authentication
       requestBody:
@@ -232,12 +252,13 @@ paths:
                   example: SecurePass123!
       responses:
         '204':
-          description: ログイン成功（HttpOnly CookieでJWT発行）
+          description: ログイン成功（Access Token + Refresh TokenをhttpOnly Cookieで発行）
           headers:
             Set-Cookie:
-              description: JWT Cookie
+              description: トークンCookie
               schema:
                 type: string
+              example: access_token=<JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
         '400':
           description: バリデーションエラー
           content:
@@ -267,7 +288,12 @@ paths:
     post:
       summary: ユーザーログアウト
       description: |
-        認証済みユーザーをログアウトし、JWT Cookieを無効化
+        認証済みユーザーをログアウトし、全Tokenを無効化
+        
+        **処理内容**:
+        - ユーザーの全Refresh Tokenを失効
+        - Access Token Cookieをクリア
+        - Refresh Token Cookieをクリア
         
         **使用ミドルウェア**:
         - auth: JWT検証（認証済みユーザーのみアクセス可能）
@@ -277,18 +303,99 @@ paths:
         - cookieAuth: []
       responses:
         '204':
-          description: ログアウト成功（Cookie無効化）
+          description: ログアウト成功（全Token無効化・Cookieクリア）
           headers:
-            Clear-Cookie:
-              description: Cookie無効化
+            Set-Cookie:
+              description: トークンCookieを削除するためのSet-Cookieヘッダー
               schema:
                 type: string
+              examples:
+                accessToken:
+                  summary: access_tokenの削除
+                  value: access_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
+                refreshToken:
+                  summary: refresh_tokenの削除
+                  value: refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
         '401':
           description: 未認証
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      summary: Refresh Token更新
+      description: |
+        Refresh Tokenを使用して新しいAccess TokenとRefresh Tokenを発行（Refresh Token Rotation）
+        
+        **セキュリティ機能**:
+        - Refresh Token Rotation: 使用済みトークンは即座に失効
+        - レート制限: 1分間に10回まで
+        - デバイス情報記録: User-Agent等を記録してセキュリティ監視
+        
+        **使用ミドルウェア**:
+        - rateLimit: リクエスト頻度制限（1分間に10回）
+      tags:
+        - Authentication
+      security: []
+      responses:
+        '204':
+          description: トークン更新成功（新しいAccess Token + Refresh TokenをCookieで発行）
+          headers:
+            Set-Cookie:
+              description: 新しいトークンをhttpOnly Cookieで設定
+              schema:
+                type: string
+                example: access_token=<new_JWT>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+            Cache-Control:
+              description: キャッシュ制御（トークンはキャッシュ不可）
+              schema:
+                type: string
+                example: no-store
+            Vary:
+              description: Cookieによる応答の変動を示す
+              schema:
+                type: string
+                example: Cookie
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unauthorized:
+                  summary: Refresh Token無効
+                  value:
+                    error: 'unauthorized'
+                    message: 'Invalid or expired refresh token'
+                token_required:
+                  summary: Refresh Token未提供
+                  value:
+                    error: 'unauthorized'
+                    message: 'Refresh token required'
+                password_changed:
+                  summary: パスワード変更によるToken無効化
+                  value:
+                    error: 'unauthorized'
+                    message: 'Token invalidated due to password change'
+        '429':
+          description: レート制限超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: 'rate_limit_exceeded'
+                message: 'Too many refresh token requests. Please try again later.'
+                retryAfter: 60
         '500':
           description: サーバーエラー
           content:
@@ -2377,4 +2484,3 @@ tags:
     description: AI機能（OpenAI ChatGPT API統合）
   - name: Internal Services
     description: 内部サービス（FastAPI + LangChain）
-

@@ -42,6 +42,11 @@ data "google_secret_manager_secret" "tavily_api_key" {
   project   = var.project_id
 }
 
+data "google_secret_manager_secret" "refresh_token_fingerprint_secret" {
+  secret_id = "trip-shiori-${var.environment}-refresh-token-fingerprint-secret"
+  project   = var.project_id
+}
+
 # Cloud RunサービスアカウントにSecret Managerアクセス権限を付与
 locals {
   # デフォルトのCloud Runサービス名
@@ -81,4 +86,12 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${each.value.service}@${var.project_id}.iam.gserviceaccount.com"
+}
+
+# バックエンドのみに指紋シークレットへのアクセス権限を付与
+resource "google_secret_manager_secret_iam_member" "refresh_fp_backend_only" {
+  secret_id = data.google_secret_manager_secret.refresh_token_fingerprint_secret.secret_id
+  project   = var.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.project_name}-backend@${var.project_id}.iam.gserviceaccount.com"
 }
