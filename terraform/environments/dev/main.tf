@@ -35,10 +35,41 @@ resource "google_compute_network" "main" {
 }
 
 resource "google_compute_subnetwork" "main" {
-  name          = "${var.project_name}-subnet"
-  ip_cidr_range = "10.0.0.0/24"
-  region        = var.region
-  network       = google_compute_network.main.id
+  name                     = "${var.project_name}-subnet"
+  ip_cidr_range            = "10.0.0.0/24"
+  region                   = var.region
+  network                  = google_compute_network.main.id
+  private_ip_google_access = true
+}
+
+# ===== DNS設定（Direct VPC Egress用） =====
+resource "google_dns_managed_zone" "cloud_run_dns_zone" {
+  name     = "${var.project_name}-cloud-run-dns-zone"
+  dns_name = "run.app."
+
+  visibility = "private"
+
+  private_visibility_config {
+    networks {
+      network_url = google_compute_network.main.id
+    }
+  }
+}
+
+resource "google_dns_record_set" "cloud_run_dns_record_set_a" {
+  name         = "run.app."
+  type         = "A"
+  ttl          = 60
+  managed_zone = google_dns_managed_zone.cloud_run_dns_zone.name
+  rrdatas      = ["199.36.153.4", "199.36.153.5", "199.36.153.6", "199.36.153.7"] # restricted.googleapis.com
+}
+
+resource "google_dns_record_set" "cloud_run_dns_record_set_cname" {
+  name         = "*.run.app."
+  type         = "CNAME"
+  ttl          = 60
+  managed_zone = google_dns_managed_zone.cloud_run_dns_zone.name
+  rrdatas      = ["run.app."]
 }
 
 # VPC peering 用 予約レンジ
@@ -354,8 +385,11 @@ resource "google_cloud_run_v2_service" "backend" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
     }
   }
 
@@ -370,6 +404,7 @@ resource "google_cloud_run_v2_service" "backend" {
 resource "google_cloud_run_v2_service" "ai" {
   name     = "${var.project_name}-ai"
   location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"  # VPC内部からのみアクセス可能
 
   template {
     service_account = google_service_account.ai.email
@@ -455,10 +490,14 @@ resource "google_cloud_run_v2_service" "ai" {
       max_instance_count = 10
     }
 
-    # VPCアクセス設定を追加（プライベート宛のみVPC経由）
+    # VPCアクセス設定（Direct VPC Egress）
+    # egress = "ALL_TRAFFIC" で外部API（OpenAI、Cerebras、Tavily）へのアクセスを許可
     vpc_access {
-      connector = google_vpc_access_connector.main.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
     }
   }
 
@@ -528,6 +567,15 @@ resource "google_cloud_run_v2_service" "frontend" {
       min_instance_count = 0
       max_instance_count = 10
     }
+
+    # VPCアクセス設定（Direct VPC Egress）
+    vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
+    }
   }
 
   traffic {
@@ -536,13 +584,7 @@ resource "google_cloud_run_v2_service" "frontend" {
   }
 }
 
-# ===== VPC Connector (Cloud Run ↔ Cloud SQL接続用) =====
-resource "google_vpc_access_connector" "main" {
-  name          = "${var.project_name}-connector"
-  ip_cidr_range = "10.8.0.0/28"
-  network       = google_compute_network.main.name
-  region        = var.region
-}
+# ===== VPC Connector 削除済み（Direct VPC Egressに移行） =====
 
 # ===== IAM設定 =====
 resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
@@ -559,9 +601,4 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
   member   = "allUsers"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "ai_noauth" {
-  location = google_cloud_run_v2_service.ai.location
-  name     = google_cloud_run_v2_service.ai.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+# AIサービスは内部専用のため、外部アクセス用のIAM設定を削除
