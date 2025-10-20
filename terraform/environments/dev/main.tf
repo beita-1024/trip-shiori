@@ -259,6 +259,16 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
+        name = "REFRESH_TOKEN_FINGERPRINT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.refresh_token_fingerprint_secret
+            version = "latest"
+          }
+        }
+      }
+      
+      env {
         name  = "JWT_ACCESS_EXPIRES_IN"
         value = var.jwt_access_expires_in
       }
