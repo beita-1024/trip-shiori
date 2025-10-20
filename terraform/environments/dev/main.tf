@@ -341,7 +341,7 @@ resource "google_cloud_run_v2_service" "backend" {
       
       env {
         name  = "INTERNAL_AI_BASE_URL"
-        value = "https://dev-ai.trip.beita.dev"
+        value = google_cloud_run_v2_service.ai.uri
       }
       
       env {
