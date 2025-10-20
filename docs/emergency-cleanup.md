@@ -157,4 +157,3 @@ gcloud compute networks delete trip-shiori-dev-vpc --quiet
 
 ---
 
-*最終更新: 2025-01-15*

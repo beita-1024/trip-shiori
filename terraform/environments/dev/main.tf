@@ -164,6 +164,13 @@ module "secrets" {
   project_id   = var.project_id
   project_name = var.project_name
   environment  = "dev"
+
+  # Ensure SA exists before the module binds IAM on secrets
+  depends_on = [
+    google_service_account.backend,
+    google_service_account.ai,
+    google_service_account.frontend,
+  ]
 }
 
 # ===== Secret Manager データソース =====
