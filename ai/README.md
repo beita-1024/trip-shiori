@@ -18,9 +18,6 @@ Trip ShioriのAI機能を提供するPythonサービスです。FastAPI + LangCh
 ### 必須環境変数
 
 ```bash
-# 内部通信認証
-INTERNAL_AI_TOKEN=your-secure-token-here
-
 # LLM設定（Cerebras優先）
 CEREBRAS_API_KEY=your-cerebras-api-key
 CEREBRAS_BASE_URL=https://api.cerebras.ai/v1
@@ -86,7 +83,6 @@ GET /health
   "service": "fastapi-sidecar",
   "version": "0.1.0",
   "environment_variables": {
-    "INTERNAL_AI_TOKEN": "***masked***",
     "CEREBRAS_API_KEY": "***masked***",
     "OPENAI_API_KEY": "***masked***",
     "TAVILY_API_KEY": "***masked***"
@@ -94,34 +90,13 @@ GET /health
 }
 ```
 
-### 認証ヘルスチェック
-
-```http
-GET /health/auth
-X-Internal-Token: your-internal-token
-```
-
-**レスポンス:**
-```json
-{
-  "status": "ok",
-  "message": "Internal token is valid"
-}
-```
-
-**エラー（403）:**
-```json
-{
-  "detail": "invalid internal token"
-}
-```
+<!-- 以前の内部トークン認証はTerraformのネットワーク制御に置き換え -->
 
 ### イベント補完
 
 ```http
 POST /internal/ai/events-complete
 Content-Type: application/json
-X-Internal-Token: your-internal-token
 
 {
   "event1": {
@@ -157,7 +132,6 @@ X-Internal-Token: your-internal-token
 ```http
 POST /internal/ai/itinerary-edit
 Content-Type: application/json
-X-Internal-Token: your-internal-token
 
 {
   "originalItinerary": {
@@ -209,7 +183,7 @@ X-Internal-Token: your-internal-token
 
 このサービスはExpressバックエンドから内部HTTP通信で呼び出されます：
 
-- **認証**: `X-Internal-Token`ヘッダによる認証
+- **ネットワーク保護**: Terraformにより内部限定の通信に制御
 - **ベースURL**: `http://ai:3000`（Docker Compose環境）
 - **タイムアウト**: 30秒
 
@@ -256,10 +230,8 @@ poetry update
 
 ### よくある問題
 
-1. **内部認証エラー**
-   - `INTERNAL_AI_TOKEN`が正しく設定されているか確認
-   - Expressバックエンドの`INTERNAL_AI_TOKEN`と一致しているか確認
-   - `/internal/ai/*`エンドポイントは認証必須（`X-Internal-Token`ヘッダが必要）
+1. **内部通信**
+   - Terraformのネットワーク設定（VPC/Serverless VPC Access/Ingress）を確認
 
 2. **LLM API エラー**
    - `CEREBRAS_API_KEY`または`OPENAI_API_KEY`が設定されているか確認

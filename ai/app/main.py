@@ -52,7 +52,6 @@ def root():
         "status": "running",
         "endpoints": {
             "health": "/health",
-            "health_auth": "/health/auth",
             "internal_ai_events_complete": "/internal/ai/events-complete",
             "internal_ai_itinerary_edit": "/internal/ai/itinerary-edit",
             "docs": "/docs"
