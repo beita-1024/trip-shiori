@@ -7,6 +7,7 @@
 
 import { Request, Response } from 'express';
 import axios, { AxiosResponse } from 'axios';
+import { internalPythonClient } from '../services/internalPythonClient';
 
 // FastAPI 内部サービスのベースURL（環境変数優先）
 const FASTAPI_BASE_URL = process.env.INTERNAL_AI_BASE_URL || 'http://ai:3000';
@@ -45,12 +46,8 @@ export const getFastAPIHealth = async (
   res: Response
 ): Promise<void> => {
   try {
-    const response: AxiosResponse<FastAPIHealthResponse> = await axios.get(
-      `${FASTAPI_BASE_URL}/health`,
-      { timeout: 5000 }
-    );
-
-    res.status(200).json(response.data);
+    const data = (await internalPythonClient.health()) as FastAPIHealthResponse;
+    res.status(200).json(data);
   } catch (error: unknown) {
     console.error('FastAPI health check failed:', error);
 

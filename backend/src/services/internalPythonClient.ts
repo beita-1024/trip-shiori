@@ -9,16 +9,65 @@ import axios, { AxiosInstance } from 'axios';
 class InternalPythonClient {
   private http: AxiosInstance;
   private internalToken: string;
+  private aiBaseUrl: string;
 
   constructor() {
-    const baseURL = process.env.INTERNAL_AI_BASE_URL || 'http://ai:3000';
+    this.aiBaseUrl = process.env.INTERNAL_AI_BASE_URL || 'http://ai:3000';
     this.internalToken = process.env.INTERNAL_AI_TOKEN || '';
-    this.http = axios.create({ baseURL, timeout: 30000 });
-    this.http.interceptors.request.use((config) => {
+    this.http = axios.create({ baseURL: this.aiBaseUrl, timeout: 30000 });
+
+    // 送信前にヘッダを付与
+    this.http.interceptors.request.use(async (config) => {
       config.headers = config.headers || {};
-      config.headers['X-Internal-Token'] = this.internalToken;
+
+      // NOTE: X-Internal-Token はローカル/将来の再導入に備えて保持。
+      // 本番の一次認証は Cloud Run の ID トークン + roles/run.invoker。
+      // 既存のアプリ層ガード（ローカル/Compose向け）
+      if (this.internalToken) {
+        (config.headers as Record<string, string>)['X-Internal-Token'] = this.internalToken;
+      }
+
+      // Cloud Run 上では ID トークンを自動付与（追加依存なし）
+      const idToken = await this.maybeGetIdToken(this.aiBaseUrl).catch(
+        () => null
+      );
+      if (idToken) {
+        (config.headers as Record<string, string>)['Authorization'] = `Bearer ${idToken}`;
+      }
+
       return config;
     });
+  }
+
+  /**
+   * Cloud Run 実行時のみメタデータサーバから ID トークンを取得。
+   * ローカル/Compose 等では何もしない（null を返す）。
+   */
+  private async maybeGetIdToken(audience: string): Promise<string | null> {
+    // Cloud Run 環境判定（K_SERVICE は自動注入）
+    if (!process.env.K_SERVICE) return null;
+
+    try {
+      const url = `http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?audience=${encodeURIComponent(
+        audience
+      )}&format=full`;
+      const res = await fetch(url, {
+        headers: { 'Metadata-Flavor': 'Google' },
+      });
+      if (!res.ok) return null;
+      return await res.text();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * @summary FastAPIヘルスチェック
+   * @returns FastAPIのヘルス応答
+   */
+  async health(): Promise<unknown> {
+    const res = await this.http.get('/health');
+    return res.data;
   }
 
   /**
