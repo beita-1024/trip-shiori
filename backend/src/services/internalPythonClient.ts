@@ -24,7 +24,8 @@ class InternalPythonClient {
       // 本番の一次認証は Cloud Run の ID トークン + roles/run.invoker。
       // 既存のアプリ層ガード（ローカル/Compose向け）
       if (this.internalToken) {
-        (config.headers as Record<string, string>)['X-Internal-Token'] = this.internalToken;
+        (config.headers as Record<string, string>)['X-Internal-Token'] =
+          this.internalToken;
       }
 
       // Cloud Run 上では ID トークンを自動付与（追加依存なし）
@@ -32,7 +33,8 @@ class InternalPythonClient {
         () => null
       );
       if (idToken) {
-        (config.headers as Record<string, string>)['Authorization'] = `Bearer ${idToken}`;
+        (config.headers as Record<string, string>)['Authorization'] =
+          `Bearer ${idToken}`;
       }
 
       return config;
