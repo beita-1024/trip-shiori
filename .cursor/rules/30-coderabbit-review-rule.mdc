@@ -1,0 +1,36 @@
+---
+description: "CodeRabbit CLI を使用したコードレビューの実行ルール"
+alwaysApply: true
+---
+
+# CodeRabbit CLIの実行
+
+CodeRabbitはすでにターミナルにインストールされています。コードをレビューするために実行してください。利用可能なコマンドの詳細については、`cr -h` コマンドを実行してください。一般的には、`--prompt-only` フラグを付けて coderabbit を実行してほしいです。未コミットの変更をレビューするには（これが最もよく使う方法です）、`coderabbit --prompt-only -t uncommitted` を実行してください。
+
+## 重要な制限事項
+
+**重要**: コード変更をレビューするために CodeRabbit を実行する場合、同一の変更セットで3回以上実行しないでください。
+
+## 基本的な使用方法
+
+### 未コミットの変更をレビュー
+```bash
+coderabbit --prompt-only -t uncommitted
+```
+
+### ヘルプの確認
+```bash
+cr -h
+```
+
+## 例
+> 代表的な OK/NG 例は随時追加（Issue: `docs/examples`）。
+
+## 既存コードの扱い
+- 差分箇所で**ボーイスカウト・ルール**（触った部分は綺麗にして返す）。
+- 大規模改修は**別PR**で行い、レビューを小さく保つ。
+
+## 参考
+- プロジェクト README / ADR
+- チーム共通 ESLint/Prettier 設定
+- 変更履歴: 週次リリースノート Issue を参照（CHANGELOGは生成しない方針）。
