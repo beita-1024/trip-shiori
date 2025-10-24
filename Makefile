@@ -1603,3 +1603,44 @@ generate-password-custom: ## カスタム長のパスワードを生成（PASSWO
 # make generate-password-medium            # 中程度（16文字、1個）
 # make generate-password-simple            # シンプル（12文字、1個）
 # make generate-password-custom PASSWORD_LENGTH=20 PASSWORD_COUNT=3  # カスタム（20文字、3個）
+
+# ===== データベースマイグレーション =====
+
+migrate-dev: ## 開発環境のデータベースマイグレーション実行
+	@echo "🔄 開発環境のデータベースマイグレーションを実行中..."
+	@cd backend && \
+		export DATABASE_URL="postgresql://trip_shiori_user:$$(gcloud secrets versions access latest --secret=trip-shiori-dev-database-password)@$$(gcloud sql instances describe trip-shiori-dev-db-instance --format='value(ipAddresses[0].ipAddress)'):5432/trip_shiori?sslmode=require" && \
+		npx prisma migrate deploy && \
+		npx prisma generate
+	@echo "✅ 開発環境のマイグレーションが完了しました"
+
+migrate-prod: ## 本番環境のデータベースマイグレーション実行
+	@echo "🔄 本番環境のデータベースマイグレーションを実行中..."
+	@echo "⚠️  本番環境のマイグレーションを実行します。続行しますか？ (y/N)"
+	@read -r confirm && [ "$$confirm" = "y" ] || (echo "❌ マイグレーションをキャンセルしました" && exit 1)
+	@cd backend && \
+		export DATABASE_URL="postgresql://trip_shiori_user:$$(gcloud secrets versions access latest --secret=trip-shiori-prod-database-password)@$$(gcloud sql instances describe trip-shiori-prod-db-instance --format='value(ipAddresses[0].ipAddress)'):5432/trip_shiori?sslmode=require" && \
+		npx prisma migrate deploy && \
+		npx prisma generate
+	@echo "✅ 本番環境のマイグレーションが完了しました"
+
+migrate-status-dev: ## 開発環境のマイグレーション状態確認
+	@echo "📊 開発環境のマイグレーション状態を確認中..."
+	@cd backend && \
+		export DATABASE_URL="postgresql://trip_shiori_user:$$(gcloud secrets versions access latest --secret=trip-shiori-dev-database-password)@$$(gcloud sql instances describe trip-shiori-dev-db-instance --format='value(ipAddresses[0].ipAddress)'):5432/trip_shiori?sslmode=require" && \
+		npx prisma migrate status
+
+migrate-status-prod: ## 本番環境のマイグレーション状態確認
+	@echo "📊 本番環境のマイグレーション状態を確認中..."
+	@cd backend && \
+		export DATABASE_URL="postgresql://trip_shiori_user:$$(gcloud secrets versions access latest --secret=trip-shiori-prod-database-password)@$$(gcloud sql instances describe trip-shiori-prod-db-instance --format='value(ipAddresses[0].ipAddress)'):5432/trip_shiori?sslmode=require" && \
+		npx prisma migrate status
+
+migrate-reset-dev: ## 開発環境のデータベースをリセット（⚠️ データ削除）
+	@echo "⚠️  開発環境のデータベースをリセットします。全データが削除されます。"
+	@echo "続行しますか？ (y/N)"
+	@read -r confirm && [ "$$confirm" = "y" ] || (echo "❌ リセットをキャンセルしました" && exit 1)
+	@cd backend && \
+		export DATABASE_URL="postgresql://trip_shiori_user:$$(gcloud secrets versions access latest --secret=trip-shiori-dev-database-password)@$$(gcloud sql instances describe trip-shiori-dev-db-instance --format='value(ipAddresses[0].ipAddress)'):5432/trip_shiori?sslmode=require" && \
+		npx prisma migrate reset --force
+	@echo "✅ 開発環境のデータベースがリセットされました"

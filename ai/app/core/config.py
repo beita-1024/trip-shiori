@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     環境変数から内部通信トークンやOpenAI設定を読み込む。
     """
 
+    # 以前の内部トークンはインフラ側でのネットワーク制御に置き換え済み
+    # 後方互換性のため残すが使用しない
     internal_ai_token: str | None = Field(default=None, validation_alias="INTERNAL_AI_TOKEN")
 
     # OpenAI (後方互換用)
@@ -47,20 +49,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def require_internal_token(token: str | None) -> None:
-    """内部トークン検証。無効な場合は例外を送出する。
-
-    Args:
-        token: リクエストヘッダ `X-Internal-Token` の値
-
-    Raises:
-        ValueError: トークンが未設定または一致しない
-    """
-    # 内部トークンが設定されていない場合は検証をスキップ
-    if settings.internal_ai_token is None:
-        return
-
-    if not token or token != settings.internal_ai_token:
-        raise ValueError("invalid internal token")
+# X-Internal-Token 検証は廃止
 
 

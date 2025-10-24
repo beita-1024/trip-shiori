@@ -25,11 +25,14 @@ COPY . .
 # 依存関係をインストール（プロジェクトも含む）
 RUN poetry install --only=main
 
+# Pythonパスを設定
+ENV PYTHONPATH=/app
+
 # ポート3000で起動
 EXPOSE 3000
 
-# 開発環境用コマンド
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+# 開発環境用コマンド（PORT環境変数に追従）
+CMD ["/bin/sh", "-c", "cd /app && /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3000} --reload"]
 
 # ===== 本番ステージ =====
 FROM python:3.11-slim-bookworm AS runtime
@@ -58,8 +61,11 @@ COPY . .
 # 依存関係をインストール（本番用のみ）
 RUN poetry install --only=main
 
+# Pythonパスを設定
+ENV PYTHONPATH=/app
+
 # ポート3000で起動
 EXPOSE 3000
 
-# 本番環境用コマンド
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000", "--log-level", "info"]
+# 本番環境用コマンド（PORT環境変数に追従）
+CMD ["/bin/sh", "-c", "cd /app && /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-3000} --log-level info"]

@@ -35,10 +35,41 @@ resource "google_compute_network" "main" {
 }
 
 resource "google_compute_subnetwork" "main" {
-  name          = "${var.project_name}-subnet"
-  ip_cidr_range = "10.0.0.0/24"
-  region        = var.region
-  network       = google_compute_network.main.id
+  name                     = "${var.project_name}-subnet"
+  ip_cidr_range            = "10.0.0.0/24"
+  region                   = var.region
+  network                  = google_compute_network.main.id
+  private_ip_google_access = true
+}
+
+# ===== DNS設定（Direct VPC Egress用） =====
+resource "google_dns_managed_zone" "cloud_run_dns_zone" {
+  name     = "${var.project_name}-cloud-run-dns-zone"
+  dns_name = "run.app."
+
+  visibility = "private"
+
+  private_visibility_config {
+    networks {
+      network_url = google_compute_network.main.id
+    }
+  }
+}
+
+resource "google_dns_record_set" "cloud_run_dns_record_set_a" {
+  name         = "run.app."
+  type         = "A"
+  ttl          = 60
+  managed_zone = google_dns_managed_zone.cloud_run_dns_zone.name
+  rrdatas      = ["199.36.153.4", "199.36.153.5", "199.36.153.6", "199.36.153.7"] # restricted.googleapis.com
+}
+
+resource "google_dns_record_set" "cloud_run_dns_record_set_cname" {
+  name         = "*.run.app."
+  type         = "CNAME"
+  ttl          = 60
+  managed_zone = google_dns_managed_zone.cloud_run_dns_zone.name
+  rrdatas      = ["run.app."]
 }
 
 # VPC peering 用 予約レンジ
@@ -133,6 +164,13 @@ module "secrets" {
   project_id   = var.project_id
   project_name = var.project_name
   environment  = "dev"
+
+  # Ensure SA exists before the module binds IAM on secrets
+  depends_on = [
+    google_service_account.backend,
+    google_service_account.ai,
+    google_service_account.frontend,
+  ]
 }
 
 # ===== Secret Manager データソース =====
@@ -228,6 +266,16 @@ resource "google_cloud_run_v2_service" "backend" {
       }
       
       env {
+        name = "REFRESH_TOKEN_FINGERPRINT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = module.secrets.secret_ids.refresh_token_fingerprint_secret
+            version = "latest"
+          }
+        }
+      }
+      
+      env {
         name  = "JWT_ACCESS_EXPIRES_IN"
         value = var.jwt_access_expires_in
       }
@@ -300,7 +348,7 @@ resource "google_cloud_run_v2_service" "backend" {
       
       env {
         name  = "INTERNAL_AI_BASE_URL"
-        value = "https://dev-ai.trip.beita.dev"
+        value = google_cloud_run_v2_service.ai.uri
       }
       
       env {
@@ -354,8 +402,11 @@ resource "google_cloud_run_v2_service" "backend" {
     }
 
     vpc_access {
-      connector = google_vpc_access_connector.main.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
     }
   }
 
@@ -370,6 +421,7 @@ resource "google_cloud_run_v2_service" "backend" {
 resource "google_cloud_run_v2_service" "ai" {
   name     = "${var.project_name}-ai"
   location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"  # VPC内部からのみアクセス可能
 
   template {
     service_account = google_service_account.ai.email
@@ -455,10 +507,14 @@ resource "google_cloud_run_v2_service" "ai" {
       max_instance_count = 10
     }
 
-    # VPCアクセス設定を追加（プライベート宛のみVPC経由）
+    # VPCアクセス設定（Direct VPC Egress）
+    # egress = "ALL_TRAFFIC" で外部API（OpenAI、Cerebras、Tavily）へのアクセスを許可
     vpc_access {
-      connector = google_vpc_access_connector.main.id
-      egress    = "PRIVATE_RANGES_ONLY"
+      egress = "ALL_TRAFFIC"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
     }
   }
 
@@ -528,6 +584,15 @@ resource "google_cloud_run_v2_service" "frontend" {
       min_instance_count = 0
       max_instance_count = 10
     }
+
+    # VPCアクセス設定（Direct VPC Egress）
+    vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
+      network_interfaces {
+        network    = google_compute_network.main.id
+        subnetwork = google_compute_subnetwork.main.id
+      }
+    }
   }
 
   traffic {
@@ -536,13 +601,100 @@ resource "google_cloud_run_v2_service" "frontend" {
   }
 }
 
-# ===== VPC Connector (Cloud Run ↔ Cloud SQL接続用) =====
-resource "google_vpc_access_connector" "main" {
-  name          = "${var.project_name}-connector"
-  ip_cidr_range = "10.8.0.0/28"
-  network       = google_compute_network.main.name
-  region        = var.region
+# ===== Cloud NAT設定（AIサービス外部APIアクセス用） =====
+# 
+# 目的: AIサービスから外部API（Cerebras、OpenAI、Tavily）へのアクセスを可能にする
+# 
+# ネットワークフロー:
+# 1. AIサービス（プライベートIP）→ Cloud NAT → インターネット → 外部API
+# 2. 外部API → インターネット → Cloud NAT → AIサービス
+# 
+# セキュリティ考慮事項:
+# - AIサービスは内部からのみアクセス可能（ingress=INTERNAL_ONLY）
+# - 外部からの直接アクセスは不可能
+# - Cloud NATにより外部APIへのアクセスのみ可能
+# - プライベートIPを使用するため、外部からAIサービスのIPは見えない
+#
+resource "google_compute_router" "nat_router" {
+  name    = "${var.project_name}-nat-router"
+  region  = var.region
+  network = google_compute_network.main.id
+
+  bgp {
+    asn = 64514  # プライベートASN（Google Cloud推奨値）
+  }
 }
+
+# Cloud NAT設定
+# 
+# 機能: プライベートIPから外部へのアクセスを可能にする
+# 
+# 設定詳細:
+# - source_subnetwork_ip_ranges_to_nat: サブネット内のすべてのIPをNAT対象
+# - nat_ip_allocate_option: 自動的に外部IPを割り当て
+# - log_config: NATのログを有効化（トラブルシューティング用）
+#
+resource "google_compute_router_nat" "ai_nat" {
+  name                               = "${var.project_name}-ai-nat"
+  router                            = google_compute_router.nat_router.name
+  region                            = var.region
+  nat_ip_allocate_option            = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  # NATのログ設定（トラブルシューティング用）
+  log_config {
+    enable = true
+    filter = "ERRORS_ONLY"  # エラーのみログ出力（コスト削減）
+  }
+}
+
+# ===== ファイアウォールルール（egress許可） =====
+# 
+# 目的: VPC内から外部へのegressトラフィックを許可
+# 
+# 許可するトラフィック:
+# - HTTPS (443): 外部API（Cerebras、OpenAI、Tavily）へのアクセス
+# - HTTP (80): リダイレクトやHTTP API用
+# - DNS (53): ドメイン名解決用
+# 
+# セキュリティ:
+# - ingressルールは追加しない（内部アクセスのみ維持）
+# - 特定のポートのみ許可（全ポート開放ではない）
+# - ソースIPはVPC内のプライベートIPレンジに限定
+#
+resource "google_compute_firewall" "allow_egress_external" {
+  name    = "${var.project_name}-allow-egress-external"
+  network = google_compute_network.main.name
+
+  # egressルール（外向きトラフィック）
+  direction = "EGRESS"
+
+  # 許可するプロトコルとポート
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]  # HTTP, HTTPS
+  }
+
+  allow {
+    protocol = "udp"
+    ports    = ["53"]  # DNS
+  }
+
+  # ソースIPレンジ（VPC内のプライベートIP）
+  source_ranges = ["10.0.0.0/24"]  # サブネットのCIDR
+
+  # ターゲットタグ（必要に応じて特定のインスタンスに制限可能）
+  # target_tags = ["ai-service"]  # 現在は使用していない
+
+  # ログ設定
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+
+  description = "Allow egress traffic from VPC to external APIs (HTTPS, HTTP, DNS)"
+}
+
+# ===== VPC Connector 削除済み（Direct VPC Egressに移行） =====
 
 # ===== IAM設定 =====
 resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
@@ -559,9 +711,29 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
   member   = "allUsers"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "ai_noauth" {
+##
+## Cloud Run (AI) Invoker 設定
+##
+## 運用方針:
+##  - AIサービスは内部専用（ingress=INTERNAL_ONLY）
+##  - Invoker は Backend のサービスアカウントのみに限定
+##  - Backend→AI 呼び出し時は ID トークンを付与（audience は AI の run.app URI）
+##
+resource "google_cloud_run_v2_service_iam_member" "ai_invoker_from_backend" {
   location = google_cloud_run_v2_service.ai.location
   name     = google_cloud_run_v2_service.ai.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.backend.email}"
 }
+
+## デバッグ用途（外部無認証での疎通確認）
+## 注意: INTERNAL_ONLY のため外部公開はされませんが、VPC 内の任意ワークロードから呼べるようになります。
+## 本番では有効化しないでください。
+# resource "google_cloud_run_v2_service_iam_member" "ai_noauth" {
+#   location = google_cloud_run_v2_service.ai.location
+#   name     = google_cloud_run_v2_service.ai.name
+#   role     = "roles/run.invoker"
+#   member   = "allUsers"
+# }
+
+# AIサービスは内部専用のため、外部アクセス用のIAM設定を削除

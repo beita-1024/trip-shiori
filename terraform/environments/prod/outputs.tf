@@ -25,7 +25,17 @@ output "static_bucket_name" {
   value       = google_storage_bucket.static.name
 }
 
-output "vpc_connector_name" {
-  description = "VPC Connector名"
-  value       = google_vpc_access_connector.main.name
+output "vpc_network_name" {
+  description = "VPCネットワーク名（Direct VPC Egress使用）"
+  value       = google_compute_network.main.name
+}
+
+output "vpc_subnetwork_name" {
+  description = "VPCサブネット名（Direct VPC Egress使用）"
+  value       = google_compute_subnetwork.main.name
+}
+
+output "dns_managed_zone_name" {
+  description = "Cloud Run用DNS Managed Zone名"
+  value       = google_dns_managed_zone.cloud_run_dns_zone.name
 }
