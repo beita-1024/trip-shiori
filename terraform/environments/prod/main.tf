@@ -634,6 +634,99 @@ resource "google_cloud_run_v2_service" "frontend" {
   }
 }
 
+# ===== Cloud NAT設定（AIサービス外部APIアクセス用） =====
+# 
+# 目的: AIサービスから外部API（Cerebras、OpenAI、Tavily）へのアクセスを可能にする
+# 
+# ネットワークフロー:
+# 1. AIサービス（プライベートIP）→ Cloud NAT → インターネット → 外部API
+# 2. 外部API → インターネット → Cloud NAT → AIサービス
+# 
+# セキュリティ考慮事項:
+# - AIサービスは内部からのみアクセス可能（ingress=INTERNAL_ONLY）
+# - 外部からの直接アクセスは不可能
+# - Cloud NATにより外部APIへのアクセスのみ可能
+# - プライベートIPを使用するため、外部からAIサービスのIPは見えない
+#
+resource "google_compute_router" "nat_router" {
+  name    = "${var.project_name}-nat-router"
+  region  = var.region
+  network = google_compute_network.main.id
+
+  bgp {
+    asn = 64514  # プライベートASN（Google Cloud推奨値）
+  }
+}
+
+# Cloud NAT設定
+# 
+# 機能: プライベートIPから外部へのアクセスを可能にする
+# 
+# 設定詳細:
+# - source_subnetwork_ip_ranges_to_nat: サブネット内のすべてのIPをNAT対象
+# - nat_ip_allocate_option: 自動的に外部IPを割り当て
+# - log_config: NATのログを有効化（トラブルシューティング用）
+#
+resource "google_compute_router_nat" "ai_nat" {
+  name                              = "${var.project_name}-ai-nat"
+  router                            = google_compute_router.nat_router.name
+  region                            = var.region
+  nat_ip_allocate_option            = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  # NATのログ設定（トラブルシューティング用）
+  log_config {
+    enable = true
+    filter = "ERRORS_ONLY"  # エラーのみログ出力（コスト削減）
+  }
+}
+
+# ===== ファイアウォールルール（egress許可） =====
+# 
+# 目的: VPC内から外部へのegressトラフィックを許可
+# 
+# 許可するトラフィック:
+# - HTTPS (443): 外部API（Cerebras、OpenAI、Tavily）へのアクセス
+# - HTTP (80): リダイレクトやHTTP API用
+# - DNS (53): ドメイン名解決用
+# 
+# セキュリティ:
+# - ingressルールは追加しない（内部アクセスのみ維持）
+# - 特定のポートのみ許可（全ポート開放ではない）
+# - ソースIPはVPC内のプライベートIPレンジに限定
+#
+resource "google_compute_firewall" "allow_egress_external" {
+  name    = "${var.project_name}-allow-egress-external"
+  network = google_compute_network.main.name
+
+  # egressルール（外向きトラフィック）
+  direction = "EGRESS"
+
+  # 許可するプロトコルとポート
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]  # HTTP, HTTPS
+  }
+
+  allow {
+    protocol = "udp"
+    ports    = ["53"]  # DNS
+  }
+
+  # ソースIPレンジ（VPC内のプライベートIP）
+  source_ranges = ["10.0.0.0/24"]  # サブネットのCIDR
+
+  # ターゲットタグ（必要に応じて特定のインスタンスに制限可能）
+  # target_tags = ["ai-service"]  # 現在は使用していない
+
+  # ログ設定
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+
+  description = "Allow egress traffic from VPC to external APIs (HTTPS, HTTP, DNS)"
+}
+
 # ===== VPC Connector 削除済み（Direct VPC Egressに移行） =====
 
 # ===== IAM設定 =====
