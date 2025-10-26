@@ -5,6 +5,7 @@ resource "google_storage_bucket" "static" {
   force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
+  public_access_prevention   = "enforced"
 
   cors {
     origin          = var.cors_origins
