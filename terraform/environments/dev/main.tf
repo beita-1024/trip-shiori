@@ -86,6 +86,10 @@ module "database" {
   backup_retention_days = 7
   deletion_protection   = false # 開発環境用
 
+  # Dev環境用SQL文ログ設定（詳細ログ有効）
+  log_statement                = "all"  # すべてのSQL文をログ
+  log_min_duration_statement  = 0      # すべてのSQL文の実行時間をログ
+
   network_id             = module.network.network_id
   private_vpc_connection = module.network.private_vpc_connection_name
   secrets_module         = module.secrets

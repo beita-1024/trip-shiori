@@ -86,6 +86,10 @@ module "database" {
   backup_retention_days = 7             # コスト削減: 30日→7日（約77%削減）
   deletion_protection   = false         # TODO: 開発中なので一時的にfalseにしておく、リリース時にtrueにする。
 
+  # Prod環境用SQL文ログ設定（パフォーマンス重視）
+  log_statement                = "mod"  # DDLとMOD文のみログ（SELECT文は除外）
+  log_min_duration_statement  = 1000   # 1秒以上かかるクエリのみログ
+
   network_id             = module.network.network_id
   private_vpc_connection = module.network.private_vpc_connection_name
   secrets_module         = module.secrets

@@ -12,15 +12,15 @@ resource "google_sql_database_instance" "main" {
     disk_size = var.disk_size
     disk_type = var.disk_type
 
-    # SQL文ログを有効化（CKV_GCP_111対応）
+    # SQL文ログ設定（環境別に調整可能）
     database_flags {
       name  = "log_statement"
-      value = "all"
+      value = var.log_statement
     }
 
     database_flags {
       name  = "log_min_duration_statement"
-      value = "0"
+      value = tostring(var.log_min_duration_statement)
     }
 
     backup_configuration {

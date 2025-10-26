@@ -73,3 +73,15 @@ variable "secrets_module" {
   description = "Secretsモジュール（依存関係用）"
   type        = any
 }
+
+variable "log_min_duration_statement" {
+  description = "SQL文ログの最小実行時間（ミリ秒）。0=すべてのSQL文、-1=ログ無効"
+  type        = number
+  default     = -1
+}
+
+variable "log_statement" {
+  description = "SQL文ログのレベル（none, ddl, mod, all）"
+  type        = string
+  default     = "none"
+}
