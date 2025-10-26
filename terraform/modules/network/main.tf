@@ -6,7 +6,7 @@ resource "google_compute_network" "main" {
 
 resource "google_compute_subnetwork" "main" {
   name                     = "${var.project_name}-subnet"
-  ip_cidr_range            = "10.0.0.0/24"
+  ip_cidr_range            = var.subnet_cidr
   region                   = var.region
   network                  = google_compute_network.main.id
   private_ip_google_access = true
@@ -138,7 +138,7 @@ resource "google_compute_firewall" "allow_egress_external" {
   }
 
   # ソースIPレンジ（VPC内のプライベートIP）
-  source_ranges = ["10.0.0.0/24"] # サブネットのCIDR
+  source_ranges = [var.subnet_cidr] # サブネットのCIDR
 
   # ターゲットタグ（必要に応じて特定のインスタンスに制限可能）
   # target_tags = ["ai-service"]  # 現在は使用していない

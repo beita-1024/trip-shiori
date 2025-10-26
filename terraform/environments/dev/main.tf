@@ -1,0 +1,186 @@
+# ===== 開発環境用Terraform設定 =====
+# GCPプロジェクト: portfolio-472821
+# リージョン: asia-northeast1 (東京)
+
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.0"
+    }
+  }
+}
+
+# ===== Git SHA取得 =====
+data "external" "git_info" {
+  program = ["bash", "-c", "echo '{\"sha\":\"'$(git rev-parse HEAD)'\",\"short_sha\":\"'$(git rev-parse --short HEAD)'\"}'"]
+}
+
+# GCPプロバイダー設定
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+
+# ===== サービス用ランダムID =====
+resource "random_id" "service_suffix" {
+  byte_length = 4
+}
+
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+# ===== Secret Manager モジュール =====
+module "secrets" {
+  source = "../../modules/secrets"
+
+  project_id   = var.project_id
+  project_name = var.project_name
+  environment  = "dev"
+
+  # Ensure SA exists before the module binds IAM on secrets
+  depends_on = [
+    module.iam
+  ]
+}
+
+# ===== Secret Manager データソース =====
+data "google_secret_manager_secret_version" "database_password" {
+  secret = module.secrets.secret_ids.database_password
+
+  depends_on = [module.secrets]
+}
+
+# ===== Network モジュール =====
+module "network" {
+  source = "../../modules/network"
+
+  project_id   = var.project_id
+  project_name = var.project_name
+  region       = var.region
+  subnet_cidr  = "10.0.0.0/24"
+}
+
+# ===== Database モジュール =====
+module "database" {
+  source = "../../modules/database"
+
+  project_id        = var.project_id
+  project_name      = var.project_name
+  region            = var.region
+  database_name     = var.database_name
+  database_user     = var.database_user
+  database_password = data.google_secret_manager_secret_version.database_password.secret_data
+
+  # Dev環境用設定
+  database_tier         = "db-f1-micro" # 開発環境用（本番ではdb-g1-small以上推奨）
+  disk_size             = 20
+  disk_type             = "PD_SSD"
+  backup_retention_days = 7
+  deletion_protection   = false # 開発環境用
+
+  network_id             = module.network.network_id
+  private_vpc_connection = module.network.private_vpc_connection_name
+  secrets_module         = module.secrets
+}
+
+# ===== Storage モジュール =====
+module "storage" {
+  source = "../../modules/storage"
+
+  project_id    = var.project_id
+  project_name  = var.project_name
+  region        = var.region
+  bucket_suffix = random_id.bucket_suffix.hex
+
+  # Dev環境用設定
+  force_destroy = true
+  cors_origins  = ["*"]
+}
+
+# ===== IAM モジュール =====
+module "iam" {
+  source = "../../modules/iam"
+
+  project_id   = var.project_id
+  project_name = var.project_name
+
+  # Cloud Runサービス名（後で設定）
+  backend_service_name      = "${var.project_name}-backend"
+  backend_service_location  = var.region
+  ai_service_name           = "${var.project_name}-ai"
+  ai_service_location       = var.region
+  frontend_service_name     = "${var.project_name}-frontend"
+  frontend_service_location = var.region
+}
+
+# ===== Cloud Run モジュール =====
+module "cloudrun" {
+  source = "../../modules/cloudrun"
+
+  project_id   = var.project_id
+  project_name = var.project_name
+  region       = var.region
+  git_sha      = data.external.git_info.result.short_sha
+
+  # Dev環境用リソース設定
+  cpu_limit                   = "1"
+  memory_limit                = "1Gi"
+  min_instance_count          = 0
+  max_instance_count_backend  = 10
+  max_instance_count_ai       = 10
+  max_instance_count_frontend = 10
+
+  # ネットワーク設定
+  network_id    = module.network.network_id
+  subnetwork_id = module.network.subnetwork_id
+
+  # サービスアカウント
+  backend_sa_email  = module.iam.backend_sa_email
+  ai_sa_email       = module.iam.ai_sa_email
+  frontend_sa_email = module.iam.frontend_sa_email
+
+  # データベース設定
+  database_name          = var.database_name
+  database_user          = var.database_user
+  database_private_ip    = module.database.private_ip_address
+  database_instance      = module.database.instance_id
+  database_database      = module.database.database_name
+  database_user_resource = module.database.user_name
+
+  # Secret Manager設定
+  secrets = module.secrets.secret_ids
+
+  # アプリケーション設定
+  app_name     = var.app_name
+  api_url      = "https://dev-api.trip.beita.dev"
+  frontend_url = "https://dev-app.trip.beita.dev"
+
+  # JWT設定
+  jwt_access_expires_in  = var.jwt_access_expires_in
+  jwt_refresh_expires_in = var.jwt_refresh_expires_in
+
+  # SMTP設定
+  smtp_host   = var.smtp_host
+  smtp_port   = var.smtp_port
+  smtp_secure = var.smtp_secure
+
+  # AI/LLM設定
+  openai_model       = var.openai_model
+  openai_temperature = var.openai_temperature
+  llm_timeout_sec    = var.llm_timeout_sec
+
+  depends_on = [
+    module.network,
+    module.database,
+    module.iam,
+    module.secrets
+  ]
+}

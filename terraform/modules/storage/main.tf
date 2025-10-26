@@ -1,13 +1,13 @@
 # ===== Cloud Storage (静的ファイル用) =====
 resource "google_storage_bucket" "static" {
-  name          = "${var.project_name}-static-${random_id.bucket_suffix.hex}"
+  name          = "${var.project_name}-static-${var.bucket_suffix}"
   location      = var.region
-  force_destroy = false # 本番環境では安全のため無効
+  force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
 
   cors {
-    origin          = ["https://${google_cloud_run_v2_service.frontend.uri}"]
+    origin          = var.cors_origins
     method          = ["GET", "HEAD"]
     response_header = ["*"]
     max_age_seconds = 3600
@@ -15,7 +15,7 @@ resource "google_storage_bucket" "static" {
 
   lifecycle_rule {
     condition {
-      age = 30
+      age = var.lifecycle_age_days
     }
     action {
       type = "Delete"

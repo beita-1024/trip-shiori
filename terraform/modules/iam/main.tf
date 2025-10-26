@@ -19,15 +19,15 @@ resource "google_service_account" "frontend" {
 
 # ===== IAM設定 =====
 resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
-  location = google_cloud_run_v2_service.backend.location
-  name     = google_cloud_run_v2_service.backend.name
+  location = var.backend_service_location
+  name     = var.backend_service_name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
 resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
-  location = google_cloud_run_v2_service.frontend.location
-  name     = google_cloud_run_v2_service.frontend.name
+  location = var.frontend_service_location
+  name     = var.frontend_service_name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -41,8 +41,8 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
 ##  - Backend→AI 呼び出し時は ID トークンを付与（audience は AI の run.app URI）
 ##
 resource "google_cloud_run_v2_service_iam_member" "ai_invoker_from_backend" {
-  location = google_cloud_run_v2_service.ai.location
-  name     = google_cloud_run_v2_service.ai.name
+  location = var.ai_service_location
+  name     = var.ai_service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.backend.email}"
 }
@@ -51,8 +51,8 @@ resource "google_cloud_run_v2_service_iam_member" "ai_invoker_from_backend" {
 ## 注意: INTERNAL_ONLY のため外部公開はされませんが、VPC 内の任意ワークロードから呼べるようになります。
 ## 本番では有効化しないでください。
 # resource "google_cloud_run_v2_service_iam_member" "ai_noauth" {
-#   location = google_cloud_run_v2_service.ai.location
-#   name     = google_cloud_run_v2_service.ai.name
+#   location = var.ai_service_location
+#   name     = var.ai_service_name
 #   role     = "roles/run.invoker"
 #   member   = "allUsers"
 # }

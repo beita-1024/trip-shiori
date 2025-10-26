@@ -4,29 +4,33 @@ resource "google_sql_database_instance" "main" {
   database_version = "POSTGRES_16"
   region           = var.region
 
-  depends_on = [google_service_networking_connection.private_vpc_connection]
+  depends_on = [var.private_vpc_connection]
 
   settings {
-    tier = "db-f1-micro" # 開発環境用（本番ではdb-g1-small以上推奨）
+    tier = var.database_tier
 
-    disk_size = 20
-    disk_type = "PD_SSD"
+    disk_size = var.disk_size
+    disk_type = var.disk_type
 
     backup_configuration {
       enabled                        = true
       start_time                     = "03:00"
       point_in_time_recovery_enabled = true
       transaction_log_retention_days = 7
+      backup_retention_settings {
+        retained_backups = var.backup_retention_days
+        retention_unit   = "COUNT"
+      }
     }
 
     ip_configuration {
       ipv4_enabled    = false
-      private_network = google_compute_network.main.id
+      private_network = var.network_id
       # Private Service Connect によりプライベート到達を確保
     }
   }
 
-  deletion_protection = false # 開発環境用
+  deletion_protection = var.deletion_protection
 }
 
 resource "google_sql_database" "main" {
@@ -37,7 +41,7 @@ resource "google_sql_database" "main" {
 resource "google_sql_user" "main" {
   name     = var.database_user
   instance = google_sql_database_instance.main.name
-  password = data.google_secret_manager_secret_version.database_password.secret_data
+  password = var.database_password
 
-  depends_on = [module.secrets]
+  depends_on = [var.secrets_module]
 }
