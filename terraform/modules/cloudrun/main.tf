@@ -26,9 +26,9 @@ resource "google_cloud_run_v2_service" "backend" {
       }
 
       # データベース接続設定（個別環境変数で設定、entrypoint.shでDATABASE_URLを構築）
-      # Private IP接続のためsslmodeは不要（Cloud SQL Private IPはTLSを提供しない）
-      # 接続の流れ: Cloud Run → VPC Connector → Cloud SQL (Private IP)
-      # セキュリティ: VPC内通信のため外部からの直接アクセス不可
+      # SSL接続を必須化（ssl_mode = "REQUIRE"に対応）
+      # 接続の流れ: Cloud Run → VPC Connector → Cloud SQL (Private IP with SSL)
+      # セキュリティ: VPC内通信 + SSL暗号化で二重のセキュリティ確保
       env {
         name = "DATABASE_PASSWORD"
         value_source {
@@ -57,6 +57,11 @@ resource "google_cloud_run_v2_service" "backend" {
       env {
         name  = "DATABASE_USER"
         value = var.database_user
+      }
+
+      env {
+        name  = "DATABASE_SSL_MODE"
+        value = "require"
       }
 
       env {
