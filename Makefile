@@ -738,6 +738,15 @@ sync-terraform-state: ## Terraform状態を同期
 	$(MAKE) tf-plan TF_ENV=$(TF_ENV)
 	@echo "✅ Terraform状態の同期が完了しました"
 
+tf-migrate-state: ## Terraform stateをモジュール構造に移行（既存リソースをimport）
+	@echo "Terraform state移行を開始します（環境: $(TF_ENV)）..."
+	@echo "⚠️  注意: この操作は既存のGCPリソースをTerraform stateにimportします"
+	@echo "続行するには 'yes' と入力してください:"
+	@read confirm && [ "$$confirm" = "yes" ] || (echo "移行がキャンセルされました" && exit 1)
+	@echo "移行スクリプトを実行中..."
+	@./terraform/scripts/migrate-state-to-modules.sh $(TF_ENV)
+	@echo "✅ Terraform state移行が完了しました"
+
 # ===== リソース削除 =====
 destroy-gcp-dev: ## GCP開発環境リソース削除
 	@echo "GCP開発環境のリソース削除を開始します..."

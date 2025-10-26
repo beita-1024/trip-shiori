@@ -55,10 +55,10 @@ locals {
     "${var.project_name}-ai",
     "${var.project_name}-frontend"
   ]
-  
+
   # 指定されたサービス名とデフォルトをマージ
   all_services = distinct(concat(local.default_services, var.cloud_run_services))
-  
+
   # シークレット一覧
   secrets = [
     data.google_secret_manager_secret.database_password,
@@ -75,13 +75,13 @@ locals {
 # 各Cloud Runサービスアカウントに各シークレットへのアクセス権限を付与
 resource "google_secret_manager_secret_iam_member" "secret_access" {
   for_each = {
-    for combo in setproduct(local.all_services, local.secrets) : 
+    for combo in setproduct(local.all_services, local.secrets) :
     "${combo[0]}-${combo[1].secret_id}" => {
       service = combo[0]
       secret  = combo[1]
     }
   }
-  
+
   secret_id = each.value.secret.secret_id
   project   = var.project_id
   role      = "roles/secretmanager.secretAccessor"

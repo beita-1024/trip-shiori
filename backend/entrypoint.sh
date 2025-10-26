@@ -45,6 +45,7 @@ echo "DATABASE_NAME: ${DATABASE_NAME:-'not set'}"
 echo "DATABASE_USER: ${DATABASE_USER:-'not set'}"
 echo "DATABASE_PASSWORD: ${DATABASE_PASSWORD:+'set'}"
 echo "DATABASE_PASSWORD length: ${#DATABASE_PASSWORD}"
+echo "DATABASE_SSL_MODE: ${DATABASE_SSL_MODE:-'not set'}"
 
 if [ -n "$DATABASE_URL" ]; then
   # 既存のDATABASE_URLが設定されている場合（Docker Compose環境等）
@@ -55,12 +56,19 @@ if [ -n "$DATABASE_URL" ]; then
 else
   # 個別環境変数からDATABASE_URLを構築（GCP Secret Manager環境）
   if [ -n "$DATABASE_HOST" ] && [ -n "$DATABASE_PORT" ] && [ -n "$DATABASE_NAME" ] && [ -n "$DATABASE_USER" ] && [ -n "$DATABASE_PASSWORD" ]; then
-    DATABASE_URL="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
+    # SSL接続設定を確認して接続文字列を構築
+    if [ -n "$DATABASE_SSL_MODE" ]; then
+      DATABASE_URL="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?sslmode=${DATABASE_SSL_MODE}"
+      echo "🔒 SSL接続モード: ${DATABASE_SSL_MODE}"
+    else
+      DATABASE_URL="postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
+      echo "🔓 SSL接続なし（デフォルト）"
+    fi
     export DATABASE_URL
     DB_HOST="$DATABASE_HOST"
     DB_PORT="$DATABASE_PORT"
     echo "ℹ️  Built DATABASE_URL from individual environment variables"
-    echo "🔍 Final DATABASE_URL: postgresql://${DATABASE_USER}:***@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}"
+    echo "🔍 Final DATABASE_URL: postgresql://${DATABASE_USER}:***@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}${DATABASE_SSL_MODE:+?sslmode=${DATABASE_SSL_MODE}}"
     echo "🔍 DATABASE_URL exported: ${DATABASE_URL:+'yes'}"
   else
     echo "❌ Error: Either DATABASE_URL or individual database environment variables must be set"
