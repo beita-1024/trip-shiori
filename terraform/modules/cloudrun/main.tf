@@ -8,7 +8,8 @@ resource "google_cloud_run_v2_service" "backend" {
   depends_on = [
     var.database_instance,
     var.database_database,
-    var.database_user
+    var.database_user,
+    google_cloud_run_v2_service.ai
   ]
 
   template {
@@ -336,6 +337,8 @@ resource "google_cloud_run_v2_service" "ai" {
         subnetwork = var.subnetwork_id
       }
     }
+
+    timeout = "600s" # 10分のタイムアウト（AI処理時間を考慮）
   }
 
   traffic {
@@ -402,6 +405,8 @@ resource "google_cloud_run_v2_service" "frontend" {
         subnetwork = var.subnetwork_id
       }
     }
+
+    timeout = "600s" # 10分のタイムアウト（フロントエンド処理時間を考慮）
   }
 
   traffic {
