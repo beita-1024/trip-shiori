@@ -37,7 +37,7 @@ resource "google_sql_database_instance" "main" {
     ip_configuration {
       ipv4_enabled    = false
       private_network = var.network_id
-      ssl_mode        = "REQUIRE"
+      ssl_mode        = "ENCRYPTED_ONLY"
       # Private Service Connect によりプライベート到達を確保
     }
   }
