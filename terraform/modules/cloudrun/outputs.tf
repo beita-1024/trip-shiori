@@ -1,5 +1,21 @@
 # ===== Cloud Run モジュール出力 =====
 
+# サービスリソース（依存関係用）
+output "backend_service" {
+  description = "Backend Cloud Runサービスリソース"
+  value       = google_cloud_run_v2_service.backend
+}
+
+output "ai_service" {
+  description = "AI Cloud Runサービスリソース"
+  value       = google_cloud_run_v2_service.ai
+}
+
+output "frontend_service" {
+  description = "Frontend Cloud Runサービスリソース"
+  value       = google_cloud_run_v2_service.frontend
+}
+
 output "backend_service_name" {
   description = "Backend Cloud Runサービス名"
   value       = google_cloud_run_v2_service.backend.name

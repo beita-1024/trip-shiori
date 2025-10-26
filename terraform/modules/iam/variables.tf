@@ -39,3 +39,22 @@ variable "frontend_service_location" {
   description = "Frontend Cloud Runサービスロケーション"
   type        = string
 }
+
+# ===== 依存関係変数 =====
+variable "backend_service_dependency" {
+  description = "Backend Cloud Runサービスの依存関係"
+  type        = any
+  default     = null
+}
+
+variable "frontend_service_dependency" {
+  description = "Frontend Cloud Runサービスの依存関係"
+  type        = any
+  default     = null
+}
+
+variable "ai_service_dependency" {
+  description = "AI Cloud Runサービスの依存関係"
+  type        = any
+  default     = null
+}

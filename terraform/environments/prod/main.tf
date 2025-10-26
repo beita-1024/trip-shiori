@@ -102,7 +102,7 @@ module "storage" {
 
   # Prod環境用設定
   force_destroy = false # 本番環境では安全のため無効
-  cors_origins  = ["https://${module.cloudrun.frontend_service_url}"]
+  cors_origins  = ["https://app.trip.beita.dev"] # 固定値を使用
 }
 
 # ===== IAM モジュール =====
@@ -112,13 +112,18 @@ module "iam" {
   project_id   = var.project_id
   project_name = var.project_name
 
-  # Cloud Runサービス名（後で設定）
+  # Cloud Runサービス名
   backend_service_name      = "${var.project_name}-backend"
   backend_service_location  = var.region
   ai_service_name           = "${var.project_name}-ai"
   ai_service_location       = var.region
   frontend_service_name     = "${var.project_name}-frontend"
   frontend_service_location = var.region
+  
+  # Cloud Runサービスへの依存関係（循環依存を避けるため一時的に無効化）
+  backend_service_dependency  = null
+  frontend_service_dependency = null
+  ai_service_dependency       = null
 }
 
 # ===== Cloud Run モジュール =====
@@ -183,4 +188,32 @@ module "cloudrun" {
     module.iam,
     module.secrets
   ]
+}
+
+# ===== Cloud Run IAM設定（循環依存を避けるため別途定義） =====
+resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
+  location = var.region
+  name     = "${var.project_name}-backend"
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+  
+  depends_on = [module.cloudrun]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
+  location = var.region
+  name     = "${var.project_name}-frontend"
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+  
+  depends_on = [module.cloudrun]
+}
+
+resource "google_cloud_run_v2_service_iam_member" "ai_invoker_from_backend" {
+  location = var.region
+  name     = "${var.project_name}-ai"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${module.iam.backend_sa_email}"
+  
+  depends_on = [module.cloudrun]
 }

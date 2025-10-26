@@ -3,6 +3,7 @@
 resource "google_cloud_run_v2_service" "backend" {
   name     = "${var.project_name}-backend"
   location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL" # 外部からのアクセスを許可
 
   depends_on = [
     var.database_instance,
@@ -343,6 +344,7 @@ resource "google_cloud_run_v2_service" "ai" {
 resource "google_cloud_run_v2_service" "frontend" {
   name     = "${var.project_name}-frontend"
   location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL" # 外部からのアクセスを許可
 
   template {
     service_account = var.frontend_sa_email

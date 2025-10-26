@@ -17,19 +17,27 @@ resource "google_service_account" "frontend" {
   description  = "Service account for frontend service"
 }
 
-# ===== IAM設定 =====
+# ===== IAM設定（条件付き） =====
 resource "google_cloud_run_v2_service_iam_member" "backend_noauth" {
+  count = var.backend_service_dependency != null ? 1 : 0
+  
   location = var.backend_service_location
   name     = var.backend_service_name
   role     = "roles/run.invoker"
   member   = "allUsers"
+  
+  depends_on = [var.backend_service_dependency]
 }
 
 resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
+  count = var.frontend_service_dependency != null ? 1 : 0
+  
   location = var.frontend_service_location
   name     = var.frontend_service_name
   role     = "roles/run.invoker"
   member   = "allUsers"
+  
+  depends_on = [var.frontend_service_dependency]
 }
 
 ##
@@ -41,10 +49,14 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_noauth" {
 ##  - Backend→AI 呼び出し時は ID トークンを付与（audience は AI の run.app URI）
 ##
 resource "google_cloud_run_v2_service_iam_member" "ai_invoker_from_backend" {
+  count = var.ai_service_dependency != null ? 1 : 0
+  
   location = var.ai_service_location
   name     = var.ai_service_name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.backend.email}"
+  
+  depends_on = [var.ai_service_dependency]
 }
 
 ## デバッグ用途（外部無認証での疎通確認）
