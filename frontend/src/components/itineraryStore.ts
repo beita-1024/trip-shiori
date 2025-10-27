@@ -224,6 +224,12 @@ export async function aiCompleteEventImpl(
       });
       if (!resp.ok) {
         const text = await resp.text();
+        
+        // 429エラーの場合はユーザーフレンドリーなメッセージを返す
+        if (resp.status === 429) {
+          throw new Error('リクエストが多すぎます。しばらく時間をおいてから再度お試しください。');
+        }
+        
         throw new Error(text || `HTTP ${resp.status}`);
       }
       

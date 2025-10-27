@@ -19,10 +19,10 @@ const router = Router();
 /**
  * ユーザー管理関連のルート
  * すべてのエンドポイントで認証が必要
- * レート制限: 60 req/min
+ * レート制限: 120 req/min
  */
 router.use(authenticateToken);
-router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 120 }));
 
 // プロフィール管理
 router.get('/profile', checkUserExists, getUserProfile);

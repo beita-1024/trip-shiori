@@ -2,10 +2,14 @@ import { Router, RequestHandler } from 'express';
 import { z } from 'zod';
 import { internalPythonClient } from '../services/internalPythonClient';
 import { authenticateToken } from '../middleware/auth';
+import { rateLimit } from '../middleware/rateLimit';
 import { Itinerary } from '../types/itineraryTypes';
 import type { Delta } from 'jsondiffpatch';
 
 const router = Router();
+
+// ルーター全体にレート制限を適用（60分間でリクエスト）
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // スキーマ（docs/api/openapi.yaml 準拠）
 const EventSchema = z.object({

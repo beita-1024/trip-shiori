@@ -31,7 +31,7 @@ export const createItineraryShareSchema = z
       return true;
     },
     {
-      message: 'expiresAt must be a future date',
+      message: '有効期限は現在時刻より後の日時を設定してください',
       path: ['expiresAt'],
     }
   );
@@ -57,7 +57,7 @@ export const updateItineraryShareSchema = z
       return true;
     },
     {
-      message: 'expiresAt must be a future date',
+      message: '有効期限は現在時刻より後の日時を設定してください',
       path: ['expiresAt'],
     }
   );

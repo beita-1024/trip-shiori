@@ -35,10 +35,10 @@ const idParamSchema = pathParamsSchema;
 /**
  * 旅のしおり関連のルート
  * すべてのエンドポイントで認証が必要
- * レート制限: 60 req/min
+ * レート制限: 300 req/min
  */
 router.use(authenticateToken);
-router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 300 }));
 
 // 旅程管理CRUD
 // TODO: createItinerarySchema, updateItinerarySchema は

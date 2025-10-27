@@ -114,9 +114,11 @@ export const apiFetch = async (
       } else {
         // Refresh Tokenも無効な場合、ログインページにリダイレクト
         console.warn('Refresh token expired, redirecting to login');
-        // 現在のページが/loginでない場合のみリダイレクト
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        // クライアント環境のみリダイレクト（SSRでは副作用を避ける）
+        if (typeof window !== 'undefined') {
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/edit') {
+            window.location.href = '/login';
+          }
         }
         return response; // 元の401レスポンスを返す
       }
@@ -124,6 +126,13 @@ export const apiFetch = async (
       console.error('Token refresh failed:', error);
       // エラー時は元のレスポンスを返す
     }
+  }
+
+  // 429エラーの場合、ユーザーフレンドリーなメッセージを表示
+  if (response.status === 429) {
+    console.warn('Rate limit exceeded');
+    // 429エラーの場合は特別な処理は行わず、レスポンスをそのまま返す
+    // 呼び出し元でエラーメッセージを適切に処理する
   }
 
   return response;
