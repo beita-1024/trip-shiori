@@ -4,12 +4,12 @@ import type { NextRequest } from 'next/server';
 /**
  * Next.js middleware for authentication-based routing
  * 
- * ルートパス（/）へのアクセス時に認証状態を判定し、適切なページにリライトします。
- * - ログイン済み: /itineraries（旅程一覧）にリライト
- * - 未ログイン: /edit（デモ編集ページ）にリライト
+ * ルートパス（/）へのアクセス時に認証状態を判定し、適切なページにリダイレクトします。
+ * - ログイン済み: /itineraries（旅程一覧）へリダイレクト
+ * - 未ログイン: /edit（デモ編集ページ）へリダイレクト
  * 
  * @param request - Next.js request object
- * @returns NextResponse with rewrite or original response
+ * @returns NextResponse with redirect or original response
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

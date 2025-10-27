@@ -114,9 +114,11 @@ export const apiFetch = async (
       } else {
         // Refresh Tokenも無効な場合、ログインページにリダイレクト
         console.warn('Refresh token expired, redirecting to login');
-        // 現在のページが/loginでない場合、かつ/editページでない場合のみリダイレクト
-        if (window.location.pathname !== '/login' && window.location.pathname !== '/edit') {
-          window.location.href = '/login';
+        // クライアント環境のみリダイレクト（SSRでは副作用を避ける）
+        if (typeof window !== 'undefined') {
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/edit') {
+            window.location.href = '/login';
+          }
         }
         return response; // 元の401レスポンスを返す
       }
