@@ -126,6 +126,13 @@ export const apiFetch = async (
     }
   }
 
+  // 429エラーの場合、ユーザーフレンドリーなメッセージを表示
+  if (response.status === 429) {
+    console.warn('Rate limit exceeded');
+    // 429エラーの場合は特別な処理は行わず、レスポンスをそのまま返す
+    // 呼び出し元でエラーメッセージを適切に処理する
+  }
+
   return response;
 };
 
