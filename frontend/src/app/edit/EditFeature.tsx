@@ -42,6 +42,10 @@ interface EditFeatureProps {
 
 export default function EditFeatureRefactored({ itineraryId, isGuestMode = false }: EditFeatureProps = {}) {
   const router = useRouter();
+  
+  console.log('EditFeature: isGuestMode =', isGuestMode, 'itineraryId =', itineraryId);
+  
+  // ゲストモードの場合は認証チェックをスキップ（redirectToLogin = false）
   const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(!isGuestMode);
   
   // チュートリアル機能

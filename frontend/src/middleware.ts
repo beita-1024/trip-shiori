@@ -34,11 +34,11 @@ export function middleware(request: NextRequest) {
     }
     
     if (authCookie) {
-      // ログイン済み -> 旅程一覧へリライト
-      return NextResponse.rewrite(new URL('/itineraries', request.url));
+      // ログイン済み -> 旅程一覧へリダイレクト
+      return NextResponse.redirect(new URL('/itineraries', request.url));
     } else {
-      // 未ログイン -> デモ編集へリライト
-      return NextResponse.rewrite(new URL('/edit', request.url));
+      // 未ログイン -> デモ編集へリダイレクト
+      return NextResponse.redirect(new URL('/edit', request.url));
     }
   }
   

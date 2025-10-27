@@ -34,6 +34,15 @@ export function useAuthRedirect(redirectToLogin: boolean = true) {
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
       try {
+        // redirectToLoginがfalseの場合は認証チェックをスキップ
+        if (!redirectToLogin) {
+          console.log('useAuthRedirect: redirectToLogin=false, skipping auth check');
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('useAuthRedirect: redirectToLogin=true, checking auth');
         const authStatus = await requireAuth();
         setIsAuthenticated(authStatus);
         
