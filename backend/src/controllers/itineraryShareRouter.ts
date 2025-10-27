@@ -26,9 +26,9 @@ const idParamSchema = pathParamsSchema;
  * 旅程共有機能のルート
  * 共有設定の作成・更新・削除は認証必須（所有者のみ）
  * 共有設定の取得は認証不要（共有リンク機能のため）
- * レート制限: 30 req/min（共有機能は比較的軽い処理のため）
+ * レート制限: 60 req/min（共有機能は比較的軽い処理のため）
  */
-router.use(rateLimit({ windowMs: 60_000, maxRequests: 30 }));
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // 共有設定管理CRUD
 router.post(

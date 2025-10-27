@@ -117,8 +117,8 @@ export const rateLimit = (config: RateLimitConfig) => {
  */
 export const passwordResetRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
-  maxRequests: 5, // 最大5回
-  message: 'Too many password reset requests. Please try again later.',
+  maxRequests: 15, // 最大15回
+  message: 'パスワードリセットの試行回数が多すぎます。しばらく待ってから再試行してください。',
 });
 
 /**
@@ -126,16 +126,15 @@ export const passwordResetRateLimit = rateLimit({
  */
 export const passwordResetConfirmRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
-  maxRequests: 10, // 最大10回
-  message:
-    'Too many password reset confirmation attempts. Please try again later.',
+  maxRequests: 20, // 最大20回
+  message: 'パスワードリセット確認の試行回数が多すぎます。しばらく待ってから再試行してください。',
 });
 
 /**
  * Refresh Token用のレート制限設定
  */
 export const refreshTokenRateLimit = rateLimit({
-  windowMs: 60 * 1000, // 1分
-  maxRequests: 10, // 最大10回
-  message: 'Too many refresh token requests. Please try again later.',
+  windowMs: 10 * 60 * 1000, // 10分
+  maxRequests: 100, // 最大100回
+  message: 'トークン更新の試行回数が多すぎます。しばらく待ってから再試行してください。',
 });
