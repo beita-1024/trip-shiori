@@ -117,7 +117,7 @@ export const rateLimit = (config: RateLimitConfig) => {
  */
 export const passwordResetRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
-  maxRequests: 3, // 最大3回
+  maxRequests: 5, // 最大5回
   message: 'Too many password reset requests. Please try again later.',
 });
 
@@ -126,7 +126,7 @@ export const passwordResetRateLimit = rateLimit({
  */
 export const passwordResetConfirmRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分
-  maxRequests: 5, // 最大5回
+  maxRequests: 10, // 最大10回
   message:
     'Too many password reset confirmation attempts. Please try again later.',
 });

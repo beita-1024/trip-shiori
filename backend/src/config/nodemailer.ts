@@ -48,7 +48,7 @@ export const emailConfig = {
   passwordResetExpiresIn: 15,
 
   /** メール送信のレート制限（1時間あたりの送信数） */
-  rateLimitPerHour: 10,
+  rateLimitPerHour: 20,
 } as const;
 
 /**

@@ -19,6 +19,7 @@ export default function ConditionalAuthButtons() {
   const isAuthPage = pathname === '/login' || 
                     pathname === '/register' || 
                     pathname === '/forgot-password' ||
+                    pathname === '/reset-password' ||
                     pathname.startsWith('/verify-email');
   
   if (isAuthPage) {
@@ -29,6 +30,7 @@ export default function ConditionalAuthButtons() {
           {pathname === '/login' && 'ログイン中...'}
           {pathname === '/register' && '登録中...'}
           {pathname === '/forgot-password' && 'パスワードリセット中...'}
+          {pathname === '/reset-password' && 'パスワード再設定中...'}
           {pathname.startsWith('/verify-email') && 'メール認証中...'}
         </div>
       </div>
