@@ -37,6 +37,8 @@ export const ShareSettingsDialog: React.FC<ShareSettingsDialogProps> = ({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEditingExpiresAt, setIsEditingExpiresAt] = useState(false);
+  const [expiresAtError, setExpiresAtError] = useState<string | null>(null);
 
   // 旅程が変更されたときに設定を初期化
   useEffect(() => {
@@ -72,10 +74,62 @@ export const ShareSettingsDialog: React.FC<ShareSettingsDialogProps> = ({
 
   const handleExpiresAtChange = (expiresAt: string) => {
     setSettings(prev => ({ ...prev, expiresAt }));
+    
+    // リアルタイムバリデーション
+    if (expiresAt) {
+      const validationError = validateExpiresAt(expiresAt);
+      setExpiresAtError(validationError);
+    } else {
+      setExpiresAtError(null);
+    }
   };
+
+  /**
+   * 有効期限のバリデーション関数
+   * 
+   * @param dateTimeString - ISO形式の日時文字列
+   * @returns エラーメッセージまたはnull
+   */
+  const validateExpiresAt = (dateTimeString: string): string | null => {
+    if (!dateTimeString) return null;
+    const expiresDate = new Date(dateTimeString);
+    const now = new Date();
+    if (expiresDate <= now) {
+      return '有効期限は現在時刻より後の日時を設定してください';
+    }
+    return null;
+  };
+  const formatDateTimeWithWeekday = (dateTimeString: string): string => {
+    if (!dateTimeString) return '';
+    
+    const date = new Date(dateTimeString);
+    const dateStr = date.toLocaleDateString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const weekday = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(date);
+    const timeStr = date.toLocaleTimeString("ja-JP", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    
+    return `${dateStr} (${weekday}) ${timeStr}`;
+  };
+
 
   const handleSave = async () => {
     if (!itinerary) return;
+
+    // 有効期限の事前バリデーション
+    if (settings.expiresAt) {
+      const validationError = validateExpiresAt(settings.expiresAt);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+    }
 
     try {
       setSaving(true);
@@ -221,17 +275,26 @@ export const ShareSettingsDialog: React.FC<ShareSettingsDialogProps> = ({
               有効期限（任意）
             </label>
             <input
-              type="datetime-local"
-              value={settings.expiresAt}
+              type={isEditingExpiresAt ? "datetime-local" : "text"}
+              value={isEditingExpiresAt ? settings.expiresAt : formatDateTimeWithWeekday(settings.expiresAt || '')}
               onChange={(e) => handleExpiresAtChange(e.target.value)}
+              onFocus={() => setIsEditingExpiresAt(true)}
+              onBlur={() => setIsEditingExpiresAt(false)}
+              readOnly={!isEditingExpiresAt}
+              min={new Date().toISOString().slice(0, 16)}
               className={`w-full rounded-md border border-input p-3 bg-input text-body ${
                 settings.scope === 'PRIVATE' ? 'opacity-50' : ''
-              }`}
+              } ${expiresAtError ? 'border-red-500' : ''}`}
               disabled={saving || settings.scope === 'PRIVATE'}
             />
             <p className="text-xs text-body-secondary mt-1">
               設定しない場合は無期限で共有されます
             </p>
+            {expiresAtError && (
+              <p className="text-xs text-red-500 mt-1">
+                {expiresAtError}
+              </p>
+            )}
           </div>
 
           {/* TODO: パスワード設定機能（将来的に追加予定） */}

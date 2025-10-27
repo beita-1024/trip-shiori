@@ -324,7 +324,11 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
           {/* 更新日 */}
           <div className="flex items-center gap-1 text-muted flex-shrink-0">
             <i className="mdi mdi-clock-outline" aria-hidden />
-            <span>{formatRelativeTime(itinerary.updatedAt)}に更新</span>
+            <span>
+              {formatRelativeTime(itinerary.updatedAt) === 'たった今' 
+                ? 'たった今更新' 
+                : `${formatRelativeTime(itinerary.updatedAt)}に更新`}
+            </span>
           </div>
           
           {/* 共有状態ピルとコピーボタン */}
