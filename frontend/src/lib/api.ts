@@ -113,10 +113,12 @@ export const apiFetch = async (
         return apiFetch(url, { ...options, _isRetry: true });
       } else {
         // Refresh Tokenも無効な場合、ログインページにリダイレクト
-        console.warn('Refresh token expired, redirecting to login');
-        // クライアント環境のみリダイレクト（SSRでは副作用を避ける）
+        console.warn('Refresh token expired');
+        // /shared 配下ではリダイレクトを抑止して呼び出し側で制御させる
         if (typeof window !== 'undefined') {
-          if (window.location.pathname !== '/login' && window.location.pathname !== '/edit') {
+          const path = window.location.pathname;
+          const isSharedPath = path.startsWith('/shared/');
+          if (!isSharedPath && path !== '/login' && path !== '/edit') {
             window.location.href = '/login';
           }
         }

@@ -50,5 +50,6 @@ export const config = {
   matcher: [
     '/',
     '/login',
+    // /sharedパスはmatcherから除外（middlewareの処理対象外）
   ],
 };
