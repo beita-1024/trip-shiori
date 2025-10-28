@@ -34,10 +34,10 @@ const migrateItinerariesSchema = z.object({
 /**
  * 旅程複製・マイグレーション機能のルート
  * すべてのエンドポイントで認証が必要
- * レート制限: 30 req/min（複製・マイグレーションは重い処理のため）
+ * レート制限: 300 req/min（複製・マイグレーション処理の最適化により制限を緩和）
  */
 router.use(authenticateToken);
-router.use(rateLimit({ windowMs: 60_000, maxRequests: 30 }));
+router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
 
 // 旅程複製・マイグレーション
 router.post('/copy/:id', validateParams(idParamSchema), copyItinerary); // 旅程複製
