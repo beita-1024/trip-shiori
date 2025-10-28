@@ -14,6 +14,7 @@ interface ItineraryCardProps {
   onView: () => void;
   onDuplicate: (itinerary: ItineraryListItem) => void;
   onShareSettings: (itinerary: ItineraryListItem) => void;
+  onTitleUpdate: () => void;
 }
 
 /**
@@ -28,6 +29,9 @@ interface ItineraryCardProps {
  * @param onDelete - 削除ハンドラー
  * @param onEdit - 編集ハンドラー
  * @param onView - 表示ハンドラー
+ * @param onDuplicate - 複製ハンドラー
+ * @param onShareSettings - 共有設定ハンドラー
+ * @param onTitleUpdate - タイトル更新成功時のコールバック
  * @returns レンダリングされたItineraryCardコンポーネント
  */
 export const ItineraryCard: React.FC<ItineraryCardProps> = ({
@@ -39,6 +43,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
   onView,
   onDuplicate,
   onShareSettings,
+  onTitleUpdate,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState(itinerary.data.title);
@@ -84,6 +89,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
 
       setSaveStatus('saved');
       setIsEditingTitle(false);
+      onTitleUpdate(); // 親コンポーネントにリスト再取得を依頼
       
       // 2秒後にステータスをリセット
       setTimeout(() => setSaveStatus('idle'), 2000);
