@@ -11,17 +11,26 @@ import { requireAuth } from '@/lib/auth';
  * ログイン後の元のページへのリダイレクトもサポートします。
  * 
  * @param redirectToLogin - 未認証時にログイン画面にリダイレクトするかどうか（デフォルト: true）
+ *                          falseの場合、認証状態はチェックするがリダイレクトは行わない
  * @returns 認証状態とローディング状態
  * 
  * @example
  * ```tsx
- * function ProtectedPage() {
- *   const { isAuthenticated, isLoading } = useAuthRedirect();
- *   
- *   if (isLoading) return <Spinner />;
- *   if (!isAuthenticated) return null; // リダイレクト中
- *   
- *   return <div>認証済みコンテンツ</div>;
+ * // 認証必須ページ（未認証時はログイン画面にリダイレクト）
+ * const { isAuthenticated, isLoading } = useAuthRedirect();
+ * if (isLoading) return <Spinner />;
+ * if (!isAuthenticated) return null; // リダイレクト中
+ * return <div>認証済みコンテンツ</div>;
+ * ```
+ * 
+ * @example
+ * ```tsx
+ * // 認証状態のみチェック（リダイレクトなし）
+ * const { isAuthenticated, isLoading } = useAuthRedirect(false);
+ * if (isAuthenticated) {
+ *   // ログイン済みユーザー向けの処理
+ * } else {
+ *   // 非ログインユーザー向けの処理
  * }
  * ```
  */
@@ -34,10 +43,12 @@ export function useAuthRedirect(redirectToLogin: boolean = true) {
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
       try {
-        // redirectToLoginがfalseの場合は認証チェックをスキップ
+        // redirectToLoginがfalseの場合は認証チェックのみ実行（リダイレクトはスキップ）
         if (!redirectToLogin) {
-          console.log('useAuthRedirect: redirectToLogin=false, skipping auth check');
-          setIsAuthenticated(false);
+          console.log('useAuthRedirect: redirectToLogin=false, checking auth without redirect');
+          const authStatus = await requireAuth();
+          console.log('useAuthRedirect: auth check result:', authStatus);
+          setIsAuthenticated(authStatus);
           setIsLoading(false);
           return;
         }

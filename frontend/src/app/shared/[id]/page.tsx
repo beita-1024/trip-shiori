@@ -14,7 +14,7 @@ import { buildApiUrl } from '@/lib/api';
  * 
  * @returns リダイレクト処理中のローディング画面
  */
-export default function SharedPage() {
+function SharedPageContent() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
   const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(false);
@@ -24,6 +24,7 @@ export default function SharedPage() {
   React.useEffect(() => {
     const handleRedirect = async () => {
       try {
+        console.log('SharedPage: Starting redirect process', { id, isAuthenticated, authLoading });
         setLoading(true);
         setError(null);
 
@@ -48,9 +49,27 @@ export default function SharedPage() {
         const data = await response.json();
 
         if (isAuthenticated) {
-          // ログイン時: 旅程を複製して自分の旅程として保存
+          // ログイン時: まず所有権をチェック
           try {
-            // 共有URLのIDをそのまま使用して複製（共有URLのID = 旅程ID）
+            const ownershipResponse = await fetch(
+              buildApiUrl(`/api/itineraries/${id}/ownership`),
+              {
+                method: 'GET',
+                credentials: 'include',
+              }
+            );
+
+            if (ownershipResponse.ok) {
+              const ownershipData = await ownershipResponse.json();
+              
+              // 既に自分の旅程の場合は直接編集ページにリダイレクト
+              if (ownershipData.isOwner) {
+                router.push(`/edit/${id}`);
+                return;
+              }
+            }
+
+            // 自分の旅程でない場合は複製を試みる
             const copyResponse = await fetch(buildApiUrl(`/api/itineraries/copy/${id}`), {
               method: 'POST',
               headers: {
@@ -62,13 +81,6 @@ export default function SharedPage() {
             if (!copyResponse.ok) {
               const errorData = await copyResponse.json();
               console.error('Copy failed:', errorData);
-              
-              // 自分の旅程の場合は直接編集ページにリダイレクト
-              if (errorData.message === 'Cannot copy your own itinerary') {
-                router.push(`/edit/${id}`);
-                return;
-              }
-              
               throw new Error('旅程の複製に失敗しました');
             }
 
@@ -156,4 +168,26 @@ export default function SharedPage() {
   }
 
   return null;
+}
+
+// 動的インポートを使用してクライアントサイドでのみ実行
+export default function SharedPage() {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <SharedPageContent />;
 }

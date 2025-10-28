@@ -87,8 +87,11 @@ export function useAuth(): UseAuthReturn {
     try {
       setIsLoading(true);
       
-      // /loginページでは認証チェックをスキップ
-      if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+      // /login や /shared 配下では認証チェックをスキップ（リダイレクト抑止）
+      if (
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/login' || window.location.pathname.startsWith('/shared/'))
+      ) {
         setUser(null);
         setIsAuthenticated(false);
         setIsLoading(false);

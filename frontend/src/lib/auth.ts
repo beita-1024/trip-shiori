@@ -9,9 +9,11 @@ import { buildApiUrl } from './api';
  */
 export const checkAuthStatus = async (): Promise<boolean> => {
   try {
+    console.log('checkAuthStatus: Checking auth status...');
     const response = await fetch(buildApiUrl('/auth/protected'), {
       credentials: 'include',
     });
+    console.log('checkAuthStatus: Response status:', response.status, 'ok:', response.ok);
     return response.ok;
   } catch (error) {
     console.error('Auth check failed:', error);
