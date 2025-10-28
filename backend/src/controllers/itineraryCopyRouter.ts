@@ -34,7 +34,7 @@ const migrateItinerariesSchema = z.object({
 /**
  * 旅程複製・マイグレーション機能のルート
  * すべてのエンドポイントで認証が必要
- * レート制限: 300 req/min（複製・マイグレーション処理の最適化により制限を緩和）
+ * レート制限: 60 req/min（複製・マイグレーション処理の最適化により制限を緩和）
  */
 router.use(authenticateToken);
 router.use(rateLimit({ windowMs: 60_000, maxRequests: 60 }));
