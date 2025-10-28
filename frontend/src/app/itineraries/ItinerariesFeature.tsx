@@ -466,6 +466,7 @@ export default function ItinerariesFeature() {
                   onView={() => router.push(`/edit/${itinerary.id}`)}
                   onDuplicate={handleDuplicate}
                   onShareSettings={handleShareSettings}
+                  onTitleUpdate={fetchItineraries}
                 />
               ))}
             </div>
