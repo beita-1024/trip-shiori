@@ -757,9 +757,16 @@ describe('WebAPI E2E Tests', () => {
       });
 
       test('フラグOFF時は404が返る', async () => {
+        const original = process.env.PUBLIC_SHARING_ENABLED;
         process.env.PUBLIC_SHARING_ENABLED = 'false';
-        const response = await request(app).get(`/public/${publicItineraryId}`);
-        expect(response.status).toBe(404);
+        try {
+          const response = await request(app).get(
+            `/public/${publicItineraryId}`
+          );
+          expect(response.status).toBe(404);
+        } finally {
+          process.env.PUBLIC_SHARING_ENABLED = original;
+        }
       });
     });
   });
