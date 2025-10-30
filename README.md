@@ -104,7 +104,8 @@ Tavily Search API (RAG機能)
 - `INTERNAL_AI_TOKEN`: 内部サービス間認証トークン
 - その他: 詳細は `docs/quick-start.md` を参照
 
-![GCP構成図](./docs/assets/GCP_構成図.png)
+![GCP構成図](./docs/assets/システム全体図.png)
+![GCP構成図](./docs/assets/インフラ詳細図.png)
 
 - **フロントエンド**:
   - Next.js 14: App Router・SSR/SSG・型安全なフルスタック開発で採用
@@ -264,11 +265,11 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - docs（トップ）
   - [docs/quick-start.md](docs/quick-start.md) - クイックスタート（環境変数設定含む）
   - [docs/database-schema.md](docs/database-schema.md) - ER図・テーブル仕様・制約/インデックス
-- backend/python/ - AI機能（Python + LangChain）
-  - [backend/python/pyproject.toml](backend/python/pyproject.toml) - Python依存関係・LangChainバージョン
-  - [backend/python/app/services/ai_langchain.py](backend/python/app/services/ai_langchain.py) - LangChain実装（Cerebras/OpenAI/RAG）
-  - [backend/python/app/routers/internal_ai.py](backend/python/app/routers/internal_ai.py) - 内部AI APIエンドポイント
-  - [backend/python/app/core/config.py](backend/python/app/core/config.py) - AI機能設定（Cerebras/Tavily）
+- ai/ - AI機能（FastAPI + LangChain）
+  - [ai/pyproject.toml](ai/pyproject.toml) - Python依存関係・LangChainバージョン
+  - [ai/app/services/ai_langchain.py](ai/app/services/ai_langchain.py) - LangChain実装（Cerebras/OpenAI/RAG）
+  - [ai/app/routers/internal_ai.py](ai/app/routers/internal_ai.py) - 内部AI APIエンドポイント
+  - [ai/app/core/config.py](ai/app/core/config.py) - AI機能設定（Cerebras/Tavily）
 
 - docs/api
   - [docs/api/openapi.yaml](docs/api/openapi.yaml) - OpenAPI仕様書
