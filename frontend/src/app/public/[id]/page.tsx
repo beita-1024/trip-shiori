@@ -16,6 +16,7 @@ import { buildApiUrl } from '@/lib/api';
  * @returns リダイレクト処理中のローディング画面
  */
 export default function PublicPage() {
+  const PUBLIC_SHARING_ENABLED = (process.env.NEXT_PUBLIC_PUBLIC_SHARING_ENABLED || 'false').toLowerCase() === 'true';
   const router = useRouter();
   const { id } = useParams() as { id: string };
   const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(false);
@@ -31,6 +32,11 @@ export default function PublicPage() {
   } | null>(null);
 
   React.useEffect(() => {
+    if (!PUBLIC_SHARING_ENABLED) {
+      setLoading(false);
+      setError('公開共有は現在ご利用いただけません（要件調整中のため一時停止しています）');
+      return;
+    }
     const handleRedirect = async () => {
       try {
         setLoading(true);
@@ -143,10 +149,10 @@ export default function PublicPage() {
       }
     };
 
-    if (id && !authLoading) {
+    if (id && !authLoading && PUBLIC_SHARING_ENABLED) {
       handleRedirect();
     }
-  }, [id, isAuthenticated, authLoading, router]);
+  }, [id, isAuthenticated, authLoading, router, PUBLIC_SHARING_ENABLED]);
 
   if (authLoading) {
     return (

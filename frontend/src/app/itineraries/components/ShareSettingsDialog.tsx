@@ -3,6 +3,9 @@ import { Button, Spinner } from '@/components/Primitives';
 import { ItineraryListItem } from '@/types';
 import { buildApiUrl } from '@/lib/api';
 
+// 仕様調整中のため公開共有は非表示。将来再開予定。
+const PUBLIC_SHARING_ENABLED = (process.env.NEXT_PUBLIC_PUBLIC_SHARING_ENABLED || 'false').toLowerCase() === 'true';
+
 interface ShareSettingsDialogProps {
   itinerary: ItineraryListItem | null;
   isOpen: boolean;
@@ -44,7 +47,10 @@ export const ShareSettingsDialog: React.FC<ShareSettingsDialogProps> = ({
   useEffect(() => {
     if (itinerary) {
       setSettings({
-        scope: itinerary.share?.scope || 'PRIVATE',
+        scope: (() => {
+          const initialScope = itinerary.share?.scope || 'PRIVATE';
+          return !PUBLIC_SHARING_ENABLED && initialScope === 'PUBLIC' ? 'PRIVATE' : initialScope;
+        })(),
         permission: itinerary.share?.permission || 'READ_ONLY',
         password: '',
         expiresAt: itinerary.share?.expiresAt || '',
@@ -254,18 +260,20 @@ export const ShareSettingsDialog: React.FC<ShareSettingsDialogProps> = ({
                 />
                 <span className="text-sm text-body">リンク共有</span>
               </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="scope"
-                  value="PUBLIC"
-                  checked={settings.scope === 'PUBLIC'}
-                  onChange={() => handleScopeChange('PUBLIC')}
-                  className="mr-3"
-                  disabled={saving}
-                />
-                <span className="text-sm text-body">全体公開</span>
-              </label>
+              {PUBLIC_SHARING_ENABLED && (
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="scope"
+                    value="PUBLIC"
+                    checked={settings.scope === 'PUBLIC'}
+                    onChange={() => handleScopeChange('PUBLIC')}
+                    className="mr-3"
+                    disabled={saving}
+                  />
+                  <span className="text-sm text-body">全体公開</span>
+                </label>
+              )}
             </div>
           </div>
 
