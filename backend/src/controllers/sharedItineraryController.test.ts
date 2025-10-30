@@ -149,6 +149,12 @@ describe('Shared Itinerary Access API Tests', () => {
   });
 
   describe('GET /public/{id}', () => {
+    beforeAll(() => {
+      process.env.PUBLIC_SHARING_ENABLED = 'true';
+    });
+    afterAll(() => {
+      delete process.env.PUBLIC_SHARING_ENABLED;
+    });
     test('PUBLIC旅程を取得できる（認証不要）', async () => {
       // PUBLIC共有設定を作成
       await prisma.itineraryShare.deleteMany({

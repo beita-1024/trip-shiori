@@ -722,6 +722,12 @@ describe('WebAPI E2E Tests', () => {
     });
 
     describe('GET /public/{id}', () => {
+      beforeAll(() => {
+        process.env.PUBLIC_SHARING_ENABLED = 'true';
+      });
+      afterAll(() => {
+        delete process.env.PUBLIC_SHARING_ENABLED;
+      });
       test('PUBLIC旅程を取得できる（認証不要）', async () => {
         const response = await request(app).get(`/public/${publicItineraryId}`);
 
@@ -748,6 +754,19 @@ describe('WebAPI E2E Tests', () => {
           'message',
           'Request validation failed'
         );
+      });
+
+      test('フラグOFF時は404が返る', async () => {
+        const original = process.env.PUBLIC_SHARING_ENABLED;
+        process.env.PUBLIC_SHARING_ENABLED = 'false';
+        try {
+          const response = await request(app).get(
+            `/public/${publicItineraryId}`
+          );
+          expect(response.status).toBe(404);
+        } finally {
+          process.env.PUBLIC_SHARING_ENABLED = original;
+        }
       });
     });
   });
