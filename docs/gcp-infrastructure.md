@@ -68,9 +68,8 @@ flowchart TD
     AI -->|コンテナイメージ Pull| GCR
 
     BE -->|内部HTTP通信 + IDトークン認証| AI
-    BE -->|Direct VPC Egress| VPCMain
-    AI -->|Direct VPC Egress| VPCMain
-    VPCMain -->|VPC内ルーティング| SubnetMain
+    BE -->|Direct VPC Egress| SubnetMain
+    AI -->|Direct VPC Egress| SubnetMain
     SubnetMain -->|Cloud Router経由| Router
     Router -->|NAT管理| NAT
     NAT -->|外部API呼び出し| Firewall
@@ -78,6 +77,7 @@ flowchart TD
 
     SubnetMain -->|Private Service Connect| ServiceNetworking
     ServiceNetworking -->|Cloud SQL Private IP を提供| SQL
+    BE -->|VPC経由でPrivate IP接続| SQL
 
     FE -->|静的アセット取得（HTTPS）| GCS
 
@@ -129,7 +129,7 @@ flowchart TD
 - **Direct VPC Egress → Service Networking → Cloud SQL**: VPC内のプライベートIP経由でService Networkingの予約レンジを通じてCloud SQL Private IPに到達。
 - **Cloud Run backend → VPC → Private Service Connect → Cloud SQL**: BackendのみがDirect VPC Egress経由でVPCに接続し、Private Service Connectを通じてCloud SQLのPrivate IPにアクセス。AIサービスはDBアクセス権限なし。接続文字列はPrivate IPを参照（例: `postgresql://trip_shiori_user:***@10.0.x.x:5432/trip_shiori`）。Cloud SQLのパブリックIPv4は無効化。
 - **Cloud Run services ↔ Secret Manager**: 機密情報（DB認証情報、APIキー、JWT秘密鍵）を動的に取得。IAMロールベースのアクセス制御。
-- **AI Service → VPC → サブネット（10.0.0.0/24）→ Cloud Router → Cloud NAT → ファイアウォール → 外部API**: OpenAI、Cerebras、Tavily APIへのHTTPS通信。Direct VPC Egress経由でVPCに接続し、VPC内ルーティングでサブネットに到達、サブネット → Cloud Router → Cloud NAT → VPC内のファイアウォール（境界制御）経由で外部アクセスを許可。
+- **AI Service → サブネット（10.0.0.0/24）→ Cloud Router → Cloud NAT → ファイアウォール → 外部API**: OpenAI、Cerebras、Tavily APIへのHTTPS通信。Direct VPC Egress経由でサブネットに接続し、サブネット → Cloud Router → Cloud NAT → VPC内のファイアウォール（境界制御）経由で外部アクセスを許可。
 - **Cloud Run frontend ↔ Cloud Storage**: 静的アセットをHTTPS経由で取得。バケットはGoogle管理サービスに配置。
 - **GitHub Actions → Artifact Registry / Terraform**: CI/CDがコンテナをビルドしてgcr.ioへプッシュし、Terraform Applyで全リソースを更新。
 - **Private DNS Zone**: Direct VPC Egress時の名前解決をサポート（run.app.ドメイン）。
