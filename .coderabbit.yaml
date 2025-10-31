@@ -31,14 +31,6 @@ reviews:
         - anyの無制限使用は避け、strict前提で型安全性を確保する
         - public APIの型は明示的に定義し、暗黙のany/unknownを排除する
         - 例外はErrorサブクラスで投げ、Promiseではreject理由を型で表す
-    - path: "**/*"
-      instructions: |
-        Lightweight PR triage & summary:
-        - 未対応コメントを 3分類でラベル化: [Must] / [Nice] / [Q]
-        - レビュー時に、未対応項目の一次トリアージを行い、PR本文に「コメント整理」と「残件メモ」を作成/更新すること
-        - Issue にせずPR本文に残す方針（軽量運用）。複数PRにまたがる/期限管理が必要な場合のみIssue化を提案
-        - 再レビュー時は Must のみ再確認依頼、差分リンクを提示
-        - 結論が出た Q はPR本文の「コメント整理 > Q（結論）」に1行で反映
     - path: "backend/**/*.ts"
       instructions: |
         Security & Validation:
