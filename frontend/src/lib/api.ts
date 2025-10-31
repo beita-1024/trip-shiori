@@ -63,6 +63,39 @@ export const AUTH_ENDPOINTS = {
   REFRESH: '/auth/refresh',
 } as const;
 
+// 認証無効化イベント（Refresh失敗や401継続時に発火）
+/**
+ * 認証無効化リスナーの登録セット
+ *
+ * Refresh Tokenの失敗や401の継続によりセッションが無効化された際、
+ * 登録済みのリスナーに通知します（UI側でログアウト表示などへ同期）。
+ */
+export const authInvalidatedListeners = new Set<() => void>();
+
+/**
+ * 認証無効化イベントのリスナーを登録する
+ *
+ * @param listener 認証が無効化された際に呼ばれるハンドラ
+ * @returns 解除用の関数（呼び出すと登録を解除）
+ * @example
+ * const unsubscribe = addAuthInvalidatedListener(() => setAuth(false));
+ * // アンマウント時などに
+ * unsubscribe();
+ */
+export const addAuthInvalidatedListener = (listener: () => void): (() => void) => {
+  authInvalidatedListeners.add(listener);
+  return () => authInvalidatedListeners.delete(listener);
+};
+const emitAuthInvalidated = (): void => {
+  authInvalidatedListeners.forEach((l) => {
+    try {
+      l();
+    } catch {
+      // noop
+    }
+  });
+};
+
 /**
  * 自動Token更新機能付きfetch wrapper
  * 
@@ -114,6 +147,7 @@ export const apiFetch = async (
       } else {
         // Refresh Tokenも無効な場合、ログインページにリダイレクト
         console.warn('Refresh token expired');
+        emitAuthInvalidated();
         // /shared 配下ではリダイレクトを抑止して呼び出し側で制御させる
         if (typeof window !== 'undefined') {
           const path = window.location.pathname;
@@ -126,6 +160,7 @@ export const apiFetch = async (
       }
     } catch (error) {
       console.error('Token refresh failed:', error);
+      emitAuthInvalidated();
       // エラー時は元のレスポンスを返す
     }
   }

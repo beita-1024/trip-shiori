@@ -27,9 +27,10 @@
  */
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { buildApiUrl, apiFetch } from '@/lib/api';
+import { buildApiUrl, apiFetch, addAuthInvalidatedListener } from '@/lib/api';
+import { refreshAccessToken } from '@/lib/auth';
 import type { User } from '@/types';
 
 interface UseAuthReturn {
@@ -45,6 +46,46 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
+  const HEARTBEAT_MS = typeof window === 'undefined'
+    ? 300000
+    : Number(process.env.NEXT_PUBLIC_AUTH_HEARTBEAT_MS || 300000);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const checkAuthStatusRef = useRef<(() => Promise<void>) | null>(null);
+
+  const clearScheduledRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, []);
+
+  // 後続で使用するリフレッシュスケジューラ
+  const scheduleRefreshFromExp = useCallback((expSeconds?: number | null) => {
+    clearScheduledRefresh();
+    if (!expSeconds || Number.isNaN(expSeconds)) {
+      return;
+    }
+    const SAFETY_WINDOW_MS = 60000; // 60s前倒し
+    const targetTimeMs = expSeconds * 1000 - SAFETY_WINDOW_MS;
+    const delayMs = Math.max(targetTimeMs - Date.now(), 0);
+    if (delayMs === Infinity || delayMs > 24 * 60 * 60 * 1000) {
+      return;
+    }
+    refreshTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const ok = await refreshAccessToken();
+        if (!ok) {
+          setUser(null);
+          setIsAuthenticated(false);
+          return;
+        }
+        await (checkAuthStatusRef.current?.() ?? Promise.resolve());
+      } catch {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    }, delayMs);
+  }, [clearScheduledRefresh]);
 
   /**
    * pendingマイグレーションを実行する
@@ -112,25 +153,37 @@ export function useAuth(): UseAuthReturn {
             createdAt: authData.user.createdAt || new Date().toISOString(),
           });
           setIsAuthenticated(true);
+          // 期限情報が取得できる場合は期限前リフレッシュをスケジュール
+          // サーバがexp(秒)やtokenExpを返さない場合は何もしない（心拍/可視化復帰でカバー）
+          scheduleRefreshFromExp((authData.tokenExp as number | undefined) ?? (authData.exp as number | undefined) ?? null);
           
           // 認証成功時にpendingマイグレーションを実行
           await handlePendingMigration();
         } else {
           setUser(null);
           setIsAuthenticated(false);
+          clearScheduledRefresh();
         }
       } else {
         setUser(null);
         setIsAuthenticated(false);
+        clearScheduledRefresh();
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
+      clearScheduledRefresh();
     } finally {
       setIsLoading(false);
     }
-  }, [handlePendingMigration]);
+  }, [handlePendingMigration, scheduleRefreshFromExp, clearScheduledRefresh]);
+
+  useEffect(() => {
+    checkAuthStatusRef.current = checkAuthStatus;
+  }, [checkAuthStatus]);
+
+  // 定義済み
 
   /**
    * ログアウト処理
@@ -162,6 +215,59 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     checkAuthStatus();
   }, [checkAuthStatus]); // checkAuthStatusを依存配列に追加
+
+  // 定期的な認証再検証
+  useEffect(() => {
+    if (!HEARTBEAT_MS || HEARTBEAT_MS <= 0) {
+      return;
+    }
+    const intervalId = setInterval(() => {
+      // タブが可視状態のときに優先してチェック（不可視でも最低限の同期は必要ならここで実行可）
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        checkAuthStatus();
+      }
+    }, HEARTBEAT_MS);
+
+    return () => clearInterval(intervalId);
+  }, [HEARTBEAT_MS, checkAuthStatus]);
+
+  // タブ復帰（visibility/focus）時の即時再検証
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (typeof document === 'undefined') return;
+      if (document.visibilityState === 'visible') {
+        checkAuthStatus();
+      }
+    };
+    const handleFocus = () => {
+      checkAuthStatus();
+    };
+
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+      window.addEventListener('focus', handleFocus);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('focus', handleFocus);
+      }
+      clearScheduledRefresh();
+    };
+  }, [checkAuthStatus, clearScheduledRefresh]);
+
+  // API層からの認証無効化通知に追随
+  useEffect(() => {
+    const unsubscribe = addAuthInvalidatedListener(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+      clearScheduledRefresh();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [clearScheduledRefresh]);
 
   return {
     isAuthenticated,
