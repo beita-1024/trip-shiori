@@ -436,6 +436,10 @@ paths:
                   message:
                     type: string
                     example: This is a protected resource
+                  tokenExp:
+                    type: number
+                    description: アクセストークンの有効期限（Unix timestamp、秒単位）
+                    example: 1704067200
         '401':
           description: 未認証
           content:
