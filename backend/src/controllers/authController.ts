@@ -561,6 +561,7 @@ export const protectedResource = async (
         email: user.email,
       },
       message: 'This is a protected resource',
+      tokenExp: req.tokenExp,
     });
   } catch (error) {
     console.error('Protected resource error:', error);

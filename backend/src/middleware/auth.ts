@@ -14,6 +14,8 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     email: string;
   };
+  /** アクセストークンの有効期限（Unix timestamp、秒単位） */
+  tokenExp?: number;
 }
 
 /**
@@ -98,6 +100,11 @@ export const authenticateToken = async (
       id: user.id,
       email: user.email,
     };
+
+    // トークンの有効期限をリクエストに追加（期限前リフレッシュ用）
+    if (payload.exp) {
+      req.tokenExp = payload.exp;
+    }
 
     next();
   } catch (error) {
