@@ -802,7 +802,7 @@ sync-terraform-state: ## Terraform状態を同期（既存リソースを自動�
 		fi && \
 		\
 		# Storage Bucketのインポート（suffixを含む可能性があるため、grepで検索） && \
-		BUCKET_PREFIX="$${PROJECT_NAME}-storage"; \
+		BUCKET_PREFIX="$${PROJECT_NAME}-static"; \
 		for bucket in $$(gsutil ls -b 2>/dev/null | grep "^gs://$${BUCKET_PREFIX}" || true); do \
 			BUCKET_NAME=$${bucket#gs://}; \
 			if ! terraform state show "module.storage.google_storage_bucket.static" >/dev/null 2>&1; then \
