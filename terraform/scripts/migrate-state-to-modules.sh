@@ -125,6 +125,24 @@ else
     echo "⚠️  データベースインスタンスが存在しません: ${DB_INSTANCE_NAME}"
 fi
 
+# Service Accountの確認
+SERVICE_ACCOUNTS=("backend" "frontend" "ai")
+for sa in "${SERVICE_ACCOUNTS[@]}"; do
+    SA_ACCOUNT_ID="trip-shiori-${TF_ENV}-${sa}"
+    SA_EMAIL="${SA_ACCOUNT_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
+    if gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" --quiet >/dev/null 2>&1; then
+        echo "✅ Service Accountが存在します: ${SA_EMAIL}"
+        
+        # Service Accountをimport
+        if ! terraform state show "module.iam.google_service_account.${sa}" >/dev/null 2>&1; then
+            echo "📥 Service Accountをstateにimportします..."
+            terraform import "module.iam.google_service_account.${sa}" "projects/${PROJECT_ID}/serviceAccounts/${SA_EMAIL}" || true
+        fi
+    else
+        echo "⚠️  Service Accountが存在しません: ${SA_EMAIL}"
+    fi
+done
+
 # Cloud Runサービスの確認
 SERVICES=("backend" "frontend" "ai")
 for service in "${SERVICES[@]}"; do

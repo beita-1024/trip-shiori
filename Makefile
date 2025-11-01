@@ -733,8 +733,46 @@ check-deletion-protection: ## Cloud SQLインスタンスの削除保護をチ�
 		fi; \
 	fi
 
-sync-terraform-state: ## Terraform状態を同期
+sync-terraform-state: ## Terraform状態を同期（既存リソースを自動インポート）
 	@echo "Terraform状態を同期中..."
+	@echo "既存リソースの自動インポートを実行中..."
+	@cd terraform/environments/$(TF_ENV) && \
+		PROJECT_ID=portfolio-472821 && \
+		REGION=asia-northeast1 && \
+		PROJECT_NAME=trip-shiori-$(TF_ENV) && \
+		\
+		# Service Accountのインポート && \
+		for sa in backend frontend ai; do \
+			SA_EMAIL="$${PROJECT_NAME}-$${sa}@$${PROJECT_ID}.iam.gserviceaccount.com"; \
+			if gcloud iam service-accounts describe "$${SA_EMAIL}" --project="$${PROJECT_ID}" --quiet >/dev/null 2>&1; then \
+				if ! terraform state show "module.iam.google_service_account.$${sa}" >/dev/null 2>&1; then \
+					echo "📥 Service Accountをインポート: $${sa}"; \
+					terraform import "module.iam.google_service_account.$${sa}" "projects/$${PROJECT_ID}/serviceAccounts/$${SA_EMAIL}" || true; \
+				fi; \
+			fi; \
+		done && \
+		\
+		# VPCのインポート && \
+		NETWORK_NAME="$${PROJECT_NAME}-vpc"; \
+		if gcloud compute networks describe "$${NETWORK_NAME}" --project="$${PROJECT_ID}" --quiet >/dev/null 2>&1; then \
+			if ! terraform state show "module.network.google_compute_network.main" >/dev/null 2>&1; then \
+				echo "📥 VPCをインポート: $${NETWORK_NAME}"; \
+				terraform import "module.network.google_compute_network.main" "projects/$${PROJECT_ID}/global/networks/$${NETWORK_NAME}" || true; \
+			fi; \
+		fi && \
+		\
+		# Storage Bucketのインポート（suffixを含む可能性があるため、grepで検索） && \
+		BUCKET_PREFIX="$${PROJECT_NAME}-storage"; \
+		for bucket in $$(gsutil ls -b 2>/dev/null | grep "^gs://$${BUCKET_PREFIX}" || true); do \
+			BUCKET_NAME=$${bucket#gs://}; \
+			if ! terraform state show "module.storage.google_storage_bucket.static" >/dev/null 2>&1; then \
+				echo "📥 Storage Bucketをインポート: $${BUCKET_NAME}"; \
+				terraform import "module.storage.google_storage_bucket.static" "$${BUCKET_NAME}" || true; \
+				break; \
+			fi; \
+		done && \
+		\
+		echo "✅ 既存リソースの自動インポートが完了しました"
 	$(MAKE) tf-plan TF_ENV=$(TF_ENV)
 	@echo "✅ Terraform状態の同期が完了しました"
 

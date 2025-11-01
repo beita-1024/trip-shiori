@@ -56,4 +56,10 @@ resource "google_sql_user" "main" {
   password = var.database_password
 
   depends_on = [var.secrets_module]
+
+  # データベースインスタンスの削除保護と同じ設定
+  # 本番環境では削除保護、開発環境では削除可能
+  lifecycle {
+    prevent_destroy = var.deletion_protection
+  }
 }
