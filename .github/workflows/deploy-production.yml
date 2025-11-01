@@ -78,30 +78,6 @@ jobs:
           ./scripts/generate-tfvars.sh prod
           echo "✅ terraform.tfvarsが生成されました"
       
-      - name: Run Database Migration
-        env:
-          GCP_PROJECT_ID: portfolio-472821
-        run: |
-          set -euo pipefail
-          echo "🔄 Running database migration (prod)..."
-          
-          # Cloud SQL Proxy を使用してマイグレーション実行
-          cd backend
-          
-          # データベース接続情報を取得
-          DB_HOST=$(gcloud sql instances describe trip-shiori-prod-db-instance --format="value(ipAddresses[0].ipAddress)")
-          DB_NAME="trip_shiori"
-          DB_USER="trip_shiori_user"
-          
-          # 環境変数設定
-          export DATABASE_URL="postgresql://${DB_USER}:$(gcloud secrets versions access latest --secret=trip-shiori-prod-database-password)@${DB_HOST}:5432/${DB_NAME}?sslmode=require"
-          
-          # マイグレーション実行
-          npx prisma migrate deploy
-          npx prisma generate
-          
-          echo "✅ Database migration (prod) completed successfully"
-
       - name: Deploy to GCP Production
         env:
           GIT_SHA: ${{ github.sha }}
