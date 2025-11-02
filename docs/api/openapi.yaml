@@ -115,6 +115,7 @@ paths:
               required:
                 - email
                 - password
+                - name
               properties:
                 email:
                   type: string
@@ -129,7 +130,8 @@ paths:
                   example: SecurePass123!
                 name:
                   type: string
-                  description: 表示名（任意）
+                  minLength: 1
+                  description: 表示名
                   example: 田中太郎
       responses:
         '204':

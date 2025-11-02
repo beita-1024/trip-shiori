@@ -149,8 +149,8 @@ const cleanupExpiredRefreshTokens = async () => {
  * @summary 新しいユーザーアカウントを作成し、メール認証を送信
  * @auth 認証不要
  * @params
- *   - Body: { email: string, password: string, name?: string }
- *   - Validation: メール形式、パスワード強度チェック
+ *   - Body: { email: string, password: string, name: string }
+ *   - Validation: メール形式、パスワード強度チェック、名前必須
  * @returns
  *   - 204: 登録成功（メール送信完了）
  * @errors
@@ -168,7 +168,7 @@ export const register = async (req: Request, res: Response) => {
     const schema = z.object({
       email: z.string().trim().email(),
       password: passwordSchema,
-      name: z.string().optional(),
+      name: z.string().trim().min(1, '名前は必須です'),
     });
 
     const { email, password, name } = schema.parse(req.body);
@@ -191,14 +191,14 @@ export const register = async (req: Request, res: Response) => {
     const user = await prisma.user.upsert({
       where: { email: email.toLowerCase() },
       update: {
-        name: name || null,
+        name: name,
         passwordHash,
         emailVerified: null,
         updatedAt: new Date(),
       },
       create: {
         email: email.toLowerCase(),
-        name: name || null,
+        name: name,
         passwordHash,
         emailVerified: null,
       },
@@ -229,7 +229,7 @@ export const register = async (req: Request, res: Response) => {
 
     // メール送信
     try {
-      const displayName = name || 'ユーザー';
+      const displayName = name;
       const emailTemplate = createVerificationEmailTemplate(
         displayName,
         verifyUrl

@@ -178,6 +178,35 @@ describe('Auth Endpoints Tests', () => {
       expect(response.body).toHaveProperty('error', 'invalid_body');
       expect(response.body).toHaveProperty('message');
     });
+
+    test('名前が不足している場合にエラーを返す', async () => {
+      const response = await request(app)
+        .post('/auth/register')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'invalid_body');
+      expect(response.body).toHaveProperty('message');
+    });
+
+    test('名前が空文字列の場合にエラーを返す', async () => {
+      const response = await request(app)
+        .post('/auth/register')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+          name: '',
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'invalid_body');
+      expect(response.body).toHaveProperty('message');
+    });
   });
 
   describe('GET /auth/verify-email', () => {

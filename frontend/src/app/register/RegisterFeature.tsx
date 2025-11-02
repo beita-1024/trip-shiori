@@ -95,6 +95,11 @@ export default function RegisterFeature() {
       newErrors.password = "パスワードは大文字・小文字・数字・特殊文字を含む必要があります";
     }
 
+    // 名前の検証
+    if (!data.name.trim()) {
+      newErrors.name = "お名前は必須です";
+    }
+
     return newErrors;
   };
 
@@ -246,16 +251,22 @@ export default function RegisterFeature() {
             )}
           </FormField>
 
-          {/* お名前（任意） */}
-          <FormField label="お名前（任意）" id="name">
+          {/* お名前 */}
+          <FormField label="お名前" id="name" required>
             <InputWithPlaceholder
               id="name"
               type="text"
               placeholder="UserName"
               value={formData.name}
               onChange={(e) => handleFieldChange("name", e.target.value)}
+              className={errors.name ? "border-red-500" : ""}
               disabled={isSubmitting}
             />
+            {errors.name && (
+              <p className="mt-1 text-sm text-red-600" role="alert">
+                {errors.name}
+              </p>
+            )}
           </FormField>
 
           {/* APIエラー表示 */}
