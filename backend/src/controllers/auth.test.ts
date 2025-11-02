@@ -157,6 +157,7 @@ describe('Auth Endpoints Tests', () => {
         .send({
           email: 'invalid-email',
           password: testUser.password,
+          name: testUser.name,
         })
         .set('Content-Type', 'application/json');
 
@@ -171,6 +172,36 @@ describe('Auth Endpoints Tests', () => {
         .send({
           email: testUser.email,
           password: 'weak',
+          name: testUser.name,
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'invalid_body');
+      expect(response.body).toHaveProperty('message');
+    });
+
+    test('名前が不足している場合にエラーを返す', async () => {
+      const response = await request(app)
+        .post('/auth/register')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error', 'invalid_body');
+      expect(response.body).toHaveProperty('message');
+    });
+
+    test('名前が空文字列の場合にエラーを返す', async () => {
+      const response = await request(app)
+        .post('/auth/register')
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+          name: '',
         })
         .set('Content-Type', 'application/json');
 
