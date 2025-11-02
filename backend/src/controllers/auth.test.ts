@@ -157,6 +157,7 @@ describe('Auth Endpoints Tests', () => {
         .send({
           email: 'invalid-email',
           password: testUser.password,
+          name: testUser.name,
         })
         .set('Content-Type', 'application/json');
 
@@ -171,6 +172,7 @@ describe('Auth Endpoints Tests', () => {
         .send({
           email: testUser.email,
           password: 'weak',
+          name: testUser.name,
         })
         .set('Content-Type', 'application/json');
 
