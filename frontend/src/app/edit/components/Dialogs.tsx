@@ -342,21 +342,22 @@ export default function Dialogs({
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="text-sm text-muted mb-2">現在の旅程データ（整形済みJSON）</div>
                 <textarea
-                  readOnly
                   value={jsonText}
-                  className="flex-1 rounded-md border border-input p-3 bg-input text-body font-mono text-sm resize-none min-h-[400px]"
+                  onChange={(e) => onJsonTextChange(e.target.value)}
+                  className="flex-1 rounded-md border border-input p-3 bg-input text-body font-mono text-sm resize-none min-h-[400px] placeholder:text-input-placeholder"
                   style={{ fontFamily: 'monospace' }}
                 />
+                {jsonError && (
+                  <div className="text-red-600 text-sm mt-2">{jsonError}</div>
+                )}
                 <div className="flex items-center justify-end gap-2 mt-3">
-                  <Button 
-                    kind="ghost" 
-                    type="button" 
-                    onClick={() => {
-                      onJsonTextChange("");
-                      onExportJson();
-                    }}
+                  <Button
+                    kind="primary"
+                    type="button"
+                    onClick={onImportJson}
+                    disabled={!jsonText.trim()}
                   >
-                    <i className="mdi mdi-refresh mr-1" aria-hidden /> 再エクスポート
+                    <i className="mdi mdi-import mr-2" aria-hidden /> インポート
                   </Button>
                   <Button 
                     kind="ghost" 

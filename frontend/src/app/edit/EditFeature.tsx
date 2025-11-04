@@ -10,6 +10,7 @@ import DemoLabel from "@/components/DemoLabel";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
 import { useTutorial } from "@/hooks/useTutorial";
 import { stripUids, parseWithUids } from "@/components/uiUid";
+import type { ItineraryWithUid } from "@/types";
 
 // 分割されたコンポーネントをインポート
 import ItineraryHeader from "./components/ItineraryHeader";
@@ -50,7 +51,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   const { isAuthenticated, isLoading: authLoading } = useAuthRedirect(!isGuestMode);
   
   // チュートリアル機能
-  const { startTutorial, isFirstTime, isLoading: tutorialLoading, TutorialButton } = useTutorial();
+  const { startTutorial, isFirstTime, isLoading: tutorialLoading } = useTutorial();
   
   // useItineraryStore によって LocalStorage からのロードと自動保存が行われます
   // itineraryIdが提供されている場合、WebAPI自動保存も有効になります
