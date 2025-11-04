@@ -3,12 +3,13 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Spinner } from "@/components/Primitives";
-import useItineraryStore from "@/components/itineraryStore";
+import useItineraryStore, { normalizeItineraryTimes } from "@/components/itineraryStore";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import TriFoldPrintPreview from "@/components/TriFoldPrintPreview";
 import DemoLabel from "@/components/DemoLabel";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
 import { useTutorial } from "@/hooks/useTutorial";
+import { stripUids, parseWithUids } from "@/components/uiUid";
 
 // 分割されたコンポーネントをインポート
 import ItineraryHeader from "./components/ItineraryHeader";
@@ -87,6 +88,11 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   // 認証必須ダイアログの状態
   const [showAuthDialog, setShowAuthDialog] = React.useState(false);
   const [authRequiredFeature, setAuthRequiredFeature] = React.useState<string>("");
+
+  // JSONダイアログの状態
+  const [showJsonDialog, setShowJsonDialog] = React.useState(false);
+  const [jsonText, setJsonText] = React.useState("");
+  const [jsonError, setJsonError] = React.useState<string>("");
 
   // AI補完ボタンのローディング状態を管理（イベント単位）
   const [loadingKeys, setLoadingKeys] = React.useState<Set<string>>(new Set());
@@ -204,6 +210,69 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
   }, [aiInput, aiEditItinerary, showToastMessage, handleAuthRequired]);
 
   /**
+   * JSONエクスポートの処理
+   */
+  const handleExportJson = useCallback(() => {
+    try {
+      // _uidを除去してクリーンなItinerary型に変換
+      const cleanItinerary = stripUids(itinerary);
+      // 整形済みJSON文字列を生成
+      const jsonString = JSON.stringify(cleanItinerary, null, 2);
+      setJsonText(jsonString);
+      setJsonError("");
+      setShowJsonDialog(true);
+    } catch (error) {
+      console.error("JSONエクスポートエラー:", error);
+      const errorMessage = "JSONのエクスポートに失敗しました";
+      setJsonError(errorMessage);
+      setShowJsonDialog(true);
+      showToastMessage(`❌ ${errorMessage}`, 5000);
+    }
+  }, [itinerary, showToastMessage]);
+
+  /**
+   * JSONインポートの処理
+   */
+  const handleImportJson = useCallback(() => {
+    try {
+      if (!jsonText.trim()) {
+        setJsonError("JSONデータを入力してください");
+        return;
+      }
+
+      // JSONパース
+      const parsed = JSON.parse(jsonText);
+      
+      // 基本的な構造チェック
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error("無効なJSON形式です");
+      }
+      
+      if (!parsed.days || !Array.isArray(parsed.days)) {
+        throw new Error("daysフィールドが必要です");
+      }
+
+      // parseWithUidsでパース（_uidは自動生成）
+      const loaded = parseWithUids(parsed);
+      
+      // 時間値を正規化
+      const normalized = normalizeItineraryTimes(loaded);
+      
+      // 状態を更新
+      setItinerary(normalized as ItineraryWithUid);
+      setJsonError("");
+      setShowJsonDialog(false);
+      setJsonText("");
+      showToastMessage("✅ JSONから旅程を読み込みました", 3000);
+    } catch (error) {
+      console.error("JSONインポートエラー:", error);
+      const errorMessage = error instanceof Error ? error.message : "不明なエラー";
+      setJsonError(`JSONの読み込みに失敗しました: ${errorMessage}`);
+      showToastMessage(`❌ JSONの読み込みに失敗しました: ${errorMessage}`, 5000);
+    }
+  }, [jsonText, setItinerary, showToastMessage]);
+
+  /**
    * キーボードショートカットの処理
    */
   useEffect(() => {
@@ -219,8 +288,17 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
         } else if (showAiDialog) {
           event.preventDefault();
           setShowAiDialog(false);
+        } else if (showJsonDialog) {
+          event.preventDefault();
+          setShowJsonDialog(false);
         }
         return;
+      }
+      
+      // Ctrl+Shift+J: JSONエクスポート/インポートダイアログを開く
+      if (event.ctrlKey && event.shiftKey && event.key === 'J') {
+        event.preventDefault();
+        handleExportJson();
       }
       
       // Ctrl+Z: Undo
@@ -272,7 +350,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [canUndo, canRedo, showAiDialog, showTriFoldPrintPreview, showShareDialog, handleAiEditSubmit, handleShareItinerary, redo, undo]);
+  }, [canUndo, canRedo, showAiDialog, showTriFoldPrintPreview, showShareDialog, showJsonDialog, handleAiEditSubmit, handleShareItinerary, handleExportJson, redo, undo]);
 
 
   /**
@@ -486,11 +564,18 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
         toastMessage={toastMessage}
         saving={saving}
         itineraryId={itineraryId}
+        showJsonDialog={showJsonDialog}
+        jsonText={jsonText}
+        jsonError={jsonError}
         onClosePrintPreview={() => setShowPrintPreview(false)}
         onCloseTriFoldPrintPreview={() => setShowTriFoldPrintPreview(false)}
         onCloseShareDialog={() => setShowShareDialog(false)}
         onCloseAiDialog={() => setShowAiDialog(false)}
         onCloseExitDialog={() => setShowExitDialog(false)}
+        onCloseJsonDialog={() => {
+          setShowJsonDialog(false);
+          setJsonError("");
+        }}
         onCopySharedUrl={async () => {
           try { 
             await navigator.clipboard.writeText(sharedUrl || ""); 
@@ -502,6 +587,9 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
         onAiEditSubmit={handleAiEditSubmit}
         onSaveAndExit={handleSaveAndExit}
         onDiscardAndExit={handleDiscardAndExit}
+        onJsonTextChange={setJsonText}
+        onExportJson={handleExportJson}
+        onImportJson={handleImportJson}
         aiTextareaRef={aiTextareaRef}
       />
 

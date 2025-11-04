@@ -73,7 +73,7 @@ function normalizeEventTimes(event: Event | EventWithUid): Event | EventWithUid 
  * @param itinerary - 正規化する旅程データ
  * @returns 正規化された旅程データ
  */
-function normalizeItineraryTimes(itinerary: Itinerary | ItineraryWithUid): Itinerary | ItineraryWithUid {
+export function normalizeItineraryTimes(itinerary: Itinerary | ItineraryWithUid): Itinerary | ItineraryWithUid {
   if (!itinerary || typeof itinerary !== 'object' || !('days' in itinerary)) return itinerary;
   
   return {
