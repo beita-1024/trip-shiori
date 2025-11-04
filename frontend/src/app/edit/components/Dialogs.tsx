@@ -55,16 +55,23 @@ function normalizeTimeForDisplay(timeStr: string): string {
  * @param props.toastMessage - トーストメッセージ
  * @param props.saving - 保存中フラグ
  * @param props.itineraryId - 旅程ID
+ * @param props.showJsonDialog - JSONダイアログ表示フラグ
+ * @param props.jsonText - JSONテキスト
+ * @param props.jsonError - JSONエラーメッセージ
  * @param props.onClosePrintPreview - 印刷プレビュー閉じるハンドラー
  * @param props.onCloseTriFoldPrintPreview - 三つ折り印刷プレビュー閉じるハンドラー
  * @param props.onCloseShareDialog - 共有ダイアログ閉じるハンドラー
  * @param props.onCloseAiDialog - AI対話ダイアログ閉じるハンドラー
  * @param props.onCloseExitDialog - 保存確認ダイアログ閉じるハンドラー
+ * @param props.onCloseJsonDialog - JSONダイアログ閉じるハンドラー
  * @param props.onCopySharedUrl - 共有URLコピーハンドラー
  * @param props.onAiInputChange - AI入力変更ハンドラー
  * @param props.onAiEditSubmit - AI編集送信ハンドラー
  * @param props.onSaveAndExit - 保存して戻るハンドラー
  * @param props.onDiscardAndExit - 破棄して戻るハンドラー
+ * @param props.onJsonTextChange - JSONテキスト変更ハンドラー
+ * @param props.onExportJson - JSONエクスポートハンドラー
+ * @param props.onImportJson - JSONインポートハンドラー
  * @param props.aiTextareaRef - AIテキストエリアの参照
  * @returns レンダリングされたDialogsコンポーネント
  */
@@ -84,16 +91,23 @@ interface DialogsProps {
   toastMessage: string;
   saving: boolean;
   itineraryId?: string;
+  showJsonDialog: boolean;
+  jsonText: string;
+  jsonError: string;
   onClosePrintPreview: () => void;
   onCloseTriFoldPrintPreview: () => void;
   onCloseShareDialog: () => void;
   onCloseAiDialog: () => void;
   onCloseExitDialog: () => void;
+  onCloseJsonDialog: () => void;
   onCopySharedUrl: () => void;
   onAiInputChange: (value: string) => void;
   onAiEditSubmit: () => void;
   onSaveAndExit: () => void;
   onDiscardAndExit: () => void;
+  onJsonTextChange: (value: string) => void;
+  onExportJson: () => void;
+  onImportJson: () => void;
   aiTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 
@@ -114,6 +128,9 @@ export default function Dialogs({
   toastMessage,
   saving,
   itineraryId,
+  showJsonDialog,
+  jsonText,
+  jsonError,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClosePrintPreview,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -121,11 +138,15 @@ export default function Dialogs({
   onCloseShareDialog,
   onCloseAiDialog,
   onCloseExitDialog,
+  onCloseJsonDialog,
   onCopySharedUrl,
   onAiInputChange,
   onAiEditSubmit,
   onSaveAndExit,
   onDiscardAndExit,
+  onJsonTextChange,
+  onExportJson,
+  onImportJson,
   aiTextareaRef
 }: DialogsProps) {
   return (
@@ -298,6 +319,102 @@ export default function Dialogs({
                 </Button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* JSONエクスポート/インポートダイアログ */}
+      {showJsonDialog && (
+        <div className="no-print fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-surface border border-ui rounded-lg p-4 w-[min(800px,90vw)] max-h-[90vh] elevation-4 relative flex flex-col">
+            <button
+              type="button"
+              className="action-icon-btn absolute right-3 top-3 z-10"
+              aria-label="閉じる"
+              onClick={onCloseJsonDialog}
+            >
+              <i className="mdi mdi-close" aria-hidden />
+            </button>
+            <div className="text-lg font-medium mb-4 pr-8">JSONエクスポート/インポート</div>
+            
+            {/* エクスポートセクション（jsonTextが存在し、エラーがない場合） */}
+            {jsonText && !jsonError ? (
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="text-sm text-muted mb-2">現在の旅程データ（整形済みJSON）</div>
+                <textarea
+                  value={jsonText}
+                  onChange={(e) => onJsonTextChange(e.target.value)}
+                  className="flex-1 rounded-md border border-input p-3 bg-input text-body font-mono text-sm resize-none min-h-[400px] placeholder:text-input-placeholder"
+                  style={{ fontFamily: 'monospace' }}
+                />
+                {jsonError && (
+                  <div className="text-red-600 text-sm mt-2">{jsonError}</div>
+                )}
+                <div className="flex items-center justify-end gap-2 mt-3">
+                  <Button
+                    kind="primary"
+                    type="button"
+                    onClick={onImportJson}
+                    disabled={!jsonText.trim()}
+                  >
+                    <i className="mdi mdi-import mr-2" aria-hidden /> インポート
+                  </Button>
+                  <Button 
+                    kind="ghost" 
+                    type="button" 
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(jsonText);
+                        // コピー成功のフィードバック（簡易版）
+                      } catch (e) {
+                        console.error("clipboard copy failed", e);
+                      }
+                    }}
+                  >
+                    <i className="mdi mdi-content-copy mr-1" aria-hidden /> コピー
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* インポートセクション */
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="text-sm text-muted mb-2">JSONデータを貼り付けてください</div>
+                <textarea
+                  value={jsonText}
+                  onChange={(e) => onJsonTextChange(e.target.value)}
+                  className="flex-1 rounded-md border border-input p-3 bg-input text-body font-mono text-sm resize-none min-h-[400px] placeholder:text-input-placeholder"
+                  style={{ fontFamily: 'monospace' }}
+                  placeholder='{"title": "旅程タイトル", "days": [...]}'
+                />
+                {jsonError && (
+                  <div className="text-red-600 text-sm mt-2">{jsonError}</div>
+                )}
+                <div className="flex items-center justify-end gap-2 mt-3">
+                  <Button
+                    kind="ghost"
+                    type="button"
+                    onClick={onExportJson}
+                  >
+                    <i className="mdi mdi-export mr-1" aria-hidden /> エクスポート
+                  </Button>
+                  <Button
+                    kind="ghost"
+                    type="button"
+                    onClick={onCloseJsonDialog}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    kind="primary"
+                    type="button"
+                    onClick={onImportJson}
+                    disabled={!jsonText.trim()}
+                  >
+                    <i className="mdi mdi-import mr-2" aria-hidden /> インポート
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
