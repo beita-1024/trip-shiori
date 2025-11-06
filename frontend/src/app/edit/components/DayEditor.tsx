@@ -10,7 +10,7 @@ import {
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import SortableEvent from "../SortableEvent";
 import type { ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
 import { PlusIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/solid";
@@ -64,7 +64,7 @@ export default function DayEditor({
    * ドラッグイベントの終了を処理し、イベントを並べ替えます（日をまたいだ移動も可能）
    * 
    * 同じ日内での移動と、異なる日間での移動の両方をサポートします。
-   * 同じ日内で後ろに移動する場合は、インデックスを調整します。
+   * 同じ日内での移動は arrayMove を使用して安全に処理します。
    */
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = event.active.id as string;
@@ -85,6 +85,16 @@ export default function DayEditor({
     if (aDay === bDay && aIndex === bIndex) return;
 
     const newDays = [...itinerary.days];
+    
+    // 同じ日内での移動は arrayMove で安全に処理
+    if (aDay === bDay) {
+      const reordered = arrayMove(newDays[aDay].events, aIndex, bIndex);
+      newDays[aDay] = { ...newDays[aDay], events: reordered };
+      onItineraryChange({ ...itinerary, days: newDays });
+      return;
+    }
+    
+    // 異なる日間での移動
     const activeEvent = newDays[aDay].events[aIndex];
     // 元の位置から削除
     const updatedSourceEvents = newDays[aDay].events.filter((_, i) => i !== aIndex);
@@ -100,11 +110,9 @@ export default function DayEditor({
       });
     }
     newDays[aDay] = { ...newDays[aDay], events: updatedSourceEvents };
-    // 目標位置に挿入（同じ日の場合はインデックスを調整）
+    // 目標位置に挿入
     const targetEvents = [...newDays[bDay].events];
-    const insertIndex = bIndex;
-
-    targetEvents.splice(insertIndex, 0, activeEvent);
+    targetEvents.splice(bIndex, 0, activeEvent);
     newDays[bDay] = { ...newDays[bDay], events: targetEvents };
     onItineraryChange({ ...itinerary, days: newDays });
   };
