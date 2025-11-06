@@ -54,7 +54,10 @@ export default function DayEditor({
   const sensors = useSensors(useSensor(PointerSensor));
 
   /**
-   * ドラッグイベントの終了を処理し、同じ日のイベントを並べ替えます
+   * ドラッグイベントの終了を処理し、イベントを並べ替えます（日をまたいだ移動も可能）
+   * 
+   * 同じ日内での移動と、異なる日間での移動の両方をサポートします。
+   * 同じ日内で後ろに移動する場合は、インデックスを調整します。
    */
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = event.active.id as string;
@@ -71,16 +74,17 @@ export default function DayEditor({
     const bDay = parseInt(bDayStr, 10);
     const bIndex = parseInt(bIndexStr, 10);
 
-    // 禁止: 日をまたいだ移動はさせない
-    if (aDay !== bDay) return;
+    // 同じ位置の場合は何もしない
+    if (aDay === bDay && aIndex === bIndex) return;
 
     const newDays = [...itinerary.days];
     const activeEvent = newDays[aDay].events[aIndex];
     // 元の位置から削除
     newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
-    // 目標位置に挿入
+    // 目標位置に挿入（同じ日の場合はインデックスを調整）
     const targetEvents = [...newDays[bDay].events];
     const insertIndex = bIndex;
+
     targetEvents.splice(insertIndex, 0, activeEvent);
     newDays[bDay] = { ...newDays[bDay], events: targetEvents };
     onItineraryChange({ ...itinerary, days: newDays });
