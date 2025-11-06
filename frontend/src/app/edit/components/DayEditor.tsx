@@ -1,16 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, Button, InputWithPlaceholder, TextareaWithPlaceholder, DateInputWithWeekday, Spinner, IconRadioGroup } from "@/components/Primitives";
 import {
   DndContext,
-  closestCenter,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import SortableEvent from "../SortableEvent";
 import type { ItineraryWithUid, DayWithUid, EventWithUid } from "@/types";
 import { PlusIcon, SparklesIcon, TrashIcon } from "@heroicons/react/24/solid";
@@ -53,8 +53,18 @@ export default function DayEditor({
   // ドラッグアンドドロップ用のセンサー
   const sensors = useSensors(useSensor(PointerSensor));
 
+  // すべての日のイベントIDを統合した配列
+  const allEventIds = useMemo(() => {
+    return itinerary.days.flatMap((day, dayIndex) =>
+      day.events.map((_, eventIndex) => `event-${dayIndex}-${eventIndex}`)
+    );
+  }, [itinerary.days]);
+
   /**
-   * ドラッグイベントの終了を処理し、同じ日のイベントを並べ替えます
+   * ドラッグイベントの終了を処理し、イベントを並べ替えます（日をまたいだ移動も可能）
+   * 
+   * 同じ日内での移動と、異なる日間での移動の両方をサポートします。
+   * 同じ日内での移動は arrayMove を使用して安全に処理します。
    */
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = event.active.id as string;
@@ -71,39 +81,60 @@ export default function DayEditor({
     const bDay = parseInt(bDayStr, 10);
     const bIndex = parseInt(bIndexStr, 10);
 
-    // 禁止: 日をまたいだ移動はさせない
-    if (aDay !== bDay) return;
+    // 同じ位置の場合は何もしない
+    if (aDay === bDay && aIndex === bIndex) return;
 
     const newDays = [...itinerary.days];
+    
+    // 同じ日内での移動は arrayMove で安全に処理
+    if (aDay === bDay) {
+      const reordered = arrayMove(newDays[aDay].events, aIndex, bIndex);
+      newDays[aDay] = { ...newDays[aDay], events: reordered };
+      onItineraryChange({ ...itinerary, days: newDays });
+      return;
+    }
+    
+    // 異なる日間での移動
     const activeEvent = newDays[aDay].events[aIndex];
     // 元の位置から削除
-    newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
+    const updatedSourceEvents = newDays[aDay].events.filter((_, i) => i !== aIndex);
+    // 空配列になった場合はプレースホルダーイベントを追加（dnd-kitの要件）
+    if (updatedSourceEvents.length === 0) {
+      updatedSourceEvents.push({
+        _uid: crypto.randomUUID(),
+        title: "",
+        time: "",
+        end_time: "",
+        description: "",
+        icon: "",
+      });
+    }
+    newDays[aDay] = { ...newDays[aDay], events: updatedSourceEvents };
     // 目標位置に挿入
     const targetEvents = [...newDays[bDay].events];
-    const insertIndex = bIndex;
-    targetEvents.splice(insertIndex, 0, activeEvent);
+    targetEvents.splice(bIndex, 0, activeEvent);
     newDays[bDay] = { ...newDays[bDay], events: targetEvents };
     onItineraryChange({ ...itinerary, days: newDays });
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      {itinerary.days.map((day: DayWithUid, dayIndex: number) => (
-        <Card key={day._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4" data-tour="day-editor">
-          <section className="mb-4">
-            <DateInputWithWeekday
-              id={`day-${dayIndex}-date`}
-              valueDate={day.date ? new Date(day.date) : undefined}
-              onChangeDate={(next) => {
-                const newDays = [...itinerary.days];
-                newDays[dayIndex] = { ...newDays[dayIndex], date: next };
-                onItineraryChange({ ...itinerary, days: newDays });
-              }}
-              className="my-2"
-            />
-            
-            {/* イベントの並べ替え可能なリスト */}
-            <SortableContext items={day.events.map((_, ei) => `event-${dayIndex}-${ei}`)} strategy={rectSortingStrategy}>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+      <SortableContext items={allEventIds} strategy={rectSortingStrategy}>
+        {itinerary.days.map((day: DayWithUid, dayIndex: number) => (
+          <Card key={day._uid || `day-${dayIndex}`} elevation={1} className="max-w-2xl mx-auto mb-4" data-tour="day-editor">
+            <section className="mb-4">
+              <DateInputWithWeekday
+                id={`day-${dayIndex}-date`}
+                valueDate={day.date ? new Date(day.date) : undefined}
+                onChangeDate={(next) => {
+                  const newDays = [...itinerary.days];
+                  newDays[dayIndex] = { ...newDays[dayIndex], date: next };
+                  onItineraryChange({ ...itinerary, days: newDays });
+                }}
+                className="my-2"
+              />
+              
+              {/* イベントの並べ替え可能なリスト */}
               {day.events.map((event: EventWithUid, eventIndex: number) => (
                 <SortableEvent id={`event-${dayIndex}-${eventIndex}`} key={event._uid || `event-${dayIndex}-${eventIndex}`}>
                   {({ attributes, listeners }) => {
@@ -297,39 +328,39 @@ export default function DayEditor({
                   }}
                 </SortableEvent>
               ))}
-            </SortableContext>
-            
-            {/* 日操作ボタン */}
-            <div className="flex justify-end gap-2 mt-2">
-              <Button
-                kind="ghost"
-                type="button"
-                onClick={() => {
-                  const newDays = [...itinerary.days];
-                  const newDay: DayWithUid = { _uid: crypto.randomUUID(), date: undefined, events: [{ _uid: crypto.randomUUID(), title: "", time: "", end_time: "", description: "", icon: "" }] };
-                  newDays.splice(dayIndex + 1, 0, newDay);
-                  onItineraryChange({ ...itinerary, days: newDays });
-                }}
-              >
-                この下に日を追加
-              </Button>
-              <Button
-                kind="destructive"
-                type="button"
-                disabled={itinerary.days.length <= 1}
-                onClick={() => {
-                  const newDays = [...itinerary.days];
-                  if (newDays.length <= 1) return;
-                  newDays.splice(dayIndex, 1);
-                  onItineraryChange({ ...itinerary, days: newDays });
-                }}
-              >
-                削除
-              </Button>
-            </div>
-          </section>
-        </Card>
-      ))}
+              
+              {/* 日操作ボタン */}
+              <div className="flex justify-end gap-2 mt-2">
+                <Button
+                  kind="ghost"
+                  type="button"
+                  onClick={() => {
+                    const newDays = [...itinerary.days];
+                    const newDay: DayWithUid = { _uid: crypto.randomUUID(), date: undefined, events: [{ _uid: crypto.randomUUID(), title: "", time: "", end_time: "", description: "", icon: "" }] };
+                    newDays.splice(dayIndex + 1, 0, newDay);
+                    onItineraryChange({ ...itinerary, days: newDays });
+                  }}
+                >
+                  この下に日を追加
+                </Button>
+                <Button
+                  kind="destructive"
+                  type="button"
+                  disabled={itinerary.days.length <= 1}
+                  onClick={() => {
+                    const newDays = [...itinerary.days];
+                    if (newDays.length <= 1) return;
+                    newDays.splice(dayIndex, 1);
+                    onItineraryChange({ ...itinerary, days: newDays });
+                  }}
+                >
+                  削除
+                </Button>
+              </div>
+            </section>
+          </Card>
+        ))}
+      </SortableContext>
     </DndContext>
   );
 }
