@@ -87,7 +87,19 @@ export default function DayEditor({
     const newDays = [...itinerary.days];
     const activeEvent = newDays[aDay].events[aIndex];
     // 元の位置から削除
-    newDays[aDay] = { ...newDays[aDay], events: newDays[aDay].events.filter((_, i) => i !== aIndex) };
+    const updatedSourceEvents = newDays[aDay].events.filter((_, i) => i !== aIndex);
+    // 空配列になった場合はプレースホルダーイベントを追加（dnd-kitの要件）
+    if (updatedSourceEvents.length === 0) {
+      updatedSourceEvents.push({
+        _uid: crypto.randomUUID(),
+        title: "",
+        time: "",
+        end_time: "",
+        description: "",
+        icon: "",
+      });
+    }
+    newDays[aDay] = { ...newDays[aDay], events: updatedSourceEvents };
     // 目標位置に挿入（同じ日の場合はインデックスを調整）
     const targetEvents = [...newDays[bDay].events];
     const insertIndex = bIndex;
