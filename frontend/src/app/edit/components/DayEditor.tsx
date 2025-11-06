@@ -300,12 +300,13 @@ export default function DayEditor({
                                   const newEvents = [...newDays[dayIndex].events];
                                   // 新しいイベントオブジェクトを作成
                                   // - _uid: 一意の識別子としてcrypto.randomUUID()を使用
-                                  // - 各フィールドは空文字列で初期化（ユーザーが後で入力）
+                                  // - time: 現在のイベントの終了時間（end_time）を開始時間として設定
+                                  // - その他のフィールドは空文字列で初期化（ユーザーが後で入力）
                                   // - EventWithUid型に準拠した構造で作成
                                   const newEvent: EventWithUid = { 
                                     _uid: crypto.randomUUID(), 
                                     title: "", 
-                                    time: "", 
+                                    time: event.end_time || "", 
                                     end_time: "", 
                                     description: "", 
                                     icon: "" 
