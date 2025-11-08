@@ -9,7 +9,7 @@ import {
   createVerificationEmailTemplate,
   createPasswordResetEmailTemplate,
 } from '../utils/email';
-import { generateTokenPair } from '../utils/jwt';
+import { generateTokenPair, verifyToken } from '../utils/jwt';
 import { jwtConfig } from '../config/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
@@ -28,6 +28,18 @@ const COOKIE_MAX_AGE = 15 * 60 * 1000; // 15分
 // REFRESH_COOKIE_MAX_AGE を jwtConfig から動的に計算
 const REFRESH_COOKIE_MAX_AGE = ms(
   jwtConfig.refreshTokenExpiresIn as ms.StringValue
+);
+
+// REFRESH_COOKIE_MAX_AGEの値をログ出力（起動時に1回のみ）
+console.log(
+  '[Auth Controller] REFRESH_COOKIE_MAX_AGE:',
+  REFRESH_COOKIE_MAX_AGE,
+  'ms'
+);
+console.log(
+  '[Auth Controller] REFRESH_COOKIE_MAX_AGE:',
+  REFRESH_COOKIE_MAX_AGE / (24 * 60 * 60 * 1000),
+  'days'
 );
 
 // パスワードスキーマは共通スキーマからインポート
@@ -70,6 +82,19 @@ const saveRefreshToken = async (
     .digest('hex');
   const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
 
+  console.log('[saveRefreshToken] Saving refresh token:');
+  console.log('[saveRefreshToken]   userId:', userId);
+  console.log('[saveRefreshToken]   expiresAt:', expiresAt.toISOString());
+  console.log(
+    '[saveRefreshToken]   expiresAt (days from now):',
+    (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+  );
+  console.log(
+    '[saveRefreshToken]   REFRESH_COOKIE_MAX_AGE:',
+    REFRESH_COOKIE_MAX_AGE,
+    'ms'
+  );
+
   return await prisma.refreshToken.create({
     data: {
       userId,
@@ -87,6 +112,7 @@ const saveRefreshToken = async (
  * @returns ユーザー情報とトークンレコード、および失効状態
  */
 const verifyRefreshToken = async (refreshToken: string) => {
+  console.log('[verifyRefreshToken] Starting verification');
   const secret = process.env.REFRESH_TOKEN_FINGERPRINT_SECRET;
   if (!secret) throw new Error('Missing REFRESH_TOKEN_FINGERPRINT_SECRET');
   const fingerprint = crypto
@@ -94,6 +120,7 @@ const verifyRefreshToken = async (refreshToken: string) => {
     .update(refreshToken)
     .digest('hex');
 
+  // データベースの存在確認
   const tokenRecord = await prisma.refreshToken.findUnique({
     where: { fingerprint },
     include: {
@@ -101,22 +128,100 @@ const verifyRefreshToken = async (refreshToken: string) => {
     },
   });
 
-  if (!tokenRecord || tokenRecord.expiresAt <= new Date()) return null;
+  if (!tokenRecord) {
+    console.log('[verifyRefreshToken] Token record not found in database');
+    return null;
+  }
 
+  console.log('[verifyRefreshToken] Token record found:', {
+    id: tokenRecord.id,
+    userId: tokenRecord.userId,
+    expiresAt: tokenRecord.expiresAt.toISOString(),
+    isRevoked: tokenRecord.isRevoked,
+    createdAt: tokenRecord.createdAt.toISOString(),
+  });
+
+  // JWTトークン自体の有効期限を検証
+  try {
+    const payload = verifyToken(refreshToken);
+    console.log('[verifyRefreshToken] JWT token verified:', {
+      userId: payload.userId,
+      type: payload.type,
+      exp: payload.exp,
+      expDate: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+      expDaysFromNow: payload.exp
+        ? (payload.exp * 1000 - Date.now()) / (24 * 60 * 60 * 1000)
+        : null,
+    });
+
+    // リフレッシュトークンかチェック
+    if (payload.type !== 'refresh') {
+      console.log('[verifyRefreshToken] Invalid token type:', payload.type);
+      return null;
+    }
+
+    // JWTトークンの有効期限をチェック（expフィールドが存在し、現在時刻より後であること）
+    if (payload.exp && payload.exp * 1000 <= Date.now()) {
+      console.log(
+        '[verifyRefreshToken] JWT token expired. exp:',
+        payload.exp,
+        'now:',
+        Date.now()
+      );
+      return null;
+    }
+  } catch (error) {
+    // JWTトークンが無効または期限切れの場合
+    console.log(
+      '[verifyRefreshToken] JWT verification failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    return null;
+  }
+
+  // データベースの有効期限をチェック
+  const now = new Date();
+  if (tokenRecord.expiresAt <= now) {
+    console.log(
+      '[verifyRefreshToken] Database expiresAt expired. expiresAt:',
+      tokenRecord.expiresAt.toISOString(),
+      'now:',
+      now.toISOString()
+    );
+    return null;
+  }
+  console.log(
+    '[verifyRefreshToken] Database expiresAt valid. expiresAt:',
+    tokenRecord.expiresAt.toISOString(),
+    'expires in:',
+    (tokenRecord.expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+    'days'
+  );
+
+  // ハッシュ検証
   const isValid = await argon2.verify(tokenRecord.tokenHash, refreshToken);
-  if (!isValid) return null;
+  if (!isValid) {
+    console.log('[verifyRefreshToken] Hash verification failed');
+    return null;
+  }
+  console.log('[verifyRefreshToken] Hash verification passed');
 
+  // 失効状態チェック
   if (tokenRecord.isRevoked) {
+    console.log('[verifyRefreshToken] Token revoked');
     return { user: tokenRecord.user, tokenRecord, isRevoked: true };
   }
 
+  // パスワード変更チェック
   if (
     tokenRecord.user.passwordChangedAt &&
     tokenRecord.createdAt < tokenRecord.user.passwordChangedAt
   ) {
+    console.log('[verifyRefreshToken] Password changed after token creation');
     return { user: tokenRecord.user, tokenRecord, isPasswordChanged: true };
   }
 
+  console.log('[verifyRefreshToken] Token verification successful');
   return { user: tokenRecord.user, tokenRecord };
 };
 
@@ -838,7 +943,11 @@ export const refreshToken = async (req: Request, res: Response) => {
     // CookieからRefresh Tokenを取得
     const refreshToken = req.cookies[REFRESH_COOKIE_NAME];
 
+    console.log('[refreshToken] Received refresh token request');
+    console.log('[refreshToken]   Has refresh token cookie:', !!refreshToken);
+
     if (!refreshToken) {
+      console.log('[refreshToken] No refresh token in cookie');
       clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
@@ -847,8 +956,10 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     // Refresh Tokenを検証
+    console.log('[refreshToken] Verifying refresh token...');
     const tokenData = await verifyRefreshToken(refreshToken);
     if (!tokenData) {
+      console.log('[refreshToken] Token verification failed');
       clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
@@ -860,6 +971,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // 失効済みトークンの場合
     if (isRevoked) {
+      console.log('[refreshToken] Token is revoked');
       clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
@@ -869,6 +981,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // パスワード変更により無効化されたトークンの場合
     if (isPasswordChanged) {
+      console.log('[refreshToken] Token invalidated due to password change');
       clearAuthCookies();
       return res.status(401).json({
         error: 'unauthorized',
@@ -880,10 +993,33 @@ export const refreshToken = async (req: Request, res: Response) => {
     cleanupExpiredRefreshTokens().catch(console.error);
 
     // 新しいトークンペアを生成
+    console.log('[refreshToken] Generating new token pair for user:', user.id);
     const { accessToken, refreshToken: newRefreshToken } = generateTokenPair(
       user.id,
       user.email
     );
+
+    // 新しいトークンの有効期限を確認（デバッグ用）
+    try {
+      const newPayload = verifyToken(newRefreshToken);
+      console.log('[refreshToken] New refresh token generated:');
+      console.log('[refreshToken]   exp:', newPayload.exp);
+      console.log(
+        '[refreshToken]   expDate:',
+        newPayload.exp ? new Date(newPayload.exp * 1000).toISOString() : null
+      );
+      console.log(
+        '[refreshToken]   expDaysFromNow:',
+        newPayload.exp
+          ? (newPayload.exp * 1000 - Date.now()) / (24 * 60 * 60 * 1000)
+          : null
+      );
+    } catch (error) {
+      console.log(
+        '[refreshToken] Failed to verify new token (should not happen):',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+    }
 
     // トランザクション内でRefresh Token Rotationを実行
     const deviceInfo = req.headers['user-agent'] || undefined;
@@ -899,6 +1035,14 @@ export const refreshToken = async (req: Request, res: Response) => {
       .update(newRefreshToken)
       .digest('hex');
     const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
+    console.log(
+      '[refreshToken] New refresh token expiresAt:',
+      expiresAt.toISOString()
+    );
+    console.log(
+      '[refreshToken] New refresh token expiresAt (days from now):',
+      (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+    );
 
     // 競合対策：updateManyで件数チェック
     const rotated = await prisma.$transaction(async (tx) => {
