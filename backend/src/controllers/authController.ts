@@ -82,18 +82,20 @@ const saveRefreshToken = async (
     .digest('hex');
   const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
 
-  console.log('[saveRefreshToken] Saving refresh token:');
-  console.log('[saveRefreshToken]   userId:', userId);
-  console.log('[saveRefreshToken]   expiresAt:', expiresAt.toISOString());
-  console.log(
-    '[saveRefreshToken]   expiresAt (days from now):',
-    (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
-  );
-  console.log(
-    '[saveRefreshToken]   REFRESH_COOKIE_MAX_AGE:',
-    REFRESH_COOKIE_MAX_AGE,
-    'ms'
-  );
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[saveRefreshToken] Saving refresh token:');
+    console.log('[saveRefreshToken]   userId:', userId);
+    console.log('[saveRefreshToken]   expiresAt:', expiresAt.toISOString());
+    console.log(
+      '[saveRefreshToken]   expiresAt (days from now):',
+      (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+    );
+    console.log(
+      '[saveRefreshToken]   REFRESH_COOKIE_MAX_AGE:',
+      REFRESH_COOKIE_MAX_AGE,
+      'ms'
+    );
+  }
 
   return await prisma.refreshToken.create({
     data: {
