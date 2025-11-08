@@ -10,8 +10,10 @@ import {
   createPasswordResetEmailTemplate,
 } from '../utils/email';
 import { generateTokenPair } from '../utils/jwt';
+import { jwtConfig } from '../config/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
+import ms from 'ms';
 
 // 検証トークンの有効期限（30分）
 const EXPIRES_MS = 30 * 60 * 1000;
@@ -23,7 +25,10 @@ const PASSWORD_RESET_EXPIRES_MS = 15 * 60 * 1000;
 const COOKIE_NAME = 'access_token';
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const COOKIE_MAX_AGE = 15 * 60 * 1000; // 15分
-const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7日
+// REFRESH_COOKIE_MAX_AGE を jwtConfig から動的に計算
+const REFRESH_COOKIE_MAX_AGE = ms(
+  jwtConfig.refreshTokenExpiresIn as ms.StringValue
+);
 
 // パスワードスキーマは共通スキーマからインポート
 
