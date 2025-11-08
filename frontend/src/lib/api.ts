@@ -96,6 +96,9 @@ const emitAuthInvalidated = (): void => {
   });
 };
 
+// リフレッシュ中のリクエストをキューイング
+let refreshPromise: Promise<boolean> | null = null;
+
 /**
  * 自動Token更新機能付きfetch wrapper
  * 
@@ -135,13 +138,28 @@ export const apiFetch = async (
   // 401エラーかつ初回リクエストの場合、Token更新を試行
   if (response.status === 401 && !isRetryAttempt) {
     try {
-      // Refresh TokenでAccess Tokenを更新
-      const refreshResponse = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // 既にリフレッシュ中の場合は、その完了を待つ
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            const refreshResponse = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
+              method: 'POST',
+              credentials: 'include',
+            });
+            return refreshResponse.ok;
+          } finally {
+            // リフレッシュ完了後、少し待ってからPromiseをクリア
+            // これにより、同時に発生した他の401リクエストも同じリフレッシュ結果を利用できる
+            setTimeout(() => {
+              refreshPromise = null;
+            }, 100);
+          }
+        })();
+      }
 
-      if (refreshResponse.ok) {
+      const refreshSuccess = await refreshPromise;
+
+      if (refreshSuccess) {
         // Token更新成功時、元のリクエストを再実行
         return apiFetch(url, { ...options, _isRetry: true });
       } else {
