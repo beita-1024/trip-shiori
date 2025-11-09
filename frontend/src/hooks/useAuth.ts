@@ -52,6 +52,7 @@ export function useAuth(): UseAuthReturn {
   const refreshTimeoutRef = useRef<number | null>(null);
   const checkAuthStatusRef = useRef<(() => Promise<void>) | null>(null);
   const checkAuthTimeoutRef = useRef<number | null>(null);
+  const checkAuthResolversRef = useRef<Array<() => void>>([]);
 
   const clearScheduledRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
@@ -126,15 +127,18 @@ export function useAuth(): UseAuthReturn {
    * 認証状態をチェックし、ユーザー情報を取得する（デバウンス付き）
    */
   const checkAuthStatus = useCallback(async (): Promise<void> => {
-    // 既にスケジュールされているチェックをキャンセル
-    if (checkAuthTimeoutRef.current) {
-      clearTimeout(checkAuthTimeoutRef.current);
-      checkAuthTimeoutRef.current = null;
-    }
-
     // デバウンス: 100ms以内の連続呼び出しを1回にまとめる
     return new Promise<void>((resolve) => {
+      checkAuthResolversRef.current.push(resolve);
+      if (checkAuthTimeoutRef.current) {
+        clearTimeout(checkAuthTimeoutRef.current);
+      }
       checkAuthTimeoutRef.current = window.setTimeout(async () => {
+        checkAuthTimeoutRef.current = null;
+        const flushResolvers = () => {
+          const resolvers = checkAuthResolversRef.current.splice(0);
+          resolvers.forEach((resolver) => resolver());
+        };
         try {
           setIsLoading(true);
           
@@ -146,7 +150,7 @@ export function useAuth(): UseAuthReturn {
             setUser(null);
             setIsAuthenticated(false);
             setIsLoading(false);
-            resolve();
+            flushResolvers();
             return;
           }
           
@@ -187,7 +191,7 @@ export function useAuth(): UseAuthReturn {
           clearScheduledRefresh();
         } finally {
           setIsLoading(false);
-          resolve();
+          flushResolvers();
         }
       }, 100);
     });
@@ -202,7 +206,9 @@ export function useAuth(): UseAuthReturn {
     return () => {
       if (checkAuthTimeoutRef.current) {
         clearTimeout(checkAuthTimeoutRef.current);
+        checkAuthTimeoutRef.current = null;
       }
+      checkAuthResolversRef.current.splice(0).forEach((resolver) => resolver());
     };
   }, []);
 
