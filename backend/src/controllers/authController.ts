@@ -13,6 +13,7 @@ import { generateTokenPair, verifyToken } from '../utils/jwt';
 import { jwtConfig } from '../config/jwt';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { prisma } from '../config/prisma';
+import { createSampleItinerary } from '../utils/createSampleItinerary';
 import ms from 'ms';
 
 // 検証トークンの有効期限（30分）
@@ -470,6 +471,9 @@ export const verifyEmail = async (req: Request, res: Response) => {
       });
     }
 
+    // 初回認証かどうかを判定（emailVerified が null の場合）
+    const isFirstVerification = user.emailVerified === null;
+
     // ユーザーを verified にして、トークンは削除
     await prisma.$transaction([
       prisma.user.update({
@@ -480,6 +484,30 @@ export const verifyEmail = async (req: Request, res: Response) => {
         where: { id: record.id },
       }),
     ]);
+
+    // 初回認証時はサンプル旅程を作成（エラーが発生しても認証処理は継続）
+    if (isFirstVerification) {
+      try {
+        const sampleItineraryId = await createSampleItinerary(user.id);
+        if (sampleItineraryId) {
+          console.debug(
+            'Sample itinerary created for user:',
+            user.id,
+            'itinerary ID:',
+            sampleItineraryId
+          );
+        } else {
+          console.warn('Failed to create sample itinerary for user:', user.id);
+        }
+      } catch (error) {
+        // サンプル旅程作成の失敗は認証処理をブロックしない
+        console.error(
+          'Error creating sample itinerary for user:',
+          user.id,
+          error
+        );
+      }
+    }
 
     // 検証完了後に即ログイン：トークンペアをHttpOnly Cookieで返す
     const { accessToken, refreshToken } = generateTokenPair(
