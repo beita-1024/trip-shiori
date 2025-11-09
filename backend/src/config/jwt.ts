@@ -23,14 +23,33 @@ export const jwtConfig = {
   secret: process.env.JWT_SECRET || 'your-secret-key',
 
   /** アクセストークンの有効期限（秒） */
-  accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+  accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '60m',
 
   /** リフレッシュトークンの有効期限（秒） */
-  refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
 
   /** アルゴリズム */
   algorithm: 'HS256' as const,
 } as const;
+
+// 環境変数の確認ログ（起動時に1回のみ出力）
+console.log('[JWT Config] Environment variables check:');
+console.log(
+  '[JWT Config]   JWT_ACCESS_EXPIRES_IN:',
+  process.env.JWT_ACCESS_EXPIRES_IN || '(not set, using default: 60m)'
+);
+console.log(
+  '[JWT Config]   JWT_REFRESH_EXPIRES_IN:',
+  process.env.JWT_REFRESH_EXPIRES_IN || '(not set, using default: 30d)'
+);
+console.log(
+  '[JWT Config]   jwtConfig.accessTokenExpiresIn:',
+  jwtConfig.accessTokenExpiresIn
+);
+console.log(
+  '[JWT Config]   jwtConfig.refreshTokenExpiresIn:',
+  jwtConfig.refreshTokenExpiresIn
+);
 
 /**
  * JWTペイロードの型定義

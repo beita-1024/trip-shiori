@@ -51,6 +51,8 @@ export function useAuth(): UseAuthReturn {
     : Number(process.env.NEXT_PUBLIC_AUTH_HEARTBEAT_MS || 300000);
   const refreshTimeoutRef = useRef<number | null>(null);
   const checkAuthStatusRef = useRef<(() => Promise<void>) | null>(null);
+  const checkAuthTimeoutRef = useRef<number | null>(null);
+  const checkAuthResolversRef = useRef<Array<() => void>>([]);
 
   const clearScheduledRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) {
@@ -122,66 +124,94 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   /**
-   * 認証状態をチェックし、ユーザー情報を取得する
+   * 認証状態をチェックし、ユーザー情報を取得する（デバウンス付き）
    */
   const checkAuthStatus = useCallback(async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      
-      // /login や /shared 配下では認証チェックをスキップ（リダイレクト抑止）
-      if (
-        typeof window !== 'undefined' &&
-        (window.location.pathname === '/login' || window.location.pathname.startsWith('/shared/'))
-      ) {
-        setUser(null);
-        setIsAuthenticated(false);
-        setIsLoading(false);
-        return;
+    // デバウンス: 100ms以内の連続呼び出しを1回にまとめる
+    return new Promise<void>((resolve) => {
+      checkAuthResolversRef.current.push(resolve);
+      if (checkAuthTimeoutRef.current) {
+        clearTimeout(checkAuthTimeoutRef.current);
       }
-      
-      // 認証状態をチェック（ユーザー情報も含む）
-      const authResponse = await apiFetch(buildApiUrl('/auth/protected'));
-
-      if (authResponse.ok) {
-        const authData = await authResponse.json();
-        // /auth/protectedからユーザー情報を取得
-        if (authData.user) {
-          setUser({
-            id: authData.user.id,
-            email: authData.user.email,
-            name: authData.user.name || authData.user.email.split('@')[0], // nameがない場合はemailの@より前の部分を使用
-            createdAt: authData.user.createdAt || new Date().toISOString(),
-          });
-          setIsAuthenticated(true);
-          // 期限情報が取得できる場合は期限前リフレッシュをスケジュール
-          // サーバがexp(秒)やtokenExpを返さない場合は何もしない（心拍/可視化復帰でカバー）
-          scheduleRefreshFromExp((authData.tokenExp as number | undefined) ?? (authData.exp as number | undefined) ?? null);
+      checkAuthTimeoutRef.current = window.setTimeout(async () => {
+        checkAuthTimeoutRef.current = null;
+        const pendingResolvers = checkAuthResolversRef.current.splice(0);
+        const flushResolvers = () => {
+          pendingResolvers.forEach((resolver) => resolver());
+        };
+        try {
+          setIsLoading(true);
           
-          // 認証成功時にpendingマイグレーションを実行
-          await handlePendingMigration();
-        } else {
+          // /login や /shared 配下では認証チェックをスキップ（リダイレクト抑止）
+          if (
+            typeof window !== 'undefined' &&
+            (window.location.pathname === '/login' || window.location.pathname.startsWith('/shared/'))
+          ) {
+            setUser(null);
+            setIsAuthenticated(false);
+            setIsLoading(false);
+            flushResolvers();
+            return;
+          }
+          
+          // 認証状態をチェック（ユーザー情報も含む）
+          const authResponse = await apiFetch(buildApiUrl('/auth/protected'));
+
+          if (authResponse.ok) {
+            const authData = await authResponse.json();
+            // /auth/protectedからユーザー情報を取得
+            if (authData.user) {
+              setUser({
+                id: authData.user.id,
+                email: authData.user.email,
+                name: authData.user.name || authData.user.email.split('@')[0], // nameがない場合はemailの@より前の部分を使用
+                createdAt: authData.user.createdAt || new Date().toISOString(),
+              });
+              setIsAuthenticated(true);
+              // 期限情報が取得できる場合は期限前リフレッシュをスケジュール
+              // サーバがexp(秒)やtokenExpを返さない場合は何もしない（心拍/可視化復帰でカバー）
+              scheduleRefreshFromExp((authData.tokenExp as number | undefined) ?? (authData.exp as number | undefined) ?? null);
+              
+              // 認証成功時にpendingマイグレーションを実行
+              await handlePendingMigration();
+            } else {
+              setUser(null);
+              setIsAuthenticated(false);
+              clearScheduledRefresh();
+            }
+          } else {
+            setUser(null);
+            setIsAuthenticated(false);
+            clearScheduledRefresh();
+          }
+        } catch (error) {
+          console.error('Auth check failed:', error);
           setUser(null);
           setIsAuthenticated(false);
           clearScheduledRefresh();
+        } finally {
+          setIsLoading(false);
+          flushResolvers();
         }
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        clearScheduledRefresh();
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setUser(null);
-      setIsAuthenticated(false);
-      clearScheduledRefresh();
-    } finally {
-      setIsLoading(false);
-    }
+      }, 100);
+    });
   }, [handlePendingMigration, scheduleRefreshFromExp, clearScheduledRefresh]);
 
   useEffect(() => {
     checkAuthStatusRef.current = checkAuthStatus;
   }, [checkAuthStatus]);
+
+  // クリーンアップ時にタイマーもクリア
+  useEffect(() => {
+    const resolversRef = checkAuthResolversRef;
+    return () => {
+      if (checkAuthTimeoutRef.current) {
+        clearTimeout(checkAuthTimeoutRef.current);
+        checkAuthTimeoutRef.current = null;
+      }
+      resolversRef.current.splice(0).forEach((resolver) => resolver());
+    };
+  }, []);
 
   // 定義済み
 
