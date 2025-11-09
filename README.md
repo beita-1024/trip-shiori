@@ -22,6 +22,17 @@
 - 紙のしおりを現地で配布したい方
 
 
+## デモアカウント
+
+デモ環境で使用できるアカウント情報です。
+
+| アカウント名 | メールアドレス | パスワード |
+|------------|--------------|----------|
+| デモアカウント1 | `beita.dev.services+demo1@gmail.com` | `D+ZlHEreDGZI` |
+| デモアカウント2 | `beita.dev.services+demo2@gmail.com` | `F3BU@yG8jm97` |
+| デモアカウント3 | `beita.dev.services+demo3@gmail.com` | `iJrl37d+jJLU` |
+| デモアカウント4 | `beita.dev.services+demo4@gmail.com` | `SKsbJ-b40vj/` |
+
 
 ## なぜ作ったか（背景と決心）
 
