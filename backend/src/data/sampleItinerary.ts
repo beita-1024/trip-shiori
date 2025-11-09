@@ -1,3 +1,5 @@
+import { Itinerary } from '../types/itineraryTypes';
+
 /**
  * サンプル旅程データ
  *
@@ -12,7 +14,7 @@ export const SAMPLE_ITINERARY_TITLE =
  *
  * 新規アカウント作成時に自動的に追加されるサンプル旅程です。
  */
-export const sampleItineraryData = {
+export const sampleItineraryData: Itinerary = {
   title: 'サンプル：冬の那須で動物と温泉に癒される2泊3日',
   subtitle: 'どうぶつたちと雪景色、静かな時間を過ごす旅',
   description:
