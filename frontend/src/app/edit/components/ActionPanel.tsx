@@ -24,6 +24,7 @@ export default function ActionPanel({ onResetItinerary }: ActionPanelProps) {
             <Button
               kind="ghost"
               type="button"
+              data-tour="reset-button"
               onClick={() => {
                 if (window.confirm("本当にデフォルトに戻しますか？現在の変更は失われます。よろしいですか？")) {
                   onResetItinerary();

@@ -120,6 +120,15 @@ const TUTORIAL_STEPS: TutorialStep[] = [
       side: 'left',
       align: 'end'
     }
+  },
+  {
+    element: '[data-tour="reset-button"]',
+    popover: {
+      title: 'デフォルトに戻す',
+      description: '「デフォルトに戻す」ボタンで空の旅程にリセットできます。サンプルデータから始めたい場合は、このボタンでクリアしてから新しく作成できます。',
+      side: 'top',
+      align: 'center'
+    }
   }
 ];
 

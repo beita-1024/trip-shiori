@@ -9,8 +9,9 @@ import TriFoldPrintPreview from "@/components/TriFoldPrintPreview";
 import DemoLabel from "@/components/DemoLabel";
 import AuthRequiredDialog from "@/components/AuthRequiredDialog";
 import { useTutorial } from "@/hooks/useTutorial";
-import { stripUids, parseWithUids } from "@/components/uiUid";
+import { stripUids, parseWithUids, attachUids } from "@/components/uiUid";
 import type { ItineraryWithUid } from "@/types";
+import { sampleItinerary } from "@/lib/sampleItinerary";
 
 // 分割されたコンポーネントをインポート
 import ItineraryHeader from "./components/ItineraryHeader";
@@ -105,9 +106,18 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
 
   /**
    * 初回アクセス時にチュートリアルを自動開始（/editページのみ）
+   * チュートリアル時はサンプルデータを読み込む
    */
   useEffect(() => {
     if (isGuestMode && isFirstTime && !tutorialLoading && !authLoading) {
+      // LocalStorageにデータがない場合のみサンプルデータを読み込む
+      const stored = localStorage.getItem("itinerary");
+      if (!stored) {
+        const sampleWithUids = attachUids(sampleItinerary);
+        const normalized = normalizeItineraryTimes(sampleWithUids);
+        setItinerary(normalized as ItineraryWithUid);
+      }
+      
       // 少し遅延させてDOMの準備を待つ
       const timer = setTimeout(() => {
         startTutorial();
@@ -115,7 +125,7 @@ export default function EditFeatureRefactored({ itineraryId, isGuestMode = false
       
       return () => clearTimeout(timer);
     }
-  }, [isGuestMode, isFirstTime, tutorialLoading, authLoading, startTutorial]);
+  }, [isGuestMode, isFirstTime, tutorialLoading, authLoading, startTutorial, setItinerary]);
 
   /**
    * トースト通知を表示する関数
