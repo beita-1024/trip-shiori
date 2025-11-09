@@ -37,15 +37,24 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    console.log('[authenticateToken] Starting authentication');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[authenticateToken] Starting authentication');
+    }
     // CookieからJWTトークンを取得
     const token = req.cookies[COOKIE_NAME];
 
-    console.log('[authenticateToken] Has access token cookie:', !!token);
-    console.log('[authenticateToken] Cookie names:', Object.keys(req.cookies));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[authenticateToken] Has access token cookie:', !!token);
+      console.log(
+        '[authenticateToken] Cookie names:',
+        Object.keys(req.cookies)
+      );
+    }
 
     if (!token) {
-      console.log('[authenticateToken] No access token in cookie');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[authenticateToken] No access token in cookie');
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'Access token required',
@@ -54,27 +63,33 @@ export const authenticateToken = async (
     }
 
     // JWTトークンを検証
-    console.log('[authenticateToken] Verifying access token...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[authenticateToken] Verifying access token...');
+    }
     let payload: JWTPayload;
     try {
       payload = verifyToken(token);
-      console.log('[authenticateToken] Access token verified:', {
-        userId: payload.userId,
-        type: payload.type,
-        exp: payload.exp,
-        expDate: payload.exp
-          ? new Date(payload.exp * 1000).toISOString()
-          : null,
-        expMinutesFromNow: payload.exp
-          ? (payload.exp * 1000 - Date.now()) / (60 * 1000)
-          : null,
-        iat: payload.iat,
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[authenticateToken] Access token verified:', {
+          userId: payload.userId,
+          type: payload.type,
+          exp: payload.exp,
+          expDate: payload.exp
+            ? new Date(payload.exp * 1000).toISOString()
+            : null,
+          expMinutesFromNow: payload.exp
+            ? (payload.exp * 1000 - Date.now()) / (60 * 1000)
+            : null,
+          iat: payload.iat,
+        });
+      }
     } catch (error) {
-      console.log(
-        '[authenticateToken] Token verification failed:',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          '[authenticateToken] Token verification failed:',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'Invalid or expired token',
@@ -84,7 +99,9 @@ export const authenticateToken = async (
 
     // アクセストークンかチェック
     if (payload.type !== 'access') {
-      console.log('[authenticateToken] Invalid token type:', payload.type);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[authenticateToken] Invalid token type:', payload.type);
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'Invalid token type',
@@ -93,14 +110,18 @@ export const authenticateToken = async (
     }
 
     // ユーザー情報を取得してパスワード変更日時をチェック
-    console.log('[authenticateToken] Fetching user:', payload.userId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[authenticateToken] Fetching user:', payload.userId);
+    }
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
       select: { id: true, email: true, passwordChangedAt: true },
     });
 
     if (!user) {
-      console.log('[authenticateToken] User not found:', payload.userId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[authenticateToken] User not found:', payload.userId);
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'User not found',
@@ -110,7 +131,9 @@ export const authenticateToken = async (
 
     // iatフィールドが存在しない場合は無効
     if (!payload.iat) {
-      console.log('[authenticateToken] Missing iat field');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[authenticateToken] Missing iat field');
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'Invalid token (missing iat)',
@@ -123,12 +146,14 @@ export const authenticateToken = async (
       user.passwordChangedAt &&
       user.passwordChangedAt.getTime() > payload.iat * 1000
     ) {
-      console.log(
-        '[authenticateToken] Password changed after token creation. passwordChangedAt:',
-        user.passwordChangedAt.toISOString(),
-        'iat:',
-        new Date(payload.iat * 1000).toISOString()
-      );
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          '[authenticateToken] Password changed after token creation. passwordChangedAt:',
+          user.passwordChangedAt.toISOString(),
+          'iat:',
+          new Date(payload.iat * 1000).toISOString()
+        );
+      }
       res.status(401).json({
         error: 'unauthorized',
         message: 'Token invalidated due to password change',
@@ -147,13 +172,17 @@ export const authenticateToken = async (
       req.tokenExp = payload.exp;
     }
 
-    console.log(
-      '[authenticateToken] Authentication successful for user:',
-      user.id
-    );
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        '[authenticateToken] Authentication successful for user:',
+        user.id
+      );
+    }
     next();
   } catch (error) {
-    console.error('[authenticateToken] Authentication error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[authenticateToken] Authentication error:', error);
+    }
     res.status(401).json({
       error: 'unauthorized',
       message: 'Invalid or expired token',
@@ -195,7 +224,9 @@ export const optionalAuthenticate = (
     next();
   } catch (error) {
     // エラーが発生してもそのまま通す（オプショナル認証のため）
-    console.warn('Optional authentication failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Optional authentication failed:', error);
+    }
     next();
   }
 };
@@ -260,7 +291,9 @@ export const checkItineraryOwnership = async (
 
     next();
   } catch (error) {
-    console.error('Itinerary ownership check error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Itinerary ownership check error:', error);
+    }
     res.status(500).json({
       error: 'internal_server_error',
       message: 'Failed to check itinerary ownership',
@@ -327,7 +360,9 @@ export const checkItineraryOwnershipForEdit = async (
 
     next();
   } catch (error) {
-    console.error('Itinerary ownership check for edit error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Itinerary ownership check for edit error:', error);
+    }
     res.status(500).json({
       error: 'internal_server_error',
       message: 'Failed to check itinerary ownership',
@@ -387,7 +422,9 @@ export const checkUserExists = async (
 
     next();
   } catch (error) {
-    console.error('User existence check error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('User existence check error:', error);
+    }
     res.status(500).json({
       error: 'internal_server_error',
       message: 'Failed to check user existence',

@@ -135,9 +135,9 @@ export function useAuth(): UseAuthReturn {
       }
       checkAuthTimeoutRef.current = window.setTimeout(async () => {
         checkAuthTimeoutRef.current = null;
+        const pendingResolvers = checkAuthResolversRef.current.splice(0);
         const flushResolvers = () => {
-          const resolvers = checkAuthResolversRef.current.splice(0);
-          resolvers.forEach((resolver) => resolver());
+          pendingResolvers.forEach((resolver) => resolver());
         };
         try {
           setIsLoading(true);
@@ -203,12 +203,13 @@ export function useAuth(): UseAuthReturn {
 
   // クリーンアップ時にタイマーもクリア
   useEffect(() => {
+    const resolversRef = checkAuthResolversRef;
     return () => {
       if (checkAuthTimeoutRef.current) {
         clearTimeout(checkAuthTimeoutRef.current);
         checkAuthTimeoutRef.current = null;
       }
-      checkAuthResolversRef.current.splice(0).forEach((resolver) => resolver());
+      resolversRef.current.splice(0).forEach((resolver) => resolver());
     };
   }, []);
 
