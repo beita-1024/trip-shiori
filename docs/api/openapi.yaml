@@ -125,7 +125,7 @@ paths:
                   type: string
                   minLength: 8
                   maxLength: 1024
-                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[-!@#$%^&*()_+=\[\]{}|;:''"<>,.?/~`\\]).*$'
                   description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: SecurePass123!
                 name:
@@ -531,7 +531,7 @@ paths:
                   type: string
                   minLength: 8
                   maxLength: 1024
-                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[-!@#$%^&*()_+=\[\]{}|;:''"<>,.?/~`\\]).*$'
                   description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: NewSecurePass123!
       responses:
@@ -654,7 +654,7 @@ paths:
                   type: string
                   minLength: 8
                   maxLength: 1024
-                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).*$'
+                  pattern: '^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[-!@#$%^&*()_+=\[\]{}|;:''"<>,.?/~`\\]).*$'
                   description: 8文字以上1024文字以下、大文字・小文字・数字・特殊文字を含む
                   example: "NewSecurePass123!"
       responses:
