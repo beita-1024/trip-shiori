@@ -95,7 +95,7 @@ export default function ResetPasswordFeature() {
     if (!/\d/.test(password)) {
       return "数字を含める必要があります";
     }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    if (!/[-!@#$%^&*()_+=\[\]{}|;:'"<>,.?/~`\\]/.test(password)) {
       return "特殊文字を含める必要があります";
     }
     return "";
