@@ -142,10 +142,10 @@ module "cloudrun" {
   # Prod環境用リソース設定
   cpu_limit                   = "2"
   memory_limit                = "1Gi"
-  min_instance_count          = 0
-  max_instance_count_backend  = 100
-  max_instance_count_ai       = 100
-  max_instance_count_frontend = 50
+  min_instance_count          = 1
+  max_instance_count_backend  = 20
+  max_instance_count_ai       = 20
+  max_instance_count_frontend = 20
 
   # ネットワーク設定
   network_id    = module.network.network_id

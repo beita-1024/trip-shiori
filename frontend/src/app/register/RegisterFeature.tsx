@@ -91,7 +91,7 @@ export default function RegisterFeature() {
       newErrors.password = "パスワードは必須です";
     } else if (data.password.length < 8) {
       newErrors.password = "パスワードは8文字以上で入力してください";
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/.test(data.password)) {
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[-!@#$%^&*()_+=\[\]{}|;:'"<>,.?/~`\\])/.test(data.password)) {
       newErrors.password = "パスワードは大文字・小文字・数字・特殊文字を含む必要があります";
     }
 
