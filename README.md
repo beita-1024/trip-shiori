@@ -1,47 +1,65 @@
-<p align="center">
-  <img src="docs/assets/メイン画面.png" alt="メイン画面" width="45%" style="display:inline-block; margin-right:2%;">
-  <img src="docs/assets/印刷結果.png" alt="印刷結果" width="45%" style="display:inline-block;">
-</p>
-
-
 ## はじめに
 
-本アプリは、**旅行のしおり（旅程表）をドラッグ＆ドロップで直感的に編集し、A4三つ折り印刷に最適化されたPDFを即座に生成できるWebサービス**です。  
-「現地で紙のしおりを使いたい」「予定の並べ替えや追加・削除を柔軟に行いたい」「AIで旅程を自動補完したい」といったニーズに応え、**編集のしやすさ・印刷の美しさ・アクセシビリティ**を重視して設計しています。
+本アプリは、**旅行のしおり（旅程表）をドラッグ＆ドロップで直感的に編集し、A4三つ折り印刷に最適化されたPDFを即座に生成できるWebサービス**です。
+
+**サービスURL**: [https://app.trip.beita.dev/](https://app.trip.beita.dev/)
+
+> **開発環境構築**: [クイックスタートガイド](docs/quick-start.md)を参照してください。
+
+> 詳細な技術ドキュメントはリポジトリ内の各ドキュメントを参照してください。
+
+<p align="center">
+<img src="docs/assets/メイン画面.png" alt="ドラッグ&ドロップで旅程を編集できるメイン画面" width="45%" style="display:inline-block; margin-right:2%;">
+<img src="docs/assets/印刷結果.png" alt="A4三つ折りに最適化されたPDF印刷結果" width="45%" style="display:inline-block;">
+</p>
+
+**左**: ドラッグ&ドロップで旅程を編集できるメイン画面。リアルタイムで並べ替え・追加・削除が可能。  
+**右**: A4三つ折りに最適化されたPDF出力結果。改ページと折り目が自動調整され、印刷時に崩れない。
 
 - **特徴**
   - 旅程の追加・削除・並べ替えをドラッグ＆ドロップで簡単操作
-  - AI（gpt-4o-mini）による旅程自動生成・補完
+  - AI（LLM）による旅程自動生成・補完
   - A4三つ折りに最適化されたPDF出力（改ページ・折り目も安定）
   - スマホ・PC両対応、アクセシビリティ配慮
-  - チーム/家族での共同編集やコメント機能（予定）
 
 **想定ユーザー**  
 - 友人・家族との旅行を計画する幹事役
 - 旅行会社や教育機関の引率担当
 - 紙のしおりを現地で配布したい方
 
+**開発実績**: 2024年8月〜開発継続中（約2.5ヶ月）、本番環境デプロイ済み (サービスURL: https://app.trip.beita.dev/)
 
-## デモアカウント
+### デモアカウント（全機能体験用）
 
-デモ環境で使用できるアカウント情報です。
+全機能（AI機能含む）を試す場合は、以下のデモアカウントをご利用ください。
 
 | アカウント名 | メールアドレス | パスワード |
 |------------|--------------|----------|
-| デモアカウント1 | `beita.dev.services+demo1@gmail.com` | `D+ZlHEreDGZI` |
+| デモアカウント1 | `beita.dev.services+demo1@gmail.com` | `D@ZlHEreDGZ0` |
 | デモアカウント2 | `beita.dev.services+demo2@gmail.com` | `F3BU@yG8jm97` |
-| デモアカウント3 | `beita.dev.services+demo3@gmail.com` | `iJrl37d+jJLU` |
-| デモアカウント4 | `beita.dev.services+demo4@gmail.com` | `SKsbJ-b40vj/` |
+| デモアカウント3 | `beita.dev.services+demo3@gmail.com` | `iJrl37d@jJLU` |
+| デモアカウント4 | `beita.dev.services+demo4@gmail.com` | `SKsbJ@b40vj/` |
 
+> **注意**: デモアカウントは複数人で共有されるため、データが変更される可能性があります。デモ専用のアカウントです。
 
 ## なぜ作ったか（背景と決心）
 
-気心の知れた友人との旅行では、当日直前まで予定が変わることが多いです。
-集合場所の変更や立ち寄り先の追加、雨天時の代替案、通話しながらの調整などで、予定の並べ替えが頻繁に発生します。
-一方、現地での運用にはA4三つ折りの紙のしおりが最も実用的です。
-取り出してすぐに確認でき（操作不要）、電波や電池、端末の故障の影響を受けず、通知に気を散らされず没入を壊さない体験を維持できます。しかし、Excelやテキストでは手戻りが多く、既存のWebサービスは簡易的な整形印刷が中心で、改ページや折り目が安定しません。準備・再編集には30分~1時間以上かかり、レイアウトが崩れるとその対処にまた時間がかかります。これらの課題を解消するため、ドラッグ＆ドロップ編集と三つ折りに最適な印刷を核に設計いたしました。
-また、旅程が思いつかない場合にはLLMによる自動補完を活用し、対話形式で候補を提案・編集できる機能も備えています。これにより、ゼロから考える負担を減らし、ユーザーが直感的に理想の旅程を組み立てられる体験を目指しました。
+実際の旅行先では、A4サイズを三つ折りにした紙のしおりが最も使い勝手が良いと思います。
+手に取ってすぐ見られ、操作が不要で、通信や電源、端末の故障リスクもありません。
+通知に邪魔されることもなく、旅行の雰囲気を壊さずに済みます。
 
+一方で、仲の良い友人同士の旅行では、当日ギリギリまで予定が入れ替わることがよくあります。
+集合地点の変更や寄り道の追加、天候不良時の代替案検討、
+リアルタイムでの相談など、予定の組み替えが何度も起こるため、しおりの編集・再印刷が必要になります。
+
+しかし、Excelやテキストエディタでは編集に手間がかかり、
+現在使用できるWebサービスは簡単な整形出力が主で、
+改ページや折り目の調整が不十分です。
+準備・再編集には30分〜1時間以上かかり、レイアウトが崩れるとその対処にまた時間がかかってしまいます。
+
+これらの課題を解消するため、ドラッグ＆ドロップ編集と三つ折りに最適な印刷を核に設計しました。
+また、旅程が思いつかない場合にはLLMによる自動補完を活用し、対話形式で内容を編集できる機能も用意しています。
+これにより、ゼロから考える負担を減らし、ユーザーが直感的に理想の旅程を組み立てられる体験を目指しています。
 
 
 ## ユーザー価値と課題設定
@@ -76,7 +94,7 @@
 
 ### アーキテクチャとインフラ設計
 
-モノレポ構成・フロント/バックエンド分離（Next.js〈SSR/SSG+CSR〉＋Express API + Python AI Service）・IaC・マルチステージビルド。開発効率と本番安定性を両立。
+モノレポ構成・フロント/バックエンド分離（Next.js〈SSR/SSG+CSR〉＋Express API + Python AI Service）・IaC（Terraform + GCP）・マルチステージビルド。開発効率と本番安定性を両立。
 
 ### AI機能のアーキテクチャ
 
@@ -84,7 +102,7 @@
 Frontend (Next.js)
     ↓ HTTP
 Backend (Express/TypeScript)
-    ↓ 内部通信トークン認証
+    ↓ GCP IAM IDトークン認証（本番）/ 内部通信トークン（ローカル）
 AI Service (FastAPI/Python)
     ↓
 LangChain 0.3 + LangGraph
@@ -94,66 +112,40 @@ Cerebras API (優先) / OpenAI API (フォールバック)
 Tavily Search API (RAG機能)
 ```
 
-**Python内部サービス**:
-- **FastAPI**: 軽量・高速・型安全なPython APIフレームワーク
-- **内部通信トークン認証**: `INTERNAL_AI_TOKEN`による安全なマイクロサービス間通信
-- **エンドポイント**: `/internal/ai/events-complete`、`/internal/ai/itinerary-edit`
-- **Pydantic**: 型安全なリクエスト/レスポンス検証
-- **非同期処理**: `async/await`による高パフォーマンス処理
 
-**RAG実装**:
-- **LangGraph ReActエージェント**: 推論とアクションの組み合わせによる高度なAI処理
-- **Tavily検索ツール**: 回数制限付き（`TAVILY_MAX_PER_RUN=3`）の検索API統合
-- **プロンプトエンジニアリング**: 旅程編集専用のプロンプトテンプレート
-- **入力サニタイズ**: HTML/URL除去、長さ制限（1000文字）、制御文字除去
-- **エラーハンドリング**: レート制限・タイムアウト・API障害への対応
-
-**必須環境変数**:
-- `CEREBRAS_API_KEY`: Cerebras APIキー（優先LLM）
-- `OPENAI_API_KEY`: OpenAI APIキー（フォールバック）
-- `TAVILY_API_KEY`: Tavily検索APIキー（RAG機能）
-- `INTERNAL_AI_TOKEN`: 内部サービス間認証トークン
-- その他: 詳細は `docs/quick-start.md` を参照
+**主要な技術選択**:
+- **内部通信認証**: GCP IAM IDトークン認証（本番環境）、内部トークン（ローカル環境）
+- **RAG実装**: LangGraph ReActエージェント + Tavily検索API
+- **LLM**: Cerebras API（優先） / OpenAI API（フォールバック）
 
 ![GCP構成図](./docs/assets/システム全体図.png)
 ![GCP構成図](./docs/assets/インフラ詳細図.png)
 
-- **フロントエンド**:
-  - Next.js 14: App Router・SSR/SSG・型安全なフルスタック開発で採用
-  - React 18: 最新のConcurrent Features・Server Componentsで採用
-  - Tailwind CSS: ユーティリティファースト・一貫性のあるデザインシステムで採用
-  - @dnd-kit: ドラッグ&ドロップ機能・アクセシビリティ対応で採用
-  - @heroicons/react: 一貫性のあるアイコンセット・Tree Shaking対応で採用
-  - react-hook-form: パフォーマンス・バリデーション・型安全なフォーム管理で採用
-- **バックエンド**:
-  - Express: 軽量・高速・ミドルウェア豊富なNode.jsフレームワークで採用
-  - TypeScript: 型安全・開発効率・保守性向上で採用
-  - Prisma: 型安全ORM・マイグレーション・クエリビルダーで採用
-  - Zod: 型安全バリデーション・スキーマ定義・実行時型チェックで採用
-  - jsonwebtoken: JWT認証・トークン管理・セキュリティで採用
-  - argon2: パスワードハッシュ化（メモリハード、総当たり耐性）で採用
-  - helmet: セキュリティヘッダー付与でXSS等のリスク低減
-  - nodemailer: メール送信・認証・通知機能で採用
-- **AI機能（Python）**:
-  - **Python 3.11**: 最新の型ヒント・パフォーマンス向上・非同期処理最適化で採用
-  - **Poetry**: 依存関係管理・仮想環境・パッケージング・ビルドシステムで採用
-  - **FastAPI 0.109**: 軽量・高速・型安全なPython APIフレームワークで採用
-  - **Pydantic 2.5**: 型安全なデータ検証・シリアライゼーション・設定管理で採用
-  - **LangChain 0.3**: LLMアプリケーション構築フレームワーク（LCEL/ストリーミング対応）で採用
-  - **LangGraph 0.6**: ReActエージェント・ツール統合・複雑なワークフロー管理で採用
-  - **Tavily Search**: RAG用の検索API統合（tavily-python 0.7）で採用
-  - **Cerebras API**: 高速・低コストなLLM推論（OpenAI互換、優先使用）で採用
-  - **httpx**: 非同期HTTP通信・API呼び出し最適化で採用
-  - **内部通信トークン認証**: 安全なマイクロサービス間通信で採用
-- **データベース**:
-  - PostgreSQL 16: ACID保証・JSON型サポート・インデックス最適化で採用
-- **インフラ**:
-  - GCP Cloud Run: サーバーレス・自動スケーリング・コスト効率で採用
-  - Terraform: IaC・環境分離・インフラのコード化で採用
-  - Docker: コンテナ化・環境統一・デプロイ効率化で採用
+### 技術スタック
 
-**参照**
-- `/terraform/README.md`: IaCの構成と適用手順（環境分離・デプロイ）
+**フロントエンド**
+- Next.js 14 (App Router, SSR/SSG) - サーバーサイドレンダリングと静的生成を活用
+- React 18 - Concurrent Features、Server Componentsによるパフォーマンス向上
+- Tailwind CSS - 一貫性のあるデザインシステムとテーマ実装
+
+**バックエンド**
+- Express - 軽量でパフォーマンスに優れ、ミドルウェアで機能拡張が容易
+- TypeScript - 型安全性によるバグの早期発見と開発効率向上
+- Prisma - 型安全なORM、自動マイグレーション
+- Zod - 型安全なバリデーション（サーバー/フォーム両方）
+
+**AI機能**
+- FastAPI - 軽量・高速・型安全なPython APIフレームワーク
+- LangChain 0.3 + LangGraph - ReActエージェントによる高度なAI処理
+- Cerebras API / OpenAI API - 高速・低コストなLLM推論（フォールバック対応）
+- Python 3.11 - RAG実装に適し、実務経験により学習コストが低い
+
+**データベース・インフラ**
+- PostgreSQL 16 - ACID保証、JSON型サポート、インデックス最適化
+- GCP Cloud Run - サーバーレス、自動スケーリング、コスト効率
+- Terraform - IaCによる環境分離とインフラのコード化
+- Docker - コンテナ化による環境統一とデプロイ効率化
+
 
 ### 開発体験とツールチェーン
 
@@ -161,27 +153,16 @@ Tavily Search API (RAG機能)
 
 - **型システム**: TypeScript厳密モード（any警告→エラー化推奨、strict設定）
 - **コード品質**: ESLint + Prettier + TSDoc（一貫性、可読性、保守性）
-- **API仕様**: OpenAPI 3.1 + Swagger UI（仕様書・テスト・ドキュメント）
+- **API仕様**: OpenAPI 3.1 + Swagger UIによるAPI仕様書の自動生成・管理。エンドポイント追加時に必ず更新し、Swagger UIで確認可能。API設計の品質と一貫性を確保。
 - **開発環境**: Docker Compose + ホットリロード（環境統一・高速開発）
-
-**参照**
-- `/PROJECT_GUIDELINES.md`: ブランチ/PR/コミット規約と基本方針
-
 
 
 ## 品質保証（テスト・レビュー・運用）
 
 ### テスト戦略と自動化
 
-多層防御・自動化・継続的品質保証。バグ早期発見と回帰防止を実現。
+JestとSupertestを用いた自動化によるユニット/統合/E2Eテストを通じて、継続的品質保証（バグ早期発見と回帰防止）を実現しています。
 
-- **テスト**: Jest + Supertest（ユニット・統合・E2E）
-- **コードカバレッジ**: 閾値設定・品質ゲート・継続的監視
-- **APIテスト**: OpenAPI仕様書ベース・契約テスト・モック活用
-- **テストデータ**: シード・モック・フィクスチャ（再現性・一貫性）
-
-**参照**
-- `/docs/api/openapi.yaml`: OpenAPI仕様書
 
 ### コードレビューと品質管理
 
@@ -189,18 +170,8 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 
 - **Firstレビュー**: CodeRabbit（AI自動レビュー・型安全性・セキュリティチェック）
 - **手動レビュー**: 人間レビュー（設計判断・ビジネスロジック・可読性）
-- **自動チェック**: gitleaks・markdownlint・languagetool（シークレット・文書品質）
-- **レビュー文化**: 丁寧でフレンドリー・事実ベース・一次情報参照
+- **自動チェック**: CodeRabbit内蔵のgitleaks・markdownlint（シークレット・文書品質）
 
-#### CodeRabbitの使い方
-- コメントは `[Must] / [Nice] / [Q]` の接頭辞で分類
-- PR本文に「コメント整理」「残件メモ」を追記（Issue化は必要時のみ）
-- 詳細運用は `PROJECT_GUIDELINES.md` を参照
- - マージ時、残件があるPRにはラベルを付与（例: `has-remaining-items`）
-
-**参照**
-- `/PROJECT_GUIDELINES.md`: PR運用/レビュー方針・ライフサイクル
-- `/.coderabbit.yaml`: CodeRabbitレビュー設定（強度/指摘方針/自動化）
 
 ## 再現性と自動化（DX/DevOps）
 
@@ -208,23 +179,18 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 
 環境統一・自動化・継続的デリバリー。開発効率とデプロイ品質を両立。
 
-- **開発環境**: Docker Compose + ホットリロード（環境統一・高速開発）
-- **CI/CD**: GitHub Actions + Makefile（自動テスト・デプロイ・品質ゲート）
-- **インフラ**: Terraform + GCP Cloud Run（IaC・環境分離・自動スケーリング）
-- **監視**: ログ・メトリクス・アラート（運用可視性・障害早期発見）
+- **開発環境**: Docker Compose + ホットリロード
+- **CI/CD**: GitHub Actions + Makefile
+- **インフラ**: Terraform + GCP Cloud Run
 
-**参照**
-- `/terraform/README.md`: Terraform構成・環境変数・apply手順
-- `/docs/quick-start.md`: クイックスタート手順・環境変数設定（AI機能: CEREBRAS_API_KEY、TAVILY_API_KEY等）
-
-## パフォーマンスとA11y/UX
+## パフォーマンスとUX
 
 ### パフォーマンス最適化
 
 高速レスポンス・効率的なリソース利用・ユーザー体験向上。AI機能とUIの両方で最適化を実現。
 
 - **AI機能最適化**: 
-  - **LLMプロバイダー選択**: Cerebras優先（gpt-oss-120b、高速・低コスト）、OpenAI（gpt-4o-mini）フォールバック
+  - **LLMプロバイダー選択**: Cerebras優先（gpt-oss-120b、高速・低コスト）
   - **RAG機能**: Tavily検索APIによる最新情報取得（回数制限: 3回/実行）
   - **リトライ機能**: LLM APIのレート制限対応
   - **内部通信**: FastAPI + LangChain 0.3 + LangGraphによる効率的なAI処理
@@ -243,52 +209,13 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - **テーマ一貫性**: `frontend/src/app/globals.css` によるカラートークン/レイヤ管理（Light/Dark対応）
 - **ユーザビリティ**: 直感的な操作・フィードバック・プログレス表示
 
-**参照**
-- `/docs/ux/design/`: デザインアセット
-
 ## セキュリティとデータ設計
 
-最小権限・境界での入力検証・短命トークン。PoCは自作JWT、本番は jose/IdP へ移行前提。
-
-- **Authフロー**: Access/Refresh JWT（15分/7日）、パスワード変更時のトークン無効化、Cookie-based認証
-- **zod/DTOで入力検証**: サーバ/フォーム両方で厳格なバリデーション（パスワード強度、旅程ID形式等）
-- **Prismaスキーマ**: FK/Unique/監査列（createdAt/updatedAt）、カスケード削除、インデックス最適化
-- **AI機能セキュリティ**:
-  - **内部通信トークン**: `INTERNAL_AI_TOKEN`によるマイクロサービス間認証
-  - **入力サニタイズ**: HTML/URL除去、長さ制限（1000文字）、制御文字除去
-  - **APIキー管理**: Cerebras/OpenAI/Tavily APIキーをPydantic SecretStrで管理
-  - **レート制限**: Tavily検索API（3回/実行）、LLM API（60秒タイムアウト）
-  - **エラーハンドリング**: API障害時のフォールバック機能
-
-**参照**
-- `/docs/database-schema.md`: ER図・テーブル仕様・制約/インデックス
-
-
-## ドキュメント一覧
-
-プロジェクトの主要ドキュメントへのリンク一覧です（ディレクトリ別）。
-
-- ルート
-  - [README.md](README.md) - プロダクト概要・設計判断・参照リンクの総合ガイド
-  - [PROJECT_GUIDELINES.md](PROJECT_GUIDELINES.md) - ブランチ運用/PR/レビュー/コミット規約
-  - [terraform/README.md](terraform/README.md) - IaC構成・環境変数・適用手順
-
-- docs（トップ）
-  - [docs/quick-start.md](docs/quick-start.md) - クイックスタート（環境変数設定含む）
-  - [docs/database-schema.md](docs/database-schema.md) - ER図・テーブル仕様・制約/インデックス
-- ai/ - AI機能（FastAPI + LangChain）
-  - [ai/pyproject.toml](ai/pyproject.toml) - Python依存関係・LangChainバージョン
-  - [ai/app/services/ai_langchain.py](ai/app/services/ai_langchain.py) - LangChain実装（Cerebras/OpenAI/RAG）
-  - [ai/app/routers/internal_ai.py](ai/app/routers/internal_ai.py) - 内部AI APIエンドポイント
-  - [ai/app/core/config.py](ai/app/core/config.py) - AI機能設定（Cerebras/Tavily）
-
-- docs/api
-  - [docs/api/openapi.yaml](docs/api/openapi.yaml) - OpenAPI仕様書
-
-- docs/deployment
-  - [docs/deployment/domain-mapping-guide.md](docs/deployment/domain-mapping-guide.md) - ドメインマッピング設定
-  - [docs/deployment/emoji-usage-policy.md](docs/deployment/emoji-usage-policy.md) - 絵文字の利用方針/コミット運用
-  - [docs/deployment/github-actions-setup.md](docs/deployment/github-actions-setup.md) - Actionsワークフロー構築手順
-
-- docs/ux
-  - [docs/ux/design/](docs/ux/design/) - デザインアセット
+- **認証**: JWT（Access/Refresh Token、60分/30日）、HttpOnly Cookieで送信
+- **入力検証**: Zodによるサーバー/フォーム両方での厳格なバリデーション
+- **内部通信認証**: GCP IAM IDトークン認証（本番環境）
+- **APIキー管理**: GCP Secret Managerによる安全な管理
+- **レート制限**: API呼び出し頻度の制限（Tavily: 3回/実行、LLM: 60秒タイムアウト）
+- **入力サニタイズ**: HTML/URL除去、長さ制限、制御文字除去
+- **ネットワーク制御**: AIサービスはVPC内部からのみアクセス可能
+- **データベース設計**: PostgreSQL 16を使用。ER図・テーブル仕様・制約/インデックスの詳細は[データベーススキーマ](docs/database-schema.md)を参照してください。

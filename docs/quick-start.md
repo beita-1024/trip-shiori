@@ -121,44 +121,34 @@ openssl rand -base64 32
 
 ### 環境変数の詳細説明
 
-#### Backend環境変数
+#### Backend環境変数（必須）
 
-**必須環境変数:**
-- `DATABASE_URL`: PostgreSQL接続URL（Docker Composeでは `db:5432` を使用）
-- `PORT`: サーバーポート（デフォルト: 3000）
-- `HOST`: バインドアドレス（デフォルト: 0.0.0.0）
-- `JWT_SECRET`: 認証トークン署名用の秘密鍵（32バイト以上）
-- `JWT_ACCESS_EXPIRES_IN`: アクセストークン有効期限（デフォルト: 15m）
-- `JWT_REFRESH_EXPIRES_IN`: リフレッシュトークン有効期限（デフォルト: 7d）
-- `FRONTEND_URL`: フロントエンドのURL（CORS設定用）
-- `CEREBRAS_API_KEY`: Cerebras APIキー（優先LLM）
-- `OPENAI_API_KEY`: OpenAI APIキー（フォールバック）
-- `TAVILY_API_KEY`: Tavily検索APIキー（RAG機能）
-- `INTERNAL_AI_TOKEN`: 内部AIサービス間認証トークン
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `DATABASE_URL` | PostgreSQL接続URL | `postgresql://postgres:postgres@db:5432/app_db` |
+| `JWT_SECRET` | 認証トークン署名用の秘密鍵（32バイト以上） | [上記の生成方法を参照](#jwt_secret-の生成) |
+| `FRONTEND_URL` | フロントエンドのURL（CORS設定用） | `http://localhost:3001` |
+| `CEREBRAS_API_KEY` | Cerebras APIキー（優先LLM） | - |
+| `OPENAI_API_KEY` | OpenAI APIキー（フォールバック） | - |
+| `TAVILY_API_KEY` | Tavily検索APIキー（RAG機能） | - |
+| `INTERNAL_AI_TOKEN` | 内部AIサービス間認証トークン | [強力なランダム値を設定](#jwt_secret-の生成) |
 
 **オプション環境変数:**
-```bash
-# 環境設定
-NODE_ENV=development
+- `PORT`: サーバーポート（デフォルト: 3000）
+- `HOST`: バインドアドレス（デフォルト: 0.0.0.0）
+- `JWT_ACCESS_EXPIRES_IN`: アクセストークン有効期限（デフォルト: 15m）
+- `JWT_REFRESH_EXPIRES_IN`: リフレッシュトークン有効期限（デフォルト: 7d）
+- `NODE_ENV`: 環境設定（`development` / `production`）
+- SMTP設定（メール送信機能用）
 
-# メール送信（SMTP）
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM_NAME=Trip Shiori
-SMTP_FROM_EMAIL=noreply@tripshiori.com
+> **詳細**: 全環境変数の一覧と説明は、各サービスのソースコード（`backend/.env.example`など）を参照してください。
 
-# デバッグ
-DEBUG=1
-```
+#### Frontend環境変数（必須）
 
-#### Frontend環境変数
-
-**必須環境変数:**
-- `NEXT_PUBLIC_API_URL`: バックエンドAPIのURL
-- `NEXT_PUBLIC_FRONTEND_URL`: フロントエンドのURL
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `NEXT_PUBLIC_API_URL` | バックエンドAPIのURL | `http://localhost:4002` |
+| `NEXT_PUBLIC_FRONTEND_URL` | フロントエンドのURL | `http://localhost:3001` |
 
 > ⚠️ **重要**: フロントエンドの環境変数は `NEXT_PUBLIC_` プレフィックスが必要です。
 
@@ -447,8 +437,14 @@ gcloud sql instances list
 ## 📚 詳細情報
 
 より詳細な情報が必要な場合は、以下を参照してください：
-- [GCP デプロイガイド](./deployment/github-actions-setup.md)
-- [Terraform README](../../terraform/README.md)
+
+### デプロイ・インフラ
+- [GitHub Actions設定](./deployment/github-actions-setup.md) – 自動デプロイの設定
+- [ドメインマッピング設定](./deployment/domain-mapping-guide.md) – Cloud Runカスタムドメイン設定
+- [Terraform README](../../terraform/README.md) – Terraform操作ガイド
+- [GCPインフラ構成](./gcp-infrastructure.md) – インフラ設計の詳細
+
+### 外部サービス
 - [Next.js環境変数](https://nextjs.org/docs/basic-features/environment-variables)
 - [Prisma環境変数](https://www.prisma.io/docs/reference/database-reference/connection-urls)
 - [Cerebras API設定](https://docs.cerebras.ai/)
