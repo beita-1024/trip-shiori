@@ -61,7 +61,7 @@ export function validatePasswordStrength(password: string): boolean {
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[-!@#$%^&*()_+=\[\]{}|;:'"<>,.?/~`\\]/.test(password);
+  const hasSpecialChar = /[-!@#$%^&*()_+=[\]{}|;:'"<>,.?/~`\\]/.test(password);
 
   return (
     password.length >= minLength &&
@@ -117,7 +117,7 @@ export function getPasswordStrength(password: string): {
   }
 
   // 特殊文字チェック
-  if (/[-!@#$%^&*()_+=\[\]{}|;:'"<>,.?/~`\\]/.test(password)) {
+  if (/[-!@#$%^&*()_+=[\]{}|;:'"<>,.?/~`\\]/.test(password)) {
     score += 1;
   } else {
     feedback.push('特殊文字を含めることを推奨します');
