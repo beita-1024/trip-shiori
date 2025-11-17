@@ -224,23 +224,44 @@ describe('Password Reset Tests', () => {
         where: { userId: testUserId },
       });
 
-      // テスト用のパスワードリセットトークンを作成
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
-
-      // ユーザーが存在することを確認してからトークンを作成
+      // ユーザーが存在することを確認（テストの前提条件）
       const user = await prisma.user.findUnique({
         where: { id: testUserId },
       });
 
-      if (user) {
-        await prisma.passwordResetToken.create({
-          data: {
-            userId: testUserId,
-            tokenHash,
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
-          },
-        });
+      if (!user) {
+        throw new Error(
+          `Test user not found: ${testUserId}. Test setup failed.`
+        );
+      }
+
+      // テスト用のパスワードリセットトークンを作成
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
+
+      // トークンを確実に作成
+      const createdToken = await prisma.passwordResetToken.create({
+        data: {
+          userId: testUserId,
+          tokenHash,
+          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
+        },
+      });
+
+      // トークンが確実に作成されたことを確認
+      if (!createdToken) {
+        throw new Error('Failed to create password reset token in beforeEach');
+      }
+
+      // トークンがDBに保存されていることを確認
+      const verifyToken = await prisma.passwordResetToken.findUnique({
+        where: { userId: testUserId },
+      });
+
+      if (!verifyToken) {
+        throw new Error(
+          'Password reset token was not found in database after creation'
+        );
       }
 
       testResetToken = rawToken;
@@ -300,23 +321,33 @@ describe('Password Reset Tests', () => {
         where: { userId: testUserId },
       });
 
-      // 期限切れのトークンを作成
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
-
-      // ユーザーが存在することを確認してからトークンを作成
+      // ユーザーが存在することを確認（テストの前提条件）
       const user = await prisma.user.findUnique({
         where: { id: testUserId },
       });
 
-      if (user) {
-        await prisma.passwordResetToken.create({
-          data: {
-            userId: testUserId,
-            tokenHash,
-            expiresAt: new Date(Date.now() - 1000), // 1秒前（期限切れ）
-          },
-        });
+      if (!user) {
+        throw new Error(
+          `Test user not found: ${testUserId}. Test setup failed.`
+        );
+      }
+
+      // 期限切れのトークンを作成
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
+
+      // トークンを確実に作成
+      const createdToken = await prisma.passwordResetToken.create({
+        data: {
+          userId: testUserId,
+          tokenHash,
+          expiresAt: new Date(Date.now() - 1000), // 1秒前（期限切れ）
+        },
+      });
+
+      // トークンが確実に作成されたことを確認
+      if (!createdToken) {
+        throw new Error('Failed to create expired password reset token');
       }
 
       const response = await request(app)
@@ -404,16 +435,20 @@ describe('Password Reset Tests', () => {
         where: { userId: testUserId },
       });
 
-      // パスワードリセットトークンを作成
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
-
-      // ユーザーが存在することを確認してからトークンを作成
+      // ユーザーが存在することを確認（テストの前提条件）
       const user = await prisma.user.findUnique({
         where: { id: testUserId },
       });
 
-      expect(user).toBeTruthy();
+      if (!user) {
+        throw new Error(
+          `Test user not found: ${testUserId}. Test setup failed.`
+        );
+      }
+
+      // パスワードリセットトークンを作成
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = await argon2.hash(rawToken, { type: argon2.argon2id });
 
       const resetToken = await prisma.passwordResetToken.create({
         data: {
@@ -423,7 +458,10 @@ describe('Password Reset Tests', () => {
         },
       });
 
-      expect(resetToken).toBeTruthy();
+      // トークンが確実に作成されたことを確認
+      if (!resetToken) {
+        throw new Error('Failed to create password reset token');
+      }
 
       // パスワードリセットを実行
       const resetResponse = await request(app)
@@ -704,19 +742,35 @@ describe('Password Reset Tests', () => {
         throw new Error('testUser.id is not defined');
       }
 
+      // ユーザーが存在することを確認（テストの前提条件）
+      const user = await prisma.user.findUnique({
+        where: { id: testUser.id },
+      });
+
+      if (!user) {
+        throw new Error(
+          `Test user not found: ${testUser.id}. Test setup failed.`
+        );
+      }
+
       // パスワードリセットトークンを生成
       const resetToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await argon2.hash(resetToken, {
         type: argon2.argon2id,
       });
 
-      await prisma.passwordResetToken.create({
+      const createdToken = await prisma.passwordResetToken.create({
         data: {
           userId: testUser.id,
           tokenHash,
           expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15分後
         },
       });
+
+      // トークンが確実に作成されたことを確認
+      if (!createdToken) {
+        throw new Error('Failed to create password reset token');
+      }
 
       // パスワード変更
       const passwordChangeResponse = await request(app)
