@@ -1,12 +1,22 @@
 name: CI (Docker Container Integration Test & Lint)
 
-
+# ワークフロートリガー設定
+# - push: mainブランチ、infra/*ブランチ、v*タグにプッシュ時
+# - pull_request: mainブランチへのPR時
+# - workflow_dispatch: 手動実行時（ブランチ選択可能）
 on:
   push:
     branches: [ main, 'infra/*' ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "テスト対象ブランチ"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   lint-and-test:
@@ -15,6 +25,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Create environment files
         env:
