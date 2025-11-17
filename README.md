@@ -219,3 +219,7 @@ AI支援・自動化・継続的改善。コード品質向上とナレッジ共
 - **入力サニタイズ**: HTML/URL除去、長さ制限、制御文字除去
 - **ネットワーク制御**: AIサービスはVPC内部からのみアクセス可能
 - **データベース設計**: PostgreSQL 16を使用。ER図・テーブル仕様・制約/インデックスの詳細は[データベーススキーマ](docs/database-schema.md)を参照してください。
+
+## Author / Contact
+
+X（旧Twitter）: [https://x.com/beita_1024](https://x.com/beita_1024)
