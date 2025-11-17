@@ -96,7 +96,9 @@
 
 モノレポ構成・フロント/バックエンド分離（Next.js〈SSR/SSG+CSR〉＋Express API + Python AI Service）・IaC（Terraform + GCP）・マルチステージビルド。開発効率と本番安定性を両立。
 
-### AI機能のアーキテクチャ {#ai機能のアーキテクチャ}
+<a id="ai機能のアーキテクチャ"></a>
+
+### AI機能のアーキテクチャ
 
 ```
 Frontend (Next.js)
